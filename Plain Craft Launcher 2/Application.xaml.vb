@@ -106,6 +106,9 @@ RetryCacheCheck:
             If Environment.OSVersion.Version < New Version(6, 2) Then 'Windows 7 回退（#8519）
                 ServicePointManager.SecurityProtocol = SecurityProtocolType.Ssl3 Or SecurityProtocolType.Tls Or SecurityProtocolType.Tls11 Or SecurityProtocolType.Tls12
             End If
+            '等价于 exe.config 里的 useUnsafeHeaderParsing="true"
+            '部分国内镜像站的响应头不合规，不放开会被判协议违规
+            EnableUnsafeHeaderParsing()
             '设置初始窗口
             If Settings.Get(Of Boolean)("UiLauncherLogo") Then
                 FrmStart = New SplashScreen("Images\icon.ico")
@@ -215,6 +218,31 @@ RetryCacheCheck:
     End Sub
 
     '动态 DLL 加载
+    ''' <summary>
+    ''' 等价于 exe.config 里的 useUnsafeHeaderParsing="true"。
+    ''' 部分国内镜像站返回的响应头不合规，不放开会被 HttpWebRequest 判为协议违规。
+    ''' 用反射改内部设置，这样就不需要外置配置文件了。
+    ''' </summary>
+    Private Shared Sub EnableUnsafeHeaderParsing()
+        Try
+            Dim SettingsType As Type = Type.GetType("System.Net.Configuration.SettingsSection, System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089")
+            If SettingsType Is Nothing Then Return
+            Dim SectionField As Reflection.FieldInfo = SettingsType.GetField("s_settingsSection", Reflection.BindingFlags.NonPublic Or Reflection.BindingFlags.Static)
+            Dim Section = If(SectionField Is Nothing, Nothing, SectionField.GetValue(Nothing))
+            If Section Is Nothing Then Return
+            Dim UseUnsafe As Reflection.FieldInfo = Nothing
+            '不同 .NET 版本字段名略有差异，两个都试
+            Dim Cur As Type = Section.GetType()
+            Do While Cur IsNot Nothing AndAlso UseUnsafe Is Nothing
+                UseUnsafe = Cur.GetField("useUnsafeHeaderParsing", Reflection.BindingFlags.NonPublic Or Reflection.BindingFlags.Instance)
+                Cur = Cur.BaseType
+            Loop
+            If UseUnsafe IsNot Nothing Then UseUnsafe.SetValue(Section, True)
+        Catch ex As Exception
+            Logger.Warn(ex, "开启宽松响应头解析失败")
+        End Try
+    End Sub
+
     Private Sub New() '这里必须尽早调用，且不能使用任何库，否则加载 MeloongCore 就会导致崩溃
         Static Prefixes As String() = {"NAudio", "Newtonsoft.Json", "Ookii.Dialogs.Wpf", "Imazen.WebP", "CacheCow.Common", "CacheCow.Client.FileStore", "CacheCow.Client", "ThrottleDebounce", "System.Net.Http.Formatting", "Microsoft.Win32.Registry", "PCLCS", "MeloongCore.Wpf", "MeloongCore"}
         Static LoadedAssemblies As New ConcurrentDictionary(Of String, Lazy(Of Assembly))(StringComparer.Ordinal) '缓存

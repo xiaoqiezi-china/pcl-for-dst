@@ -109,7 +109,7 @@ Public Class MyMsgLogin
                     "https://login.microsoftonline.com/consumers/oauth2/v2.0/token", HttpMethod.Post,
                     Content:=
                         "grant_type=urn:ietf:params:oauth:grant-type:device_code" & "&" &
-                        "client_id=" & OAuthClientId & "&" &
+                        "client_id=" & MsClientIdResolve() & "&" &
                         "device_code=" & DeviceCode & "&" &
                         "scope=XboxLive.signin%20offline_access",
                     ContentType:="application/x-www-form-urlencoded",

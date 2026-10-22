@@ -105,4 +105,17 @@ Public Class MyMsgText
         If e.GetPosition(ShapeLine).Y <= 2 Then FrmMain.DragMove()
     End Sub
 
+    ''' <summary>Esc 等同于点“取消/关闭”这类副选键。没有取消类按钮时不响应，避免误触发。</summary>
+    Private Sub MsgKeyDown(sender As Object, e As KeyEventArgs) Handles Me.PreviewKeyDown
+        If e.Key <> Key.Escape Then Return
+        Dim CancelWords As String() = {"取消", "关闭", "否", "算了", "返回"}
+        If Btn2.Visibility = Visibility.Visible AndAlso Btn2.IsEnabled AndAlso CancelWords.Any(Function(W) Btn2.Text.Contains(W)) Then
+            e.Handled = True
+            Btn2_Click()
+        ElseIf Btn3.Visibility = Visibility.Visible AndAlso Btn3.IsEnabled AndAlso CancelWords.Any(Function(W) Btn3.Text.Contains(W)) Then
+            e.Handled = True
+            Btn3_Click()
+        End If
+    End Sub
+
 End Class

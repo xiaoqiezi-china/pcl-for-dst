@@ -1,0 +1,12 @@
+<StackPanel x:Class="PageLoginQq"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:PCL"
+             Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Stretch">
+    <Border x:Name="PanQqAvatar" Width="88" Height="88" CornerRadius="44" HorizontalAlignment="Center"
+            Background="{DynamicResource ColorBrush5}" ClipToBounds="True" />
+    <TextBlock x:Name="LabQqName" HorizontalAlignment="Center" FontSize="15" FontWeight="Bold"
+               Margin="0,14,0,0" Text="未绑定 QQ" TextTrimming="CharacterEllipsis" MaxWidth="220" />
+    <TextBlock x:Name="LabQqHint" HorizontalAlignment="Center" FontSize="12" Opacity="0.6"
+               Margin="0,5,0,0" Text="点击下方按钮绑定 QQ" TextTrimming="CharacterEllipsis" MaxWidth="220" />
+</StackPanel>

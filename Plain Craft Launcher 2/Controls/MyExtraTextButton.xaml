@@ -26,7 +26,7 @@
                     <ScaleTransform />
                 </Path.RenderTransform>
             </Path>
-            <TextBlock x:Name="LabText" VerticalAlignment="Center" Foreground="{DynamicResource ColorBrush8}" FontSize="16" 
+            <TextBlock x:Name="LabText" VerticalAlignment="Center" Foreground="{DynamicResource ColorBrushTitleIcon}" FontSize="16" 
                        Margin="12,0,0,0.8" />
         </StackPanel>
     </Grid>

@@ -302,8 +302,17 @@ NextPage:
         Dim SearchResults As New ConcurrentBag(Of ResourceProject)
         Try
 
+            '没有 CurseForge Key 时不发起 CurseForge 请求，只提示去哪里填，避免整段搜索直接失败
+            Dim CurseForgeAvailable As Boolean = HasCurseForgeKey
+            If Not CurseForgeAvailable AndAlso Request.Sources.HasFlagF(ResourcePlatforms.CurseForge) Then
+                Logger.Warn("未配置 CurseForge API Key，已跳过 CurseForge 搜索")
+                Hint("还没有配置 CurseForge API Key，本次只搜索其他来源。可在「设置 → 其他 → 账号与 API」中填写。",
+                     HintType.Blue)
+            End If
+
             'CurseForge 搜索
-            If Request.Sources.HasFlagF(ResourcePlatforms.CurseForge) AndAlso
+            If CurseForgeAvailable AndAlso
+               Request.Sources.HasFlagF(ResourcePlatforms.CurseForge) AndAlso
                Not (Storage.CurseForgeTotal > -1 AndAlso Storage.CurseForgeTotal <= Storage.CurseForgeOffset) AndAlso '剩余的未显示的搜索结果不足
                (Not IsChineseSearch OrElse (IsChineseSearch AndAlso Not String.IsNullOrEmpty(CurseForgeAltSearchText))) Then '如果是中文搜索，就只在有对应搜索关键词的时候才继续
                 WorkThreads.Add(RunInNewThread(

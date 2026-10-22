@@ -6,16 +6,20 @@ Public Module ModBase
 #Region "声明"
 
     '下列版本信息由更新器自动修改
-    Public Const VersionBaseName As String = "2.99.0.0" '显示用版本名
+    Public Const VersionBaseName As String = "0.2.0" '显示用版本名
     Public Const CommitHash As String = "" 'Commit Hash，由 GitHub Workflow 自动替换
 #If RELEASE Then
-    Public Const VersionCode As Integer = 413 '正式版
+    Public Const VersionCode As Integer = 421 '正式版
 #Else
-    Public Const VersionCode As Integer = 414 '快照版
+    Public Const VersionCode As Integer = 422 '快照版
 #End If
 
+    '帝释天定制版标识
+    Public Const LauncherName As String = "帝释天我的世界启动器"
+    Public Const LauncherShortName As String = "DST"
+
     '版本信息
-    Public Const VersionDisplay As String = BuildTypeDisplay & " " & VersionBaseName
+    Public Const VersionDisplay As String = LauncherShortName & " " & BuildTypeDisplay & " " & VersionBaseName
 #If DEBUG Then
     Public Const BuildTypeDisplay As String = "开发版"
     Public Const BuildType As BuildTypes = BuildTypes.Debug

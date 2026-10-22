@@ -1,3 +1,4 @@
+Imports System.Windows.Media.Imaging
 Imports System.Windows.Threading
 
 Public Class PageLaunchLeft
@@ -5,8 +6,15 @@ Public Class PageLaunchLeft
     '加载当前版本
     Private IsLoad As Boolean = False
     Private IsLoadFinished As Boolean = False
+    '启动时只探测一次远程服务，避免每次切页面都打接口
+    Private OfflineChecked As Boolean = False
+
     Public Sub PageLaunchLeft_Loaded() Handles Me.Loaded
         If IsLoad Then RefreshPage(True, False)
+        If Not OfflineChecked Then
+            OfflineChecked = True
+            CheckOfflineOnStartup()
+        End If
 
         AprilPosTrans.X = 0
         AprilPosTrans.Y = 0
@@ -200,6 +208,7 @@ Public Class PageLaunchLeft
         AuthSkin
         Ms
         MsSkin
+        Qq
     End Enum
     ''' <summary>
     ''' 当前页面的种类。
@@ -229,6 +238,9 @@ Public Class PageLaunchLeft
             Case PageType.MsSkin
                 If IsNothing(FrmLoginMsSkin) Then FrmLoginMsSkin = New PageLoginMsSkin
                 Return FrmLoginMsSkin
+            Case PageType.Qq
+                If IsNothing(FrmLoginQq) Then FrmLoginQq = New PageLoginQq
+                Return FrmLoginQq
             Case Else
                 Throw New ArgumentOutOfRangeException("Type", "即将切换的登录分页编号越界")
         End Select
@@ -299,7 +311,15 @@ Public Class PageLaunchLeft
         Else
             LoginPageType = Settings.Get(Of Integer)("LoginPageType")
         End If
+        'QQ 形态优先级最高，不受版本级登录设置的干扰
+        If Settings.Get(Of Boolean)("DstQqMode") Then LoginPageType = 2
         Select Case LoginPageType
+            Case 2 'QQ 绑定形态
+                Type = PageType.Qq
+                PanType.Visibility = Visibility.Visible
+                PanTypeOne.Visibility = Visibility.Collapsed
+                RadioLoginType5.Visibility = Visibility.Visible
+                RadioLoginType0.Visibility = Visibility.Visible
             Case 0 '正版或离线
 UnknownType:
                 If RadioLoginType5.Checked Then
@@ -365,13 +385,91 @@ UnknownType:
                 GoTo UnknownType
         End Select
         '刷新页面
-        If PageCurrent = Type Then Return
+        If PageCurrent = Type Then
+            ApplyQqModeUi()
+            Return
+        End If
         PageChange(Type, Anim).Reload(KeepInput)
-        Dim Control As MyRadioButton = FindName("RadioLoginType" & Settings.Get(Of McLoginType)("LoginType"))
-        If Control IsNot Nothing Then Control.Checked = True
+        If Type = PageType.Qq Then
+            'QQ 形态不碰登录类型的勾选
+            RadioLoginTypeQq.Checked = True
+            RadioLoginType5.Checked = False
+            RadioLoginType0.Checked = False
+        Else
+            RadioLoginTypeQq.Checked = False
+            Dim Control As MyRadioButton = FindName("RadioLoginType" & Settings.Get(Of McLoginType)("LoginType"))
+            If Control IsNot Nothing Then Control.Checked = True
+        End If
+        ApplyQqModeUi()
+        '群列表到位后再刷一次，否则群名显示不出来
+        If Type = PageType.Qq Then DstBot.FetchGroups(OnDone:=AddressOf ApplyQqModeUi)
     End Sub
+
+    ''' <summary>QQ 形态下改写底部按钮：绑定/解绑、选择群聊。</summary>
+    Private Sub ApplyQqModeUi()
+        If Not IsQqMode Then
+            BtnVersion.Text = "版本选择"
+            RefreshButtonsUI()
+            Return
+        End If
+        If DstBot.IsOffline Then
+            '离线模式：降级成普通 PCL，启动/版本功能都在，只是群相关操作没了
+            BtnLaunch.Text = "上线"
+            BtnLaunch.IsEnabled = True
+            BtnLaunch.ColorType = MyButton.ColorState.Highlight
+            BtnVersion.Text = "启动游戏"
+            BtnVersion.IsEnabled = True
+            BtnVersion.Visibility = Visibility.Visible
+            BtnMore.Text = "版本选择"
+            BtnMore.Visibility = Visibility.Visible
+            LabVersion.Text = If(DstBot.IsAutoOffline, "远程服务不可用", "常规模式（离线）")
+            Return
+        End If
+        BtnVersion.Visibility = Visibility.Visible
+        BtnMore.Text = "版本设置"
+        BtnLaunch.Text = If(DstBot.IsQqBound, "解绑 QQ", "绑定 QQ")
+        BtnLaunch.IsEnabled = True
+        BtnLaunch.ColorType = MyButton.ColorState.Highlight
+        BtnVersion.Text = "选择群聊"
+        BtnVersion.IsEnabled = True
+        BtnMore.Visibility = Visibility.Collapsed
+        '群列表可能还没拉下来，这时用本机缓存的群名，别只显示群号
+        If DstBot.GroupNo = "" Then
+            LabVersion.Text = "尚未选择群聊"
+        Else
+            Dim G As DstGroup = DstBot.SelectedGroup
+            LabVersion.Text = If(G IsNot Nothing AndAlso G.GroupName <> "", G.GroupName, DstBot.GroupNameCached)
+        End If
+    End Sub
+
+    ''' <summary>当前是否处于 QQ 绑定形态。以设置为准，避免单选按钮事件时序问题。</summary>
+    Private ReadOnly Property IsQqMode As Boolean
+        Get
+            Return Settings.Get(Of Boolean)("DstQqMode")
+        End Get
+    End Property
+
+    ''' <summary>切到 QQ 形态并记住选择。</summary>
+    Private Sub SwitchToQqMode()
+        Settings.Set("DstQqMode", True)
+        Settings.Set("LoginPageType", 2)
+        If McInstanceSelected IsNot Nothing Then Settings.Set("VersionServerLogin", 2, Instance:=McInstanceSelected)
+        RefreshPage(True, True)
+    End Sub
+
+    ''' <summary>切回正版/离线形态。</summary>
+    Private Sub SwitchToNormalMode()
+        Settings.Set("DstQqMode", False)
+        Settings.Set("LoginPageType", 0)
+        If McInstanceSelected IsNot Nothing Then Settings.Set("VersionServerLogin", 0, Instance:=McInstanceSelected)
+        '强制下次重算启动按钮文案（QQ 形态把它改写过）
+        BtnLaunchState = -1
+    End Sub
+
     Private Sub RadioLoginType_Change(sender As Object, raiseByMouse As Boolean) Handles RadioLoginType0.Check, RadioLoginType5.Check
-        If raiseByMouse Then RefreshPage(True, True)
+        If Not raiseByMouse Then Return
+        SwitchToNormalMode()
+        RefreshPage(True, True)
     End Sub
 
 #End Region
@@ -604,11 +702,142 @@ Finish:
 
     '版本选择按钮
     Private Sub BtnVersion_Click() Handles BtnVersion.Click
+        If IsQqMode AndAlso DstBot.IsOffline Then
+            '离线模式下这个位置是「启动游戏」，走正常启动流程
+            LaunchGame()
+            Return
+        End If
+        If IsQqMode Then
+            ShowGroupSelector()
+            Return
+        End If
         If McLaunchLoader.State = LoadState.Loading Then Return
         FrmMain.PageChange(FormMain.PageType.InstanceSelect)
     End Sub
+
+    ''' <summary>
+    ''' 启动时探测远程服务。连不上就自动切到常规模式，界面立刻降级成普通 PCL；
+    ''' 手动开了常规模式的话就不用探了。
+    ''' </summary>
+    Private Sub CheckOfflineOnStartup()
+        If Settings.Get(Of Boolean)("DstOfflineMode") Then Return
+        RunInThread(
+        Sub()
+            Dim Ok As Boolean = DstBot.ProbeOnline()
+            If Ok Then Return
+            RunInUi(
+            Sub()
+                Hint("远程服务不可用", HintType.Blue, False)
+                RefreshDependentViewsAfterModeChange()
+                ApplyQqModeUi()
+            End Sub)
+        End Sub)
+    End Sub
+    ''' <summary>点「上线」：清掉离线标记并探测一次，成功就刷新整套界面。</summary>
+    Public Sub GoOnlineFromUi(OnDone As Action)
+        BtnLaunch.Text = "正在连接……"
+        BtnLaunch.IsEnabled = False
+        RunInThread(
+        Sub()
+            Dim Ok As Boolean = DstBot.GoOnline()
+            RunInUi(
+            Sub()
+                BtnLaunch.IsEnabled = True
+                If Ok Then
+                    Hint("已回到在线模式", HintType.Green, False)
+                    RefreshDependentViewsAfterModeChange()
+                Else
+                    Hint("远程服务不可用，继续保持常规模式", HintType.Red)
+                End If
+                If OnDone IsNot Nothing Then OnDone()
+            End Sub)
+        End Sub)
+    End Sub
+
+    ''' <summary>模式切换后把主页与 QQ 页一起刷新。</summary>
+    Public Sub RefreshDependentViewsAfterModeChange()
+        Try
+            If FrmLaunchRight IsNot Nothing Then
+                FrmLaunchRight.ApplyOfflineUi()
+                FrmLaunchRight.ReloadForGroupChange()
+            End If
+            If FrmGroupLeft IsNot Nothing Then FrmGroupLeft.ApplyOfflineUi()
+            If FrmGroupStar IsNot Nothing Then FrmGroupStar.ApplyOfflineUi()
+            '聊天页与公告页也要跟着切换，否则探测完成前已经加载的页面会停在旧状态
+            If FrmGroupInfo IsNot Nothing Then FrmGroupInfo.ApplyOfflineUi()
+            If FrmGroupReport IsNot Nothing Then FrmGroupReport.ApplyOfflineUi()
+        Catch ex As Exception
+            Logger.Warn(ex, "切换模式后刷新界面失败")
+        End Try
+    End Sub
+    ''' <summary>
+    ''' 切换群之后，把所有依赖群号的地方刷一遍：主页的服务器列表与公告、QQ 页的三个子页。
+    ''' </summary>
+    Public Sub RefreshGroupDependentViews()
+        Try
+            '主页
+            If FrmLaunchRight IsNot Nothing Then FrmLaunchRight.ReloadForGroupChange()
+            'QQ 页
+            If FrmGroupInfo IsNot Nothing Then FrmGroupInfo.ReloadForGroupChange()
+            If FrmGroupReport IsNot Nothing Then FrmGroupReport.Refresh()
+            If FrmGroupStar IsNot Nothing Then FrmGroupStar.RefreshList()
+        Catch ex As Exception
+            Logger.Warn(ex, "换群后刷新视图失败")
+        End Try
+    End Sub
+    ''' <summary>离线模式下「启动游戏」按钮的入口：走与普通模式相同的启动流程。</summary>
+    Private Sub LaunchGame()
+        If McInstanceSelected Is Nothing Then
+            Hint("还没有选择版本，先去版本列表里选一个", HintType.Red)
+            Return
+        End If
+        If McLaunchLoader.State = LoadState.Loading Then Return
+        McLaunchStart()
+    End Sub
+    ''' <summary>QQ 形态下的“选择群聊”：列出机器人所在的群，选一个作为当前群。</summary>
+    Private Sub ShowGroupSelector()
+        DstBot.FetchGroups(Force:=True,
+            OnDone:=Sub()
+                        Dim List_ As List(Of DstGroup)
+                        SyncLock DstBot.Groups
+                            List_ = DstBot.Groups.ToList()
+                        End SyncLock
+                        If List_.Count = 0 Then
+                            Hint("没有获取到群列表：" & If(DstBot.ErrLast = "", "请稍后再试", DstBot.ErrLast), HintType.Red)
+                            Return
+                        End If
+                        Dim Boxes As New List(Of MyRadioBox)
+                        For Each Item In List_
+                            Dim Box As New MyRadioBox With {.Text = $"{Item.GroupName}（{Item.GroupId}）"}
+                            '默认选中当前使用的群
+                            If Item.GroupId = DstBot.GroupNo Then Box.Checked = True
+                            Boxes.Add(Box)
+                        Next
+                        Dim Index As Integer? = MyMsgBoxSelect(Boxes.Select(Function(B) CType(B, IMyRadio)), "选择要使用的 QQ 群")
+                        If Index Is Nothing Then Return
+                        Dim NewGroup As DstGroup = List_(Index.Value)
+                        DstBot.SetGroup(NewGroup.GroupId, NewGroup.GroupName)
+                        '切群必须把上一批数据全部作废，否则界面上还留着旧群的东西
+                        SyncLock DstBot.ServerList
+                            DstBot.ServerList.Clear()
+                        End SyncLock
+                        DstBot.UpdatedAt = Date.MinValue
+                        Hint("已切换群：" & NewGroup.GroupName, HintType.Green)
+                        ApplyQqModeUi()
+                        RefreshGroupDependentViews()
+                        RefreshPage(True, False)
+                    End Sub)
+    End Sub
     '启动按钮
     Public Sub LaunchButtonClick() Handles BtnLaunch.Click
+        If IsQqMode AndAlso DstBot.IsOffline Then
+            GoOnlineFromUi(AddressOf ApplyQqModeUi)
+            Return
+        End If
+        If IsQqMode Then
+            ShowQqBindAction()
+            Return
+        End If
         If McLaunchLoader.State = LoadState.Loading OrElse Not BtnLaunch.IsEnabled OrElse
             (FrmMain.PageRight IsNot Nothing AndAlso FrmMain.PageRight.PageState <> MyPageRight.PageStates.ContentStay AndAlso FrmMain.PageRight.PageState <> MyPageRight.PageStates.ContentEnter) Then Return
         '愚人节处理
@@ -633,6 +862,10 @@ Finish:
     Private BtnLaunchInstance As McInstance = Nothing
     Public Sub RefreshButtonsUI() Handles BtnLaunch.Loaded
         If Not BtnLaunch.IsLoaded Then Return
+        If IsQqMode Then
+            ApplyQqModeUi()
+            Return
+        End If
         '获取当前状态
         Dim CurrentState As Integer
         If (Not IsLoadFinished) OrElse McInstanceListLoader.State = LoadState.Loading OrElse McFolderListLoader.State = LoadState.Loading Then
@@ -708,6 +941,12 @@ ExitRefresh:
     End Sub
     '版本设置按钮
     Private Sub BtnMore_Click() Handles BtnMore.Click
+        If DstBot.IsOffline Then
+            '离线模式下这个位置是「版本选择」
+            If McLaunchLoader.State = LoadState.Loading Then Return
+            FrmMain.PageChange(FormMain.PageType.InstanceSelect)
+            Return
+        End If
         If McLaunchLoader.State = LoadState.Loading Then Return
         If McInstanceLock.IsLocked(McInstanceSelected) Then
             Hint("该版本正在被修改，暂时无法进入版本设置！", HintType.Red)
@@ -832,6 +1071,32 @@ ExitRefresh:
         IsHeightAnimating = True
         ActualUsedHeight = PanLaunchingInfo.Height
         PanLaunchingInfo.Height = e.PreviousSize.Height
+    End Sub
+
+    ''' <summary>QQ 选项（正版/离线旁边的第三颗）：切到 QQ 形态。</summary>
+    Private Sub RadioLoginTypeQq_Check(sender As Object, raiseByMouse As Boolean) Handles RadioLoginTypeQq.Check
+        If Not raiseByMouse Then Return
+        SwitchToQqMode()
+    End Sub
+
+    Private Sub ShowQqBindAction()
+        If DstBot.IsQqBound Then
+            '关闭是副选键，Esc 也能关
+            Dim Result As Integer = MyMsgBox(
+                $"昵称：{If(DstBot.UserInfoName = "", "未知", DstBot.UserInfoName)}" & vbCrLf &
+                $"QQ：{If(DstBot.UserInfoQq = "", DstBot.QqNumber, DstBot.UserInfoQq)}",
+                "已绑定 QQ", "解除绑定", "关闭")
+            If Result = 1 Then
+                '解绑走服务器 API，成功后刷新面板
+                DstBot.UnbindQq(Sub() RefreshPage(True, False))
+            End If
+        Else
+            DstBot.ShowBindDialog(AddressOf OnQqBindChanged)
+        End If
+    End Sub
+
+    Private Sub OnQqBindChanged()
+        RefreshPage(True, False)
     End Sub
 
 End Class

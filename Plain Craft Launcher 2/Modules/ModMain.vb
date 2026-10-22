@@ -391,12 +391,18 @@ EndHint:
     Public FrmSetupUI As PageSetupUI
     Public FrmSetupSystem As PageSetupSystem
     Public FrmSetupLink As PageSetupLink
+    Public FrmSetupDst As PageSetupDst
+    Public FrmGroupLeft As PageGroupLeft
+    Public FrmGroupInfo As PageGroupInfo
+    Public FrmGroupReport As PageGroupReport
+    Public FrmGroupStar As PageGroupStar
 
     '其他页面声明
     Public FrmOtherLeft As PageOtherLeft
     Public FrmOtherHelp As PageOtherHelp
     Public FrmOtherAbout As PageOtherAbout
     Public FrmOtherTest As PageOtherTest
+    Public FrmMusicSetup As PageMusicSetup
 
     '登录页面声明
     Public FrmLoginLegacy As PageLoginLegacy
@@ -406,6 +412,7 @@ EndHint:
     Public FrmLoginAuthSkin As PageLoginAuthSkin
     Public FrmLoginMs As PageLoginMs
     Public FrmLoginMsSkin As PageLoginMsSkin
+    Public FrmLoginQq As PageLoginQq
 
     '版本设置页面声明
     Public FrmInstanceLeft As PageInstanceLeft
@@ -414,6 +421,12 @@ EndHint:
     Public FrmInstanceModDisabled As PageInstanceModDisabled
     Public FrmInstanceSetup As PageInstanceSetup
     Public FrmInstanceExport As PageInstanceExport
+    Public FrmInstanceSaves As PageInstanceSaves
+    Public FrmInstanceSaveDetail As PageInstanceSaveDetail
+    Public FrmSaveDetailLeft As PageSaveDetailLeft
+    Public FrmInstanceSaveMap As PageInstanceSaveMap
+    Public FrmInstanceResourcePack As PageInstanceResourcePack
+    Public FrmInstanceShaderPack As PageInstanceShaderPack
     Public FrmDownloadModify As PageDownloadModify
 
     '资源信息分页声明

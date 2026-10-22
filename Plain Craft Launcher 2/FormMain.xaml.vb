@@ -352,6 +352,8 @@ Public Class FormMain
         '读取设置
         UpdateBackgroundAndTitleBar()
         PageSetupUI.HiddenRefresh()
+        '没有配置远程服务时，连 QQ 入口都不露出来，避免让人以为这是某个机器人的附属启动器
+        If Not DstBot.HasService Then BtnTitleSelect5.Visibility = Visibility.Collapsed
         PageSetupUI.BackgroundRefresh(False, True)
         MusicRefreshPlay(False, True)
         '扩展按钮
@@ -375,7 +377,11 @@ Public Class FormMain
             ShapeTitleLogo.Data = New GeometryConverter().ConvertFromString("M26,29 v-25 h6 a7,7 180 0 1 0,14 h-6 M83,6.5 a10,11.5 180 1 0 0,18 M48,2.5 v24.5 h13.5")
         End If
         '加载窗口
-        ThemeRefreshMain()
+        '帝释天蓝黑：载入后强制重新套用一次配色，避免构造函数阶段调用失败导致顶栏仍是默认蓝
+        ThemeNow = -1
+        ThemeRefresh(Settings.Get(Of Integer)("UiLauncherTheme"))
+        Logger.Info($"已应用主题 {Settings.Get(Of Integer)("UiLauncherTheme")}：Hue={ColorHue} Sat={ColorSat} Light={ColorLightAdjust} " &
+                    $"Delta={ColorHueTopbarDelta.Switch(Function(I) I.ToString(), Function(A) String.Join("/", A))}")
         Try
             Height = Settings.Get(Of Integer)("WindowHeight")
             Width = Settings.Get(Of Integer)("WindowWidth")
@@ -447,10 +453,30 @@ Public Class FormMain
             End Try
             '上报
             Telemetry("启动")
-            '开源版本提示
-            If VersionBranchMain = "OpenSource" Then
-                MyMsgBox($"该版本中无法使用以下特性：{vbCrLf}- CurseForge API 调用：需要自行申请 API Key，然后添加到 ModSecret.vb 的开头{vbCrLf}- 正版登录：需要自行向微软申请 Client ID，然后添加到 ModSecret.vb 的开头{vbCrLf}- 更新与联网通知：避免滥用隐患{vbCrLf}- 主题切换：这是需要赞助解锁的纪念性质的功能，别让赞助者太伤心啦……{vbCrLf}- 百宝箱：开发早期往里面塞了些开发工具，整理起来太麻烦了……", "开源版本说明")
-            End If
+            '首次启动的免责声明（本机确认过就不再弹）
+            Try
+                RunInUi(
+                Sub()
+                    '先免责声明，后版本公告
+                    DstDisclaimer.ShowIfNeeded()
+                    DstAnnounce.ShowIfNeeded()
+                End Sub)
+            Catch ex As Exception
+                Logger.Warn(ex, "显示启动提示失败")
+            End Try
+
+            '每次启动检查一次启动器更新
+            Try
+                DstUpdate.AutoCheckOnStartup()
+            Catch ex As Exception
+                Logger.Warn(ex, "启动时检查更新失败")
+            End Try
+            '每次启动刷新一次绑定用户资料（头像 / 昵称）
+            Try
+                If DstBot.IsQqBound Then DstBot.FetchUserInfo()
+            Catch ex As Exception
+                Logger.Warn(ex, "启动时拉取用户信息失败")
+            End Try
         End Sub, "初始化", ThreadPriority.Lowest)
 
         Logger.Info($"第三阶段加载用时：{GetTimeMs() - ApplicationStartTick} ms")
@@ -788,7 +814,7 @@ Public Class FormMain
         End Select
         FrmSetupUI?.CardLogo.TriggerForceResize()
         '标题栏文本
-        LabTitleLogo.Text = Settings.Get(Of String)("UiLogoText")
+        LabTitleLogo.Text = If(String.IsNullOrWhiteSpace(Settings.Get(Of String)("UiLogoText")), LauncherShortName, Settings.Get(Of String)("UiLogoText"))
         '标题栏文本是否居左
         PanTitleMain.ColumnDefinitions(0).Width = New GridLength(If(Settings.Get(Of Boolean)("UiLogoLeft") AndAlso Settings.Get(Of Integer)("UiLogoType") = 0, 0, 1), GridUnitType.Star)
     End Sub
@@ -1202,25 +1228,37 @@ Public Class FormMain
         ''' </summary>
         Other = 4
         ''' <summary>
+        ''' 群聊。
+        ''' </summary>
+        Group = 5
+        ''' <summary>
         ''' 版本选择。这是一个副页面。
         ''' </summary>
-        InstanceSelect = 5
+        InstanceSelect = 6
         ''' <summary>
         ''' 任务管理。这是一个副页面。
         ''' </summary>
-        TaskManager = 6
+        TaskManager = 7
         ''' <summary>
         ''' 版本设置。这是一个副页面。
         ''' </summary>
-        InstanceSetup = 7
+        InstanceSetup = 8
         ''' <summary>
         ''' 社区资源详情。这是一个副页面。
         ''' </summary>
-        ResourceDetail = 8
+        ResourceDetail = 9
         ''' <summary>
         ''' 帮助详情。这是一个副页面。
         ''' </summary>
-        HelpDetail = 9
+        HelpDetail = 10
+        ''' <summary>
+        ''' 播放器设置。这是一个副页面。
+        ''' </summary>
+        MusicSetup = 11
+        ''' <summary>
+        ''' 存档详情。这是一个副页面。
+        ''' </summary>
+        InstanceSaveDetail = 12
     End Enum
     ''' <summary>
     ''' 次要页面种类。其数值必须与 StackPanel 中的下标一致。
@@ -1238,6 +1276,10 @@ Public Class FormMain
         SetupLink = 1
         SetupUI = 2
         SetupSystem = 3
+        SetupDst = 4
+        GroupInfo = 0
+        GroupReport = 1
+        GroupStar = 2
         LinkMain = 0
         OtherHelp = 0
         OtherAbout = 1
@@ -1248,6 +1290,9 @@ Public Class FormMain
         InstanceMod = 3
         InstanceModDisabled = 4
         InstanceExport = 5
+        InstanceSaves = 6
+        InstanceResourcePack = 7
+        InstanceShaderPack = 8
     End Enum
     ''' <summary>
     ''' 获取次级页面的名称。若并非次级页面则返回空字符串，故可以以此判断是否为次级页面。
@@ -1264,6 +1309,10 @@ Public Class FormMain
                 Return CType(Stack.Additional(0), ResourceProject).TranslatedName
             Case PageType.HelpDetail
                 Return CType(Stack.Additional(0), HelpEntry).Title
+            Case PageType.MusicSetup
+                Return "播放器设置"
+            Case PageType.InstanceSaveDetail
+                Return "存档详情 - " & If(PageInstanceSaveDetail.TargetSave = "", "未知存档", PathUtils.GetLastPart(PageInstanceSaveDetail.TargetSave))
             Case Else
                 Return ""
         End Select
@@ -1305,9 +1354,15 @@ Public Class FormMain
                 Case PageType.Other
                     If FrmOtherLeft Is Nothing Then FrmOtherLeft = New PageOtherLeft
                     Return FrmOtherLeft.PageID
+                Case PageType.Group
+                    If FrmGroupLeft Is Nothing Then FrmGroupLeft = New PageGroupLeft
+                    Return FrmGroupLeft.PageID
                 Case PageType.InstanceSetup
                     If FrmInstanceLeft Is Nothing Then FrmInstanceLeft = New PageInstanceLeft
                     Return FrmInstanceLeft.PageID
+                Case PageType.InstanceSaveDetail
+                    If FrmSaveDetailLeft Is Nothing Then FrmSaveDetailLeft = New PageSaveDetailLeft
+                    Return FrmSaveDetailLeft.PageID
                 Case Else
                     Return 0 '没有子页面
             End Select
@@ -1376,6 +1431,10 @@ Public Class FormMain
                 Case PageType.Other
                     If FrmOtherLeft Is Nothing Then FrmOtherLeft = New PageOtherLeft
                     CType(FrmOtherLeft.PanItem.Children(SubType), MyListItem).SetChecked(True, True, Stack = PageCurrent)
+                Case PageType.Group
+                    If FrmGroupLeft Is Nothing Then FrmGroupLeft = New PageGroupLeft
+                    '外部跳转：只同步勾选与子页编号，页面动画交给下面的 PageChangeActual 统一处理
+                    FrmGroupLeft.SetPage(SubType)
             End Select
             PageChangeActual(Stack, SubType)
         Else
@@ -1391,7 +1450,7 @@ Public Class FormMain
     ''' <summary>
     ''' 通过点击导航栏改变页面。
     ''' </summary>
-    Private Sub BtnTitleSelect_Click(sender As MyRadioButton, raiseByMouse As Boolean) Handles BtnTitleSelect0.Check, BtnTitleSelect1.Check, BtnTitleSelect2.Check, BtnTitleSelect3.Check, BtnTitleSelect4.Check
+    Private Sub BtnTitleSelect_Click(sender As MyRadioButton, raiseByMouse As Boolean) Handles BtnTitleSelect0.Check, BtnTitleSelect1.Check, BtnTitleSelect2.Check, BtnTitleSelect3.Check, BtnTitleSelect4.Check, BtnTitleSelect5.Check
         If IsChangingPage Then Return
         PageChangeActual(Val(sender.Tag))
     End Sub
@@ -1479,6 +1538,11 @@ Public Class FormMain
                 Case PageType.Other '更多
                     If FrmOtherLeft Is Nothing Then FrmOtherLeft = New PageOtherLeft
                     PageChangeAnim(FrmOtherLeft, FrmOtherLeft.PageGet(SubType))
+                Case PageType.Group '群聊
+                    If FrmGroupLeft Is Nothing Then FrmGroupLeft = New PageGroupLeft
+                    '群聊是主页面，任何时候都不该留着返回箭头
+                    ForceTopLevelTitle()
+                    PageChangeAnim(FrmGroupLeft, FrmGroupLeft.PageGet(SubType))
                 Case PageType.InstanceSelect '版本选择
                     If FrmSelectLeft Is Nothing Then FrmSelectLeft = New PageSelectLeft
                     If FrmSelectRight Is Nothing Then FrmSelectRight = New PageSelectRight
@@ -1495,6 +1559,14 @@ Public Class FormMain
                     PageChangeAnim(New MyPageLeft, FrmDownloadResourceDetail)
                 Case PageType.HelpDetail '帮助详情
                     PageChangeAnim(New MyPageLeft, Stack.Additional(1))
+                Case PageType.MusicSetup '播放器设置
+                    If FrmMusicSetup Is Nothing Then FrmMusicSetup = New PageMusicSetup
+                    PageChangeAnim(New MyPageLeft, FrmMusicSetup)
+                Case PageType.InstanceSaveDetail '存档详情
+                    If FrmSaveDetailLeft Is Nothing Then FrmSaveDetailLeft = New PageSaveDetailLeft
+                    If FrmInstanceSaveDetail Is Nothing Then FrmInstanceSaveDetail = New PageInstanceSaveDetail
+                    FrmSaveDetailLeft.ResetSection()
+                    PageChangeAnim(FrmSaveDetailLeft, FrmInstanceSaveDetail)
             End Select
 #End Region
 
@@ -1561,6 +1633,18 @@ Public Class FormMain
                 PageRight.PageOnEnter()
             End Sub, 30, True)
         }, "FrmMain PageChangeRight")
+    End Sub
+    ''' <summary>强制回到“主页面”标题栏状态：没有返回箭头，导航条可见。</summary>
+    Private Sub ForceTopLevelTitle()
+        PageStack.Clear()
+        AniStop("FrmMain Titlebar FirstLayer")
+        PanTitleInner.Visibility = Visibility.Collapsed
+        PanTitleInner.Opacity = 0
+        PanTitleInner.IsHitTestVisible = False
+        PanTitleMain.Visibility = Visibility.Visible
+        PanTitleMain.Opacity = 1
+        PanTitleMain.Margin = New Thickness(0)
+        PanTitleMain.IsHitTestVisible = True
     End Sub
     ''' <summary>
     ''' 退出子界面。

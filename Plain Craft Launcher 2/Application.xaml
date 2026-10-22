@@ -18,53 +18,55 @@
             <corewpf:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
 
-            <!-- 颜色表 -->
-            <SolidColorBrush x:Key="ColorBrush1">#343d4a</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush2">#0b5bcb</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush3">#1370f3</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush4">#4890f5</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush5">#96c0f9</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush6">#d5e6fd</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush7">#e0eafd</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush8">#eaf2fe</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushBg0">#96c0f9</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushBg1">#bee0eafd</SolidColorBrush>
-            <Color x:Key="ColorObject1">#343d4a</Color>
-            <Color x:Key="ColorObject2">#0b5bcb</Color>
-            <Color x:Key="ColorObject3">#1370f3</Color>
-            <Color x:Key="ColorObject4">#4890f5</Color>
-            <Color x:Key="ColorObject5">#96c0f9</Color>
-            <Color x:Key="ColorObject6">#d5e6fd</Color>
-            <Color x:Key="ColorObject7">#e0eafd</Color>
-            <Color x:Key="ColorObject8">#eaf2fe</Color>
-            <Color x:Key="ColorObjectBg0">#96c0f9</Color>
-            <Color x:Key="ColorObjectBg1">#bee0eafd</Color>
-            <SolidColorBrush x:Key="ColorBrushGray1">#404040</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray2">#737373</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray3">#8c8c8c</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray4">#a6a6a6</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray5">#cccccc</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray6">#ebebeb</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray7">#f0f0f0</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray8">#f5f5f5</SolidColorBrush>
-            <Color x:Key="ColorObjectGray1">#404040</Color>
-            <Color x:Key="ColorObjectGray2">#737373</Color>
-            <Color x:Key="ColorObjectGray3">#8c8c8c</Color>
-            <Color x:Key="ColorObjectGray4">#a6a6a6</Color>
-            <Color x:Key="ColorObjectGray5">#cccccc</Color>
-            <Color x:Key="ColorObjectGray6">#ebebeb</Color>
-            <Color x:Key="ColorObjectGray7">#f0f0f0</Color>
-            <Color x:Key="ColorObjectGray8">#f5f5f5</Color>
-            <SolidColorBrush x:Key="ColorBrushRedBack">#80fbdddd</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushRedLight">#ff4c4c</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushRedDark">#ce2111</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushHalfWhite" Color="#55ffffff" />
-            <SolidColorBrush x:Key="ColorBrushSemiWhite" Color="#bbffffff" />
-            <SolidColorBrush x:Key="ColorBrushWhite" Color="#ffffff" />
+            <!-- 颜色表（深色主题） -->
+            <SolidColorBrush x:Key="ColorBrush1">#E8EEF7</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush2">#2563EB</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush3">#3B82F6</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush4">#60A5FA</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush5">#2E3B4E</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush6">#26313F</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush7">#1E2836</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush8">#161E29</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushBg0">#2E3B4E</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushBg1">#B3161E29</SolidColorBrush>
+            <Color x:Key="ColorObject1">#E8EEF7</Color>
+            <Color x:Key="ColorObject2">#2563EB</Color>
+            <Color x:Key="ColorObject3">#3B82F6</Color>
+            <Color x:Key="ColorObject4">#60A5FA</Color>
+            <Color x:Key="ColorObject5">#2E3B4E</Color>
+            <Color x:Key="ColorObject6">#26313F</Color>
+            <Color x:Key="ColorObject7">#1E2836</Color>
+            <Color x:Key="ColorObject8">#161E29</Color>
+            <Color x:Key="ColorObjectBg0">#2E3B4E</Color>
+            <Color x:Key="ColorObjectBg1">#B3161E29</Color>
+            <SolidColorBrush x:Key="ColorBrushGray1">#E8EEF7</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray2">#B6C2D2</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray3">#93A1B5</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray4">#6E7C90</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray5">#47536A</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray6">#333D4C</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray7">#262E3A</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray8">#1B2230</SolidColorBrush>
+            <Color x:Key="ColorObjectGray1">#E8EEF7</Color>
+            <Color x:Key="ColorObjectGray2">#B6C2D2</Color>
+            <Color x:Key="ColorObjectGray3">#93A1B5</Color>
+            <Color x:Key="ColorObjectGray4">#6E7C90</Color>
+            <Color x:Key="ColorObjectGray5">#47536A</Color>
+            <Color x:Key="ColorObjectGray6">#333D4C</Color>
+            <Color x:Key="ColorObjectGray7">#262E3A</Color>
+            <Color x:Key="ColorObjectGray8">#1B2230</Color>
+            <SolidColorBrush x:Key="ColorBrushRedBack">#80502222</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushRedLight">#FF6B6B</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushRedDark">#E5484D</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushHalfWhite" Color="#1AFFFFFF" />
+            <SolidColorBrush x:Key="ColorBrushSemiWhite" Color="#CCFFFFFF" />
+            <SolidColorBrush x:Key="ColorBrushWhite" Color="#FFFFFF" />
             <SolidColorBrush x:Key="ColorBrushTransparent" Color="Transparent" />
-            <SolidColorBrush x:Key="ColorBrushSemiTransparent">#01eaf2fe</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushBackgroundTransparentSidebar" Color="#F1FFFFFF" />
-
+            <SolidColorBrush x:Key="ColorBrushSemiTransparent">#01161E29</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushBackgroundTransparentSidebar" Color="#F0161E29" />
+            <SolidColorBrush x:Key="ColorBrushTitleIcon" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ColorBrushCard" Color="#F21C2532" />
+            <SolidColorBrush x:Key="ColorBrushCardHover" Color="#F2243040" />
             <!-- Window -->
             <Style TargetType="{x:Type Window}" x:Key="MyWindow">
                 <Setter Property="OverridesDefaultStyle" Value="True"/>
@@ -135,6 +137,8 @@
             <!-- ScrollViewer -->
             <Style x:Key="MyThumb" TargetType="Thumb">
                 <Setter Property="Stylus.IsPressAndHoldEnabled" Value="false"/>
+                <!-- 滑块给个最小长度：内容再多也不至于缩成一个小点 -->
+                <Setter Property="MinHeight" Value="40"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Thumb">
@@ -353,7 +357,7 @@
                                                   ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" />
                                 <Popup x:Name="PART_Popup" SnapsToDevicePixels="True" VerticalOffset="-1.5" AllowsTransparency="True" IsOpen="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" Placement="Bottom" PopupAnimation="Fade">
                                     <Grid x:Name="PanPopup">
-                                        <Border Background="White" CornerRadius="3" />
+                                        <Border Background="{DynamicResource ColorBrushCard}" CornerRadius="3" />
                                         <Border x:Name="dropDownBorder" CornerRadius="3" BorderBrush="{TemplateBinding Foreground}" BorderThickness="1" Width="{TemplateBinding Width}" MaxHeight="{TemplateBinding MaxDropDownHeight}">
                                             <local:MyScrollViewer x:Name="DropDownScrollViewer" PanningMode="VerticalOnly" SnapsToDevicePixels="False" Style="{StaticResource ScrollViewerFullMargin}" ScrollViewer.CanContentScroll="False" VerticalScrollBarVisibility="Auto">
                                                 <ItemsPresenter x:Name="ItemsPresenter" KeyboardNavigation.DirectionalNavigation="Contained" />
@@ -383,7 +387,7 @@
                                         <local:MyTextBox x:Name="PART_EditableTextBox" BorderThickness="0" Margin="1.5,0,21.5,0" Padding="0" Background="{x:Null}" />
                                         <Popup x:Name="PART_Popup" SnapsToDevicePixels="True" VerticalOffset="-1.5" AllowsTransparency="True" IsOpen="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" Placement="Bottom" PopupAnimation="Fade">
                                             <Grid x:Name="PanPopup">
-                                                <Border Background="White" CornerRadius="3" />
+                                                <Border Background="{DynamicResource ColorBrushCard}" CornerRadius="3" />
                                                 <Border x:Name="dropDownBorder" SnapsToDevicePixels="False" CornerRadius="3" BorderBrush="{TemplateBinding Foreground}" BorderThickness="1" Width="{TemplateBinding Width}" MaxHeight="{TemplateBinding MaxDropDownHeight}">
                                                     <local:MyScrollViewer x:Name="DropDownScrollViewer" Style="{StaticResource ScrollViewerFullMargin}" ScrollViewer.CanContentScroll="False" VerticalScrollBarVisibility="Auto">
                                                         <ItemsPresenter x:Name="ItemsPresenter" KeyboardNavigation.DirectionalNavigation="Contained" />
@@ -482,7 +486,7 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ContextMenu">
-                            <Border BorderBrush="{DynamicResource ColorBrush1}" BorderThickness="1" CornerRadius="3" Background="White" Margin="0,0,4,4" SnapsToDevicePixels="True">
+                            <Border BorderBrush="{DynamicResource ColorBrush1}" BorderThickness="1" CornerRadius="3" Background="{DynamicResource ColorBrushCard}" Margin="0,0,4,4" SnapsToDevicePixels="True">
                                 <Border.Effect>
                                     <DropShadowEffect Opacity="0.4" BlurRadius="4" ShadowDepth="2" />
                                 </Border.Effect>

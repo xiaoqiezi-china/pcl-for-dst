@@ -531,6 +531,16 @@ Public Class ResourceProject
         Function()
             Dim NewItem As New MyResourceItem With {.Tag = Me}
             ApplyLogoToMyImage(NewItem.PathLogo)
+            '收藏星：按当前收藏状态点亮，点击直接切换
+            NewItem.IsFavorite = ModFavorite.IsFavorite(Me)
+            Dim StarCategory As ResourceTypes = If(Types.HasFlagF(ResourceTypes.Mod) AndAlso Not Types.HasFlagF(ResourceTypes.ModPack), ResourceTypes.Mod, Types)
+            AddHandler NewItem.StarClick,
+                Sub()
+                    Dim NowFavorite As Boolean = ModFavorite.Toggle(Me, StarCategory, LogoUrl)
+                    NewItem.IsFavorite = NowFavorite
+                    Hint(If(NowFavorite, $"已收藏 {NewItem.Title}", $"已取消收藏 {NewItem.Title}"),
+                         If(NowFavorite, HintType.Green, HintType.Blue), False)
+                End Sub
             Dim Titles = GetControlTitle(True)
             NewItem.Title = Titles.Title
             If Titles.SubTitle = "" Then

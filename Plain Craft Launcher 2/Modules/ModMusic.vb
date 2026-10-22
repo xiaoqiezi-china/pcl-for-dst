@@ -100,7 +100,6 @@ Public Module ModMusic
                     End If
                     FrmMain.BtnExtraMusic.ToolTip = ToolTipText
                 End If
-                If FrmSetupUI IsNot Nothing Then FrmSetupUI.MusicRefreshUI()
 
             Catch ex As Exception
                 Logger.Error(ex, "刷新背景音乐 UI 失败")
@@ -271,6 +270,44 @@ Public Module ModMusic
     ''' </summary>
     Private MusicCurrent As String = ""
 
+    ''' <summary>当前播放位置，供播放器页面显示进度。</summary>
+    Public MusicPosition As TimeSpan = TimeSpan.Zero
+    ''' <summary>当前音乐总长度，供播放器页面显示进度。</summary>
+    Public MusicDuration As TimeSpan = TimeSpan.Zero
+
+    ''' <summary>当前播放的音乐文件路径（没有则为空串）。</summary>
+    Public ReadOnly Property MusicCurrentAddress As String
+        Get
+            Return MusicCurrent
+        End Get
+    End Property
+
+    ''' <summary>当前音频流，供拖进度条跳转用（没有则为 Nothing）。</summary>
+    Public MusicReader As WaveStream = Nothing
+
+    ''' <summary>按比例跳转播放位置，Ratio 取 0~1。</summary>
+    Public Sub MusicSeekRatio(Ratio As Double)
+        Dim Reader As WaveStream = MusicReader
+        If Reader Is Nothing Then Return
+        Try
+            Dim Total As TimeSpan = Reader.TotalTime
+            If Total.TotalMilliseconds <= 0 Then Return
+            Dim Clamped As Double = Math.Max(0, Math.Min(1, Ratio))
+            Reader.CurrentTime = TimeSpan.FromMilliseconds(Total.TotalMilliseconds * Clamped)
+            MusicPosition = Reader.CurrentTime
+        Catch ex As Exception
+            Logger.Warn(ex, "跳转播放位置失败")
+        End Try
+    End Sub
+    ''' <summary>指定文件立即播放，供播放器页面点列表用。</summary>
+    Public Sub MusicPlayFile(Address As String)
+        If String.IsNullOrWhiteSpace(Address) Then Return
+        If MusicAllList Is Nothing OrElse Not MusicAllList.Any() Then MusicListInit(True)
+        If MusicWaitingList IsNot Nothing Then MusicWaitingList.Remove(Address)
+        MusicStartPlay(Address)
+        MusicRefreshUI()
+    End Sub
+
     ''' <summary>
     ''' 在 MusicUuid 不变的前提下，持续播放某地址的音乐，且在播放结束后随机播放下一曲。
     ''' </summary>
@@ -288,6 +325,7 @@ Public Module ModMusic
                 Logger.Warn(ex, "使用 AudioFileReader 加载音频文件失败，换用 MediaFoundationReader 重试")
                 Reader = New MediaFoundationReader(MusicCurrent)
             End Try
+            MusicReader = Reader
             CurrentWave.Init(Reader)
             CurrentWave.Play()
             '第一次打开的暂停
@@ -304,7 +342,10 @@ Public Module ModMusic
 #Enable Warning BC40008 '类型或成员已过时
                 End If
                 '更新进度条
-                Dim Percent = Reader.CurrentTime.TotalMilliseconds / Reader.TotalTime.TotalMilliseconds
+                MusicPosition = Reader.CurrentTime
+                MusicDuration = Reader.TotalTime
+                Dim Percent = If(Reader.TotalTime.TotalMilliseconds <= 0, 0,
+                                 Reader.CurrentTime.TotalMilliseconds / Reader.TotalTime.TotalMilliseconds)
                 RunInUi(Sub() FrmMain.BtnExtraMusic.Progress = Percent)
                 Thread.Sleep(100)
             End While
@@ -338,6 +379,7 @@ Public Module ModMusic
                 MusicStartPlay(DequeueNextMusicAddress(), IsFirstLoad)
             End If
         Finally
+            MusicReader = Nothing
             If CurrentWave IsNot Nothing Then CurrentWave.Dispose()
             If Reader IsNot Nothing Then Reader.Dispose()
             MusicRefreshUI()

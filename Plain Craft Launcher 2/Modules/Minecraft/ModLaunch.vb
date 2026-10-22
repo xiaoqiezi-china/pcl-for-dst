@@ -882,11 +882,17 @@ LoginFinish:
     Private Function MsLoginStep1New(Data As LoaderTask(Of McLoginMs, McLoginResult)) As (OAuthAccessToken As String, OAuthRefreshToken As String)
         '参考：https://learn.microsoft.com/zh-cn/entra/identity-platform/v2-oauth2-device-code
 
+        '开源版默认不带 ClientId：没配置就别往下走，直接告诉用户去哪里填
+        If MsClientIdResolve() = "" Then
+            Throw New Exception("$还没有配置微软登录的 ClientId，正版登录暂时不可用。" & vbCrLf &
+                                "请到「设置 → 其他 → 账号与 API」填写，或改用离线登录。")
+        End If
+
         '初始请求
 Retry:
         McLaunchLog("开始微软登录步骤 1/6（原始登录）")
         Dim PrepareJson As JObject = NetRequestByClientRetry("https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode", HttpMethod.Post,
-            Content:=$"client_id={OAuthClientId}&tenant=/consumers&scope=XboxLive.signin%20offline_access",
+            Content:=$"client_id={MsClientIdResolve()}&tenant=/consumers&scope=XboxLive.signin%20offline_access",
             ContentType:="application/x-www-form-urlencoded", RequireJson:=True).DeserializeJson()
         McLaunchLog("网页登录地址：" & PrepareJson("verification_uri").ToString)
 
@@ -917,7 +923,7 @@ Retry:
         Dim Result As String
         Try
             Result = NetRequestByClientMultiple("https://login.live.com/oauth20_token.srf", HttpMethod.Post,
-                Content:=$"client_id={OAuthClientId}&refresh_token={StringUtils.FormUrlEscape(Code)}&grant_type=refresh_token&scope=XboxLive.signin%20offline_access",
+                Content:=$"client_id={MsClientIdResolve()}&refresh_token={StringUtils.FormUrlEscape(Code)}&grant_type=refresh_token&scope=XboxLive.signin%20offline_access",
                 ContentType:="application/x-www-form-urlencoded",
                 Headers:={{"Accept-Language", "en-US,en;q=0.5"}, {"X-Requested-With", "XMLHttpRequest"}},
                 ThreadCount:=2)

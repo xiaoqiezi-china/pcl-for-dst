@@ -66,6 +66,7 @@ Public Class MyResourceItem
     '触发点击事件
     Public Event Click(sender As Object, e As MouseButtonEventArgs)
     Private Sub Button_MouseUp(sender As Object, e As MouseButtonEventArgs) Handles Me.PreviewMouseLeftButtonUp
+        If PanStar IsNot Nothing AndAlso PanStar.IsMouseOver Then Return '点的是收藏星，不跳详情
         If IsMouseDown Then
             RaiseEvent Click(sender, e)
             If e.Handled Then Return
@@ -113,6 +114,55 @@ Public Class MyResourceItem
         End If
         FrmMain.PageChange(New FormMain.PageStackData With {.Page = FormMain.PageType.ResourceDetail,
                            .Additional = {sender.Tag, Titles, TargetInstance, TargetLoader, TargetType}})
+    End Sub
+
+    '收藏
+    Public Event StarClick(sender As Object, e As MouseButtonEventArgs)
+    Private _IsFavorite As Boolean = False
+    ''' <summary>是否已收藏。设置时会带一个变黄的动画。</summary>
+    Public Property IsFavorite As Boolean
+        Get
+            Return _IsFavorite
+        End Get
+        Set(value As Boolean)
+            If _IsFavorite = value Then Return
+            _IsFavorite = value
+            RefreshStar(True)
+        End Set
+    End Property
+
+    ''' <summary>刷新星星外观；WithAnimation 为 True 时做一个“变黄 + 弹一下”的动画。</summary>
+    Public Sub RefreshStar(Optional WithAnimation As Boolean = False)
+        If PathStar Is Nothing Then Return
+        Dim Yellow As New MyColor("#FFCB2B")
+        '每次都把缩放复位，否则动画增量会一轮轮累加，星星越点越大
+        PathStar.RenderTransformOrigin = New Point(0.5, 0.5)
+        PathStar.RenderTransform = New ScaleTransform(1, 1)
+        AniStop("Star " & Uuid)
+        If _IsFavorite Then
+            If WithAnimation AndAlso AniControlEnabled = 0 Then
+                AniStart({
+                    AaColor(PathStar, Shapes.Shape.FillProperty, Yellow, 220),
+                    AaScaleTransform(PathStar, 0.25, 130,, New AniEaseOutFluent(AniEasePower.Strong)),
+                    AaScaleTransform(PathStar, -0.25, 300,, New AniEaseOutFluent)
+                }, "Star " & Uuid)
+            Else
+                PathStar.Fill = Yellow
+            End If
+            ToolTip = "已收藏"
+        Else
+            If WithAnimation AndAlso AniControlEnabled = 0 Then
+                AniStart(AaColor(PathStar, Shapes.Shape.FillProperty, "ColorBrushGray4", 160), "Star " & Uuid)
+            Else
+                PathStar.SetResourceReference(Shapes.Shape.FillProperty, "ColorBrushGray4")
+            End If
+            ToolTip = "收藏"
+        End If
+    End Sub
+
+    Private Sub PanStar_MouseUp(sender As Object, e As MouseButtonEventArgs) Handles PanStar.MouseLeftButtonUp
+        e.Handled = True
+        RaiseEvent StarClick(Me, e)
     End Sub
 
     '鼠标点击判定

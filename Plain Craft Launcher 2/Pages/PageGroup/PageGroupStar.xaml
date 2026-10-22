@@ -1,0 +1,35 @@
+<local:MyPageRight
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:PCL" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="d"
+             x:Class="PageGroupStar">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="1*" />
+        </Grid.RowDefinitions>
+        <!-- 五个子夹：Mod / 整合包 / 数据包 / 资源包 / 光影包 -->
+        <Grid Margin="25,14,25,10">
+            <StackPanel Orientation="Horizontal">
+                <local:MyRadioButton x:Name="TabMod" Text="Mod" Margin="0,0,8,0" Tag="1" ColorType="Highlight" />
+                <local:MyRadioButton x:Name="TabModPack" Text="整合包" Margin="0,0,8,0" Tag="2" ColorType="Highlight" />
+                <local:MyRadioButton x:Name="TabDataPack" Text="数据包" Margin="0,0,8,0" Tag="16" ColorType="Highlight" />
+                <local:MyRadioButton x:Name="TabResourcePack" Text="资源包" Margin="0,0,8,0" Tag="4" ColorType="Highlight" />
+                <local:MyRadioButton x:Name="TabShader" Text="光影包" Tag="8" ColorType="Highlight" />
+            </StackPanel>
+            <!-- 右上角：是否同步至云 -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <local:MyCheckBox x:Name="CheckCloudSync" Text="同步至云" VerticalAlignment="Center" />
+                <local:MyButton x:Name="BtnGoOnline" Text="上线" Height="26" MinWidth="66" Margin="8,0,0,0"
+                                ColorType="Highlight" Visibility="Collapsed" />
+            </StackPanel>
+        </Grid>
+        <ScrollViewer Grid.Row="1" x:Name="PanBack" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled" Focusable="False">
+            <StackPanel x:Name="PanList" Margin="25,0,25,20" />
+        </ScrollViewer>
+        <local:MyLoading Grid.Row="1" x:Name="Load" Text="正在读取收藏夹" Visibility="Collapsed"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+    </Grid>
+</local:MyPageRight>

@@ -110,6 +110,7 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <CodeAnalysisRuleSet>BasicDesignGuidelineRules.ruleset</CodeAnalysisRuleSet>
     <DefineConstants>RELEASE</DefineConstants>
+    <DefineConstants Condition="Exists('Modules\ModSecret.Local.vb')">$(DefineConstants),DST_LOCAL</DefineConstants>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
@@ -257,6 +258,32 @@
     <Compile Include="Modules\ModDevelop.vb" />
     <Compile Include="Modules\Minecraft\ModWatcher.vb" />
     <Compile Include="Modules\ModSecret.vb" />
+    <Compile Include="Modules\ModSecret.Local.vb" Condition="Exists('Modules\ModSecret.Local.vb')">
+      <AutoGen>False</AutoGen>
+    </Compile>
+    <Compile Include="Modules\DstBot.vb" />
+    <Compile Include="Modules\DstUpdate.vb" />
+        <Compile Include="Modules\DstPing.vb" />
+  <Compile Include="Modules\DstNetease.vb" />
+  <Compile Include="Modules\DstNbt.vb" />
+  <Compile Include="Modules\DstNbtPath.vb" />
+  <Compile Include="Modules\DstNbtDocument.vb" />
+  <Compile Include="Modules\DstItem.vb" />
+  <Compile Include="Modules\DstMapRender.vb" />
+  <Compile Include="Modules\DstMapPlayers.vb" />
+  <Compile Include="Modules\DstSavePaths.vb" />
+  <Compile Include="Modules\DstShaderConfig.vb" />
+  <Compile Include="Modules\DstShaderLangZh.vb" />
+  <Compile Include="Modules\DstMapDimensions.vb" />
+  <Compile Include="Pages\PageInstance\DstNbtViewer.vb" />
+  <Compile Include="Pages\PageInstance\DstItemPanel.vb" />
+  <Compile Include="Modules\DstDisclaimer.vb" />
+  <Compile Include="Modules\DstAnnounce.vb" />
+        <Compile Include="Modules\ModFavorite.vb" />
+    <Compile Include="Controls\WindowImagePreview.vb" />
+    <Compile Include="Controls\WindowVideoPreview.vb" />
+    <Compile Include="Controls\DstChatRow.vb" />
+        <Compile Include="Controls\DstSpinner.vb" />
     <Compile Include="Pages\PageDownload\Resource\PageResource.xaml.vb">
       <DependentUpon>PageResource.xaml</DependentUpon>
     </Compile>
@@ -298,6 +325,9 @@
     <Compile Include="Pages\PageLaunch\PageLoginMs.xaml.vb">
       <DependentUpon>PageLoginMs.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Pages\PageLaunch\PageLoginQq.xaml.vb">
+      <DependentUpon>PageLoginQq.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Pages\PageLaunch\PageLoginMsSkin.xaml.vb">
       <DependentUpon>PageLoginMsSkin.xaml</DependentUpon>
     </Compile>
@@ -310,7 +340,25 @@
     <Compile Include="Pages\PageOther\PageOtherHelpDetail.xaml.vb">
       <DependentUpon>PageOtherHelpDetail.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Pages\PageInstance\PageInstanceExport.xaml.vb">
+    <Compile Include="Pages\PageInstance\PageInstanceSaves.xaml.vb">
+    <DependentUpon>PageInstanceSaves.xaml</DependentUpon>
+  </Compile>
+    <Compile Include="Pages\PageInstance\PageSaveDetailLeft.xaml.vb">
+      <DependentUpon>PageSaveDetailLeft.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Pages\PageInstance\PageInstanceSaveDetail.xaml.vb">
+      <DependentUpon>PageInstanceSaveDetail.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Pages\PageInstance\PageInstanceSaveMap.xaml.vb">
+      <DependentUpon>PageInstanceSaveMap.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Pages\PageInstance\PageInstanceResourcePack.xaml.vb">
+      <DependentUpon>PageInstanceResourcePack.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Pages\PageInstance\PageInstanceShaderPack.xaml.vb">
+      <DependentUpon>PageInstanceShaderPack.xaml</DependentUpon>
+    </Compile>
+  <Compile Include="Pages\PageInstance\PageInstanceExport.xaml.vb">
       <DependentUpon>PageInstanceExport.xaml</DependentUpon>
     </Compile>
     <Compile Include="Pages\PageInstance\PageInstanceLeft.xaml.vb">
@@ -335,7 +383,10 @@
     <Compile Include="Modules\Minecraft\ModDownload.vb" />
     <Compile Include="Modules\Minecraft\ModLaunch.vb" />
     <Compile Include="Modules\Minecraft\ModMinecraft.vb" />
-    <Compile Include="Pages\PageOther\PageOtherTest.xaml.vb">
+  <Compile Include="Pages\PageOther\PageMusicSetup.xaml.vb">
+    <DependentUpon>PageMusicSetup.xaml</DependentUpon>
+  </Compile>
+  <Compile Include="Pages\PageOther\PageOtherTest.xaml.vb">
       <DependentUpon>PageOtherTest.xaml</DependentUpon>
     </Compile>
     <Compile Include="Pages\PageLaunch\MySkin.xaml.vb">
@@ -380,6 +431,21 @@
     </Compile>
     <Compile Include="Pages\PageSetup\PageSetupSystem.xaml.vb">
       <DependentUpon>PageSetupSystem.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Pages\PageSetup\PageSetupDst.xaml.vb">
+      <DependentUpon>PageSetupDst.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Pages\PageGroup\PageGroupLeft.xaml.vb">
+      <DependentUpon>PageGroupLeft.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Pages\PageGroup\PageGroupInfo.xaml.vb">
+      <DependentUpon>PageGroupInfo.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Pages\PageGroup\PageGroupStar.xaml.vb">
+      <DependentUpon>PageGroupStar.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Pages\PageGroup\PageGroupReport.xaml.vb">
+      <DependentUpon>PageGroupReport.xaml</DependentUpon>
     </Compile>
     <Compile Include="Pages\PageSetup\PageSetupLink.xaml.vb">
       <DependentUpon>PageSetupLink.xaml</DependentUpon>
@@ -552,6 +618,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Pages\PageLaunch\PageLoginQq.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Pages\PageLaunch\PageLoginMsSkin.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -572,11 +642,39 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Pages\PageInstance\PageInstanceExport.xaml">
+    <Page Include="Pages\PageInstance\PageInstanceSaves.xaml">
+    <Generator>MSBuild:Compile</Generator>
+    <SubType>Designer</SubType>
+  </Page>
+    <Page Include="Pages\PageInstance\PageSaveDetailLeft.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Pages\PageOther\PageOtherTest.xaml">
+    <Page Include="Pages\PageInstance\PageInstanceSaveDetail.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Pages\PageInstance\PageInstanceSaveMap.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Pages\PageInstance\PageInstanceResourcePack.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Pages\PageInstance\PageInstanceShaderPack.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  <Page Include="Pages\PageInstance\PageInstanceExport.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  <Page Include="Pages\PageOther\PageMusicSetup.xaml">
+    <Generator>MSBuild:Compile</Generator>
+    <SubType>Designer</SubType>
+  </Page>
+  <Page Include="Pages\PageOther\PageOtherTest.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -633,6 +731,26 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Pages\PageSetup\PageSetupSystem.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Pages\PageSetup\PageSetupDst.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Pages\PageGroup\PageGroupLeft.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Pages\PageGroup\PageGroupInfo.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Pages\PageGroup\PageGroupStar.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Pages\PageGroup\PageGroupReport.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

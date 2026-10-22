@@ -1,0 +1,139 @@
+<Grid x:Class="PageInstanceSaveMap"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:PCL" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <!-- 地图区铺满整页，配置卡和工具都浮在上面 -->
+    <Grid x:Name="MapRoot" Margin="25,15,25,15" ClipToBounds="True"
+          Background="{DynamicResource ColorBackgroundBrush3}">
+
+        <Canvas x:Name="PanCanvas" Background="Transparent" ClipToBounds="True" />
+
+        <!-- 空状态提示 -->
+        <TextBlock x:Name="LabEmpty" Text="点下面的按钮渲染这个世界的地图。"
+                   FontSize="12" Opacity="0.4" HorizontalAlignment="Center"
+                   VerticalAlignment="Center" />
+
+        <!-- 右键框选时的虚线框 -->
+        <Canvas x:Name="PanSelect" IsHitTestVisible="False" Visibility="Collapsed">
+            <Rectangle x:Name="RectSelect" Stroke="#FF4A9EFF" StrokeThickness="1.5"
+                       StrokeDashArray="3 2" Fill="#33096DCE" />
+        </Canvas>
+
+        <!-- 左上角悬浮工具组：渲染完成后才出现 -->
+        <StackPanel x:Name="PanTools" Orientation="Horizontal" HorizontalAlignment="Left"
+                    VerticalAlignment="Top" Margin="14,14,0,0" Visibility="Collapsed">
+            <local:MyIconButton x:Name="BtnZoomIn" Width="32" Height="32" LogoScale="0.8" ToolTip="放大"
+                                Logo="M1024 512 A512 512 0 1 1 0 512 A512 512 0 1 1 1024 512 Z M512 168 A344 344 0 1 0 512 856 A344 344 0 1 0 512 168 Z M256 256 H768 V768 H256 Z M456 456 V256 H568 V456 H768 V568 H568 V768 H456 V568 H256 V456 Z" />
+            <local:MyIconButton x:Name="BtnZoomOut" Width="32" Height="32" LogoScale="0.8" Margin="6,0,0,0"
+                                ToolTip="缩小"
+                                Logo="M1024 512 A512 512 0 1 1 0 512 A512 512 0 1 1 1024 512 Z M512 168 A344 344 0 1 0 512 856 A344 344 0 1 0 512 168 Z M256 456 H768 V568 H256 Z" />
+            <local:MyIconButton x:Name="BtnResetView" Width="32" Height="32" LogoScale="0.8" Margin="6,0,0,0"
+                                ToolTip="重置视图（瞄准）"
+                                Logo="M512 96 A416 416 0 1 1 512 928 A416 416 0 1 1 512 96 Z M512 176 A336 336 0 1 0 512 848 A336 336 0 1 0 512 176 Z M512 400 A112 112 0 1 1 512 624 A112 112 0 1 1 512 400 Z M496 40 H528 V208 H496 Z M496 816 H528 V984 H496 Z M40 496 H208 V528 H40 Z M816 496 H984 V528 H816 Z" />
+            <local:MyIconButton x:Name="BtnExport" Width="32" Height="32" LogoScale="0.8" Margin="6,0,0,0"
+                                ToolTip="保存渲染图"
+                                Logo="M819.392 0L1024 202.752v652.16a168.96 168.96 0 0 1-168.832 168.768h-104.192a47.296 47.296 0 0 1-10.752 0H283.776a47.232 47.232 0 0 1-10.752 0H168.832A168.96 168.96 0 0 1 0 854.912V168.768A168.96 168.96 0 0 1 168.832 0h650.56z m110.208 854.912V242.112l-149.12-147.776H168.896c-41.088 0-74.432 33.408-74.432 74.432v686.144c0 41.024 33.344 74.432 74.432 74.432h62.4v-190.528c0-33.408 27.136-60.544 60.544-60.544h440.448c33.408 0 60.544 27.136 60.544 60.544v190.528h62.4c41.088 0 74.432-33.408 74.432-74.432z m-604.032 74.432h372.864v-156.736H325.568v156.736z m403.52-596.48a47.168 47.168 0 1 1 0 94.336H287.872a47.168 47.168 0 1 1 0-94.336h441.216z m0-153.728a47.168 47.168 0 1 1 0 94.4H287.872a47.168 47.168 0 1 1 0-94.4h441.216z" />
+        </StackPanel>
+
+        <!-- 右下角悬浮的刷新按钮：点开重新配置 -->
+        <local:MyIconButton x:Name="BtnReopen" Width="44" Height="44" LogoScale="0.75"
+                            HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,16,16"
+                            Visibility="Collapsed" ToolTip="重新配置并渲染"
+                            Logo="M512 96 A416 416 0 1 1 500 928 A416 416 0 0 1 512 96 Z M512 176 A336 336 0 1 0 512 848 A336 336 0 1 0 512 176 Z M760 216 L864 320 L680 504 L576 400 Z" />
+
+        <!-- 顶部中间的进度条（只在渲染时出现） -->
+        <StackPanel x:Name="PanProgress" HorizontalAlignment="Center" VerticalAlignment="Top"
+                    Margin="0,18,0,0" Width="360" Visibility="Collapsed">
+            <TextBlock x:Name="LabStatus" Text="" FontSize="11.5" Opacity="0.7"
+                       HorizontalAlignment="Center" Margin="0,0,0,6" />
+            <Grid Height="3">
+                <Border CornerRadius="2" Background="#33FFFFFF" />
+                <Border x:Name="BarFill" CornerRadius="2" HorizontalAlignment="Left" Width="0"
+                        Background="{DynamicResource ColorBrush2}" />
+            </Grid>
+        </StackPanel>
+
+        <!-- 配置卡片：初始居中显示，渲染时淡出 -->
+        <Border x:Name="CardSetup" Width="460" CornerRadius="8" Padding="0"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Background="#D91E2228"
+                BorderBrush="#40FFFFFF" BorderThickness="1">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="24" ShadowDepth="0" Opacity="0.5" Color="#000000" />
+            </Border.Effect>
+            <StackPanel Margin="26,22,26,22">
+                <TextBlock Text="渲染世界地图" FontSize="16" FontWeight="Bold" Margin="0,0,0,4" />
+                <TextBlock Text="选好维度和范围，读取存档里的区块数据画出俯视图。"
+                           FontSize="11.5" Opacity="0.5" TextWrapping="Wrap" Margin="0,0,0,18" />
+
+                <TextBlock Text="玩家" FontSize="12" Opacity="0.75" Margin="0,0,0,6" />
+                <local:MyComboBox x:Name="CmbPlayer" Height="30" Margin="0,0,0,14" />
+
+                <TextBlock Text="维度" FontSize="12" Opacity="0.75" Margin="0,0,0,6" />
+                <local:MyComboBox x:Name="CmbDimension" Height="30" Margin="0,0,0,14"
+                                  ToolTip="整合包可以有很多维度，这里列出所有存在区域文件的" />
+
+                <TextBlock Text="中心坐标" FontSize="12" Opacity="0.75" Margin="0,0,0,6" />
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                    <TextBlock Text="X" FontSize="11.5" VerticalAlignment="Center" Opacity="0.5" Margin="0,0,6,0" />
+                    <local:MyTextBox x:Name="BoxCenterX" Width="118" Height="28" Text="0" />
+                    <TextBlock Text="Z" FontSize="11.5" VerticalAlignment="Center" Opacity="0.5" Margin="14,0,6,0" />
+                    <local:MyTextBox x:Name="BoxCenterZ" Width="118" Height="28" Text="0" />
+                </StackPanel>
+
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="渲染范围" FontSize="12" Opacity="0.75" VerticalAlignment="Center" />
+                    <TextBlock x:Name="LabRadius" Grid.Column="1" Text="17 × 17 区块" FontSize="11.5"
+                               Opacity="0.5" VerticalAlignment="Center" />
+                </Grid>
+                <local:MySlider x:Name="SldRadius" Height="28" Margin="0,0,0,18" />
+
+                <local:MyButton x:Name="BtnStart" Text="开始渲染" Height="38" HorizontalAlignment="Stretch" />
+            </StackPanel>
+        </Border>
+
+        <!-- 右上角：鼠标指向的方块信息 + 点选后的改色区 -->
+        <Border x:Name="PanPick" HorizontalAlignment="Right" VerticalAlignment="Top"
+                Margin="0,14,14,0" Padding="10,8" CornerRadius="6"
+                Background="#E6121418" Visibility="Collapsed" MinWidth="200"
+                MouseEnter="PanPick_MouseEnter">
+            <StackPanel>
+                <TextBlock x:Name="LabPickCoord" Text="" FontSize="11.5" FontWeight="Bold" Foreground="#FFEDEDED" />
+                <TextBlock x:Name="LabPickBlock" Text="" FontSize="11" Foreground="#FF9DB4C8" Margin="0,3,0,0" />
+                <TextBlock x:Name="LabPickChunk" Text="" FontSize="10.5" Foreground="#FF7A8894" Margin="0,2,0,0" />
+
+                <!-- 选中方块后才显示：当前颜色 + 调色板 -->
+                <StackPanel x:Name="PanPickEdit" Margin="0,8,0,0" Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal">
+                        <Border x:Name="SwatchPick" Width="22" Height="22" CornerRadius="4"
+                                VerticalAlignment="Center" BorderBrush="#40FFFFFF" BorderThickness="1" />
+                        <TextBlock x:Name="LabPickHex" Text="" FontSize="11" Foreground="#FF9DB4C8"
+                                   VerticalAlignment="Center" Margin="8,0,0,0" />
+                        <local:MyIconButton x:Name="BtnPickReset" Width="22" Height="22" LogoScale="0.7"
+                                            Margin="8,0,0,0" ToolTip="恢复默认颜色"
+                                            Logo="M512 96 A416 416 0 1 1 500 928 A416 416 0 0 1 512 96 Z M512 176 A336 336 0 1 0 512 848 A336 336 0 1 0 512 176 Z M760 216 L864 320 L680 504 L576 400 Z" />
+                        <!-- 永久关闭调色板，下次进这个页面再恢复 -->
+                        <local:MyIconButton x:Name="BtnPaletteClose" Width="22" Height="22" LogoScale="0.6"
+                                            Margin="4,0,0,0" ToolTip="关闭调色板（再次进入此页面时恢复）"
+                                            Logo="M256 128 L512 384 L768 128 896 256 640 512 896 768 768 896 512 640 256 896 128 768 384 512 128 256 Z" />
+                    </StackPanel>
+                    <WrapPanel x:Name="PanPalette" Width="230" Margin="0,8,0,0" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- 左下角信息 -->
+        <TextBlock x:Name="LabInfo" Text="" FontSize="10.5" Opacity="0.4"
+                   HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="14,0,0,12" />
+        <TextBlock x:Name="LabHint" Text="滚轮缩放 · 左键拖动 · 右键框选补渲染"
+                   FontSize="10.5" Opacity="0.3" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                   Margin="0,0,70,12" />
+    </Grid>
+</Grid>

@@ -153,13 +153,13 @@
                         </Rectangle>
                         <Rectangle Grid.Row="1" StrokeThickness="0" Grid.Column="1" Fill="{DynamicResource ColorBrush3}" Opacity="0.5" x:Name="RectRamGame" />
                         <Rectangle x:Name="RectRamEmpty" Grid.Row="1" StrokeThickness="0" Grid.Column="2" Fill="{DynamicResource ColorBrush6}" Opacity="0.7" />
-                        <TextBlock x:Name="LabRamUsedTitle" Text="已使用内存" Grid.ColumnSpan="3" Opacity="0.7" TextTrimming="None" Margin="2,0,0,5" FontSize="11" HorizontalAlignment="Left" />
-                        <TextBlock x:Name="LabRamGameTitle" Text="游戏分配" Opacity="0.7" Grid.ColumnSpan="3" TextTrimming="None" Margin="2,0,0,5" FontSize="11" HorizontalAlignment="Left" />
+                        <TextBlock x:Name="LabRamUsedTitle" Text="已使用内存" Grid.ColumnSpan="3" Opacity="0.85" Foreground="{DynamicResource ColorBrushGray3}" TextTrimming="None" Margin="2,0,0,5" FontSize="11" HorizontalAlignment="Left" />
+                        <TextBlock x:Name="LabRamGameTitle" Text="游戏分配" Opacity="0.85" Foreground="{DynamicResource ColorBrushGray3}" Grid.ColumnSpan="3" TextTrimming="None" Margin="2,0,0,5" FontSize="11" HorizontalAlignment="Left" />
                         <StackPanel Grid.Row="2" Orientation="Horizontal" Grid.ColumnSpan="3" Margin="2,3,0,0" HorizontalAlignment="Left">
-                            <TextBlock x:Name="LabRamUsed" Text="4.7 GB" FontSize="16" Foreground="Black" TextTrimming="None" />
-                            <TextBlock x:Name="LabRamTotal" Text=" / 7.9 GB" FontSize="16" Foreground="Black" TextTrimming="None" />
+                            <TextBlock x:Name="LabRamUsed" Text="4.7 GB" FontSize="16" Foreground="{DynamicResource ColorBrush1}" TextTrimming="None" />
+                            <TextBlock x:Name="LabRamTotal" Text=" / 7.9 GB" FontSize="16" Foreground="{DynamicResource ColorBrushGray3}" TextTrimming="None" />
                         </StackPanel>
-                        <TextBlock Grid.Row="2" x:Name="LabRamGame" Text="2.5 GB" Grid.ColumnSpan="3" TextTrimming="None" Margin="2,3,0,0" FontSize="16" Foreground="Black" HorizontalAlignment="Left" />
+                        <TextBlock Grid.Row="2" x:Name="LabRamGame" Text="2.5 GB" Grid.ColumnSpan="3" TextTrimming="None" Margin="2,3,0,0" FontSize="16" Foreground="{DynamicResource ColorBrush1}" HorizontalAlignment="Left" />
                     </Grid>
                 </StackPanel>
             </local:MyCard>

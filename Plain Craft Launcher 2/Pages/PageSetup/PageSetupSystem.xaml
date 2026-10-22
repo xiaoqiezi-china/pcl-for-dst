@@ -46,6 +46,35 @@
                     </Grid>
                 </StackPanel>
             </local:MyCard>
+            <local:MyCard Margin="0,0,0,15" Title="账号与 API" CanSwap="True">
+                <StackPanel Margin="25,37,25,12">
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,10" Opacity="0.7" LineHeight="18"
+                               Text="正版登录与 CurseForge 社区资源都需要凭据。留空即使用启动器内置的默认值；内置值不存在时，需要在这里自行填写。" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
+                            <ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="28" />
+                            <RowDefinition Height="7" />
+                            <RowDefinition Height="28" />
+                            <RowDefinition Height="7" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Left" Text="微软 ClientId" Margin="0,0,25,0" />
+                        <local:MyTextBox x:Name="TextMsClientId" Grid.Row="0" Grid.Column="1"
+                                         local:SettingService.Key="DstOAuthClientId" HintText="留空则使用内置默认值"
+                                         ToolTip="用于正版（微软）登录的 Azure 应用客户端 ID。&#xa;使用设备代码流，不需要 client secret，注册时勾选「允许公共客户端流」。" />
+                        <TextBlock Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Left" Text="CurseForge Key" Margin="0,0,25,0" />
+                        <local:MyTextBox x:Name="TextCurseForgeKey" Grid.Row="2" Grid.Column="1"
+                                         local:SettingService.Key="DstCurseForgeKey" HintText="留空则使用内置默认值"
+                                         ToolTip="搜索 / 下载 CurseForge 上的 Mod 与整合包时需要的 API Key。&#xa;可在 CurseForge 开发者后台免费申请。" />
+                        <TextBlock Grid.Row="4" Grid.ColumnSpan="2" TextWrapping="Wrap" Margin="0,6,0,0" FontSize="11" Opacity="0.55"
+                                   x:Name="LabSecretStatus" />
+                    </Grid>
+                </StackPanel>
+            </local:MyCard>
             <local:MyCard Margin="0,0,0,15" Title="社区资源">
                 <StackPanel Margin="25,37,25,12">
                     <Grid>

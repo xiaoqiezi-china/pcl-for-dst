@@ -33,6 +33,18 @@ Public Class MyMsgSelect
                     CType(Selection, MyRadioBox).MinHeight = 24
                 End If
             Next
+            '调用方可能已经预选了某一项，这里同步按钮状态与选中下标
+            For i = 0 To PanSelection.Children.Count - 1
+                Dim Child = PanSelection.Children(i)
+                Dim IsChecked As Boolean = False
+                If TypeOf Child Is MyRadioBox Then IsChecked = CType(Child, MyRadioBox).Checked
+                If TypeOf Child Is MyListItem Then IsChecked = CType(Child, MyListItem).Checked
+                If IsChecked Then
+                    SelectedIndex = i
+                    Btn1.IsEnabled = True
+                    Exit For
+                End If
+            Next
 
         Catch ex As Exception
             Logger.Error(ex, "选择弹窗初始化失败", LogBehavior.Toast)

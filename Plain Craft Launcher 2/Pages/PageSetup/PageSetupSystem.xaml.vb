@@ -5,6 +5,7 @@ Public Class PageSetupSystem
 
         '重复加载部分
         PanBack.ScrollToHome()
+        RefreshSecretStatus()
 
         If BuildType = BuildTypes.Release Then
             PanDonate.Visibility = Visibility.Collapsed
@@ -23,10 +24,30 @@ Public Class PageSetupSystem
         SliderLoad()
         AniControlEnabled -= 1
 
+        '凭据改了要立刻反馈当前状态
+        AddHandler TextMsClientId.TextChanged, Sub() RefreshSecretStatus()
+        AddHandler TextCurseForgeKey.TextChanged, Sub() RefreshSecretStatus()
+
     End Sub
+
+    ''' <summary>把两个凭据的当前来源写在输入框下面，一眼能看出还用不用得了。</summary>
+    Private Sub RefreshSecretStatus()
+        If LabSecretStatus Is Nothing Then Return
+        LabSecretStatus.Text = SecretStateText(TextMsClientId, BuiltinOAuthClientId, "正版登录") & " · " &
+                               SecretStateText(TextCurseForgeKey, BuiltinCurseForgeKey, "社区资源搜索")
+    End Sub
+
+    ''' <summary>单个凭据的状态描述。</summary>
+    Private Function SecretStateText(Box As MyTextBox, Builtin As String, Usage As String) As String
+        Dim Name As String = If(Box Is TextMsClientId, "微软 ClientId", "CurseForge Key")
+        If Box IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(Box.Text) Then Return Name & "：已填写"
+        If Not String.IsNullOrWhiteSpace(Builtin) Then Return Name & "：使用内置默认值"
+        Return Name & "：未配置，" & Usage & "不可用"
+    End Function
     Public Sub Reload()
         SettingService.RefreshSettings(Me)
     End Sub
+
     Public Sub Reset()
         Try
             SettingService.ResetSettings(Me)

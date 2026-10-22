@@ -64,7 +64,7 @@ Public Class PageOtherLeft
             Case FormMain.PageSubType.OtherAbout
                 If FrmOtherAbout Is Nothing Then FrmOtherAbout = New PageOtherAbout
                 Return FrmOtherAbout
-            Case FormMain.PageSubType.OtherTest
+        Case FormMain.PageSubType.OtherTest
                 If FrmOtherTest Is Nothing Then FrmOtherTest = New PageOtherTest
                 Return FrmOtherTest
             Case Else

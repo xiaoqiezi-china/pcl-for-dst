@@ -1,21 +1,91 @@
 '由于包含加解密等安全信息，本文件中的部分代码已被删除
-
 Friend Module ModSecret
 
     '标注 PCL 的不同分支，仅用于替换标记
-    Public Const VersionBranchMain As String = "OpenSource"
+    Public Const VersionBranchMain As String = "DST"
     '在开源版的注册表与常规版的注册表隔离，以防数据冲突
-    Public Const RegFolder As String = "PCLDebug"
-    '用于微软登录的 ClientId
-    Public OAuthClientId As String = If(Environment.GetEnvironmentVariable("PCL_MS_CLIENT_ID"), "")
-    'CurseForge API Key
-    Public CurseForgeAPIKey As String = If(Environment.GetEnvironmentVariable("PCL_CURSEFORGE_API_KEY"), "")
+    Public Const RegFolder As String = "DSTLauncher"
+#Region "账号与 API 凭据"
+
+    '凭据分两层：
+    '  1. 编译期内置值（Builtin*）：闭源版来自 ModSecret.Local.vb，开源版为空，也可用环境变量给；
+    '  2. 用户在「设置 → 其他 → 账号与 API」里填写的值：存在 PCL\Setup.ini，填了就以它为准。
+    '这样同一套代码既能做内置凭据的闭源版，也能做让用户自备凭据的开源版。
+
+#If DST_LOCAL Then
+    '闭源版：凭据来自 ModSecret.Local.vb（该文件不进仓库）
+    Public Const BuiltinOAuthClientId As String = ModSecretLocal.ClientId
+    Public Const BuiltinCurseForgeKey As String = ModSecretLocal.CurseForgeKey
+#Else
+    '开源版：默认不带任何凭据，可由使用者在环境变量或设置里提供
+    Public ReadOnly BuiltinOAuthClientId As String = If(Environment.GetEnvironmentVariable("PCL_MS_CLIENT_ID"), "")
+    Public ReadOnly BuiltinCurseForgeKey As String = If(Environment.GetEnvironmentVariable("PCL_CURSEFORGE_API_KEY"), "")
+#End If
+
+    ''' <summary>设置里填写的 ClientId；空串表示「用内置默认值」。</summary>
+    Friend Function MsClientIdUserValue() As String
+        Return If(Settings.Get(Of String)("DstOAuthClientId"), "").Trim()
+    End Function
+
+    ''' <summary>
+    ''' 实际使用的微软登录 ClientId：用户填了就用用户的，没填就用内置的，都没有返回空串。
+    ''' 空串时不应发起正版登录，调用方需引导用户去设置里填写。
+    ''' </summary>
+    Public Function MsClientIdResolve() As String
+        Dim User As String = MsClientIdUserValue()
+        If User <> "" Then Return User
+        Return If(BuiltinOAuthClientId, "").Trim()
+    End Function
+
+    ''' <summary>设置里填写的 CurseForge Key；空串表示「用内置默认值」。</summary>
+    Friend Function CurseForgeKeyUserValue() As String
+        Return If(Settings.Get(Of String)("DstCurseForgeKey"), "").Trim()
+    End Function
+
+    ''' <summary>
+    ''' 实际使用的 CurseForge API Key：用户填了就用用户的，没填就用内置的，都没有返回空串。
+    ''' 空串时搜索社区资源会失败，调用方需引导用户去设置里填写。
+    ''' </summary>
+    Public Function CurseForgeKeyResolve() As String
+        Dim User As String = CurseForgeKeyUserValue()
+        If User <> "" Then Return User
+        Return If(BuiltinCurseForgeKey, "").Trim()
+    End Function
+
+    ''' <summary>当前是否已经具备可用的 CurseForge Key。</summary>
+    Public ReadOnly Property HasCurseForgeKey As Boolean
+        Get
+            Return CurseForgeKeyResolve() <> ""
+        End Get
+    End Property
+
+    ''' <summary>当前是否已经具备可用的微软登录 ClientId。</summary>
+    Public ReadOnly Property HasMsClientId As Boolean
+        Get
+            Return MsClientIdResolve() <> ""
+        End Get
+    End Property
+
+#End Region
     '用于匿名数据收集的腾讯云日志服务上报 URL，形如 https://{region}.cls.tencentcs.com/track?topic_id={topic_id}
     Public Const ClsBaseUrl As String = ""
 
+#Region "机器人预设服务"
+
+    '预设服务地址与令牌。本地开发取 ModSecret.Local.vb，发布版留空由使用者自行配置
+#If DST_LOCAL Then
+    Public Const DstBotPresetApi As String = ModSecretLocal.PresetApi
+    Public Const DstBotPresetToken As String = ModSecretLocal.PresetToken
+#Else
+    Public Const DstBotPresetApi As String = ""
+    Public Const DstBotPresetToken As String = ""
+#End If
+
+#End Region
+
 #Region "网络鉴权"
 
-    Public Const RestrictMcDownload As Boolean = True
+    Public Const RestrictMcDownload As Boolean = False
     Friend Function SecretCdnSign(UrlWithMark As String) As String
         If Not UrlWithMark.EndsWithF("{CDN}") Then Return UrlWithMark
         Return UrlWithMark.Replace("{CDN}", "").Replace(" ", "%20")
@@ -34,7 +104,7 @@ Friend Module ModSecret
             End If
         End If
         If Not SimulateBrowserHeaders Then Req.Headers.Add("Referer", $"http://{VersionCode}.open.pcl2.server/")
-        If Url.Contains("api.curseforge.com") OrElse Url.Contains("forgecdn.net") Then Req.Headers.Add("x-api-key", CurseForgeAPIKey)
+        If Url.Contains("api.curseforge.com") OrElse Url.Contains("forgecdn.net") Then Req.Headers.Add("x-api-key", CurseForgeKeyResolve())
     End Sub
 
 #End Region
@@ -61,25 +131,117 @@ Friend Module ModSecret
     Public ColorGray8 As New MyColor(245, 245, 245)
     Public ColorSemiTransparent As New MyColor(1, Color8)
 
+    '代码里动态创建控件用的语义色（深浅色模式各一套）
+    Public BackColorMain As New MyColor(38, 49, 63)
+    Public BackColorSub As New MyColor(30, 40, 54)
+    Public TextColorMain As New MyColor(232, 238, 247)
+    Public TextColorSub As New MyColor(147, 161, 181)
+    Public TitleTextColor As New MyColor(255, 255, 255)
+    '聊天气泡用色
+    Public BubbleOtherBack As New MyColor(31, 41, 56)
+    Public BubbleOtherText As New MyColor(232, 238, 247)
+    Public BubbleMineBack As New MyColor(37, 99, 235)
+    Public BubbleMineText As New MyColor(255, 255, 255)
+    Public BubbleMetaText As New MyColor(190, 205, 225)
+
     Public ThemeNow As Integer = -1
+    ''' <summary>当前是否处于深色模式。界面里需要按深浅取色时用它。</summary>
+    Public ReadOnly Property DstDarkMode As Boolean
+        Get
+            Return Settings.Get(Of Boolean)("DstDarkMode")
+        End Get
+    End Property
     Public ColorHue As Integer = 210, ColorSat As Integer = 85, ColorLightAdjust As Integer = 0, ColorHueTopbarDelta As OneOf(Of Integer, Integer()) = 0
     Public ThemeDontClick As Integer = 0
 
     Public Sub ThemeRefresh(Optional NewTheme As Integer = -1)
         Try
-            If ThemeNow = NewTheme AndAlso NewTheme >= 0 Then Return
-            If NewTheme >= 0 Then ThemeNow = NewTheme
+            If NewTheme < 0 Then NewTheme = Settings.Get(Of Integer)("UiLauncherTheme")
+            '滑稽彩每 50ms 由主时钟重新调用，需要每次都重算随机色，不做短接
+            If ThemeNow = NewTheme AndAlso NewTheme >= 0 AndAlso ThemeDontClick <> 2 Then Return
+            If NewTheme >= 0 Then
+                ThemeNow = NewTheme
+                ThemeApplyPalette(NewTheme)
+            End If
 
-            Color1 = New MyColor().FromHSL2(ColorHue, ColorSat * 0.2, 25 + ColorLightAdjust * 0.3)
-            Color2 = New MyColor().FromHSL2(ColorHue, ColorSat, 45 + ColorLightAdjust)
-            Color3 = New MyColor().FromHSL2(ColorHue, ColorSat, 55 + ColorLightAdjust)
-            Color4 = New MyColor().FromHSL2(ColorHue, ColorSat, 65 + ColorLightAdjust)
-            Color5 = New MyColor().FromHSL2(ColorHue, ColorSat, 80 + ColorLightAdjust * 0.4)
-            Color6 = New MyColor().FromHSL2(ColorHue, ColorSat, 91 + ColorLightAdjust * 0.1)
-            Color7 = New MyColor().FromHSL2(ColorHue, ColorSat, 95)
-            Color8 = New MyColor().FromHSL2(ColorHue, ColorSat, 97)
-            ColorBg0 = Color4 * 0.4 + Color5 * 0.4 + ColorGray4 * 0.2
-            ColorBg1 = New MyColor(190, Color7)
+            '深浅两套配色：1 = 主文字，2~4 = 强调色，5~8 = 由浅到深的面
+            Dim Shift As Double = ColorLightAdjust * 0.4
+            Dim Dark As Boolean = Settings.Get(Of Boolean)("DstDarkMode")
+            If Dark Then
+                Color1 = New MyColor().FromHSL(ColorHue, 20, 90)
+                Color2 = New MyColor().FromHSL(ColorHue, 78, 66 + Shift)
+                Color3 = New MyColor().FromHSL(ColorHue, 85, 60 + Shift)
+                Color4 = New MyColor().FromHSL(ColorHue, 80, 74 + Shift)
+                Color5 = New MyColor().FromHSL(ColorHue, 18, 32 + Shift)
+                Color6 = New MyColor().FromHSL(ColorHue, 20, 24 + Shift)
+                Color7 = New MyColor().FromHSL(ColorHue, 22, 19 + Shift)
+                Color8 = New MyColor().FromHSL(ColorHue, 24, 14 + Shift)
+                ColorBg0 = New MyColor().FromHSL(ColorHue, 18, 30)
+                ColorBg1 = New MyColor(190, Color8)
+
+                '卡片、弹窗、输入框用的深色面，跟着主题色相走
+                Application.Current.Resources("ColorBrushCard") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 22, 21))
+                Application.Current.Resources("ColorBrushCardHover") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 22, 27))
+                Application.Current.Resources("ColorBrushBackgroundTransparentSidebar") = New SolidColorBrush(New MyColor(240, Color8))
+                Application.Current.Resources("ColorBrushGray1") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 16, 92))
+                Application.Current.Resources("ColorBrushGray2") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 14, 76))
+                Application.Current.Resources("ColorBrushGray3") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 12, 62))
+                Application.Current.Resources("ColorBrushGray4") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 12, 48))
+                Application.Current.Resources("ColorBrushGray5") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 12, 34))
+                Application.Current.Resources("ColorBrushGray6") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 14, 26))
+                Application.Current.Resources("ColorBrushGray7") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 20, 22))
+                Application.Current.Resources("ColorBrushGray8") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 22, 16))
+                Application.Current.Resources("ColorBrushTitleIcon") = New SolidColorBrush(Color.FromRgb(255, 255, 255))
+                Application.Current.Resources("ColorBrushHalfWhite") = New SolidColorBrush(Color.FromArgb(26, 255, 255, 255))
+                BackColorMain = New MyColor().FromHSL(ColorHue, 18, 24)
+                BackColorSub = New MyColor().FromHSL(ColorHue, 16, 18)
+                TextColorMain = Color1
+                TextColorSub = New MyColor().FromHSL(ColorHue, 12, 62)
+                TitleTextColor = New MyColor(255, 255, 255)
+                BubbleOtherBack = New MyColor().FromHSL(ColorHue, 14, 22)
+                BubbleOtherText = Color1
+                BubbleMineBack = New MyColor().FromHSL(ColorHue, 85, 58)
+                BubbleMineText = New MyColor(255, 255, 255)
+                BubbleMetaText = New MyColor().FromHSL(ColorHue, 14, 74)
+            Else
+                '浅色：面由浅到深，文字反而要压深
+                Color1 = New MyColor().FromHSL(ColorHue, 28, 20 - Shift * 0.25)
+                Color2 = New MyColor().FromHSL(ColorHue, 80, 42 + Shift * 0.3)
+                Color3 = New MyColor().FromHSL(ColorHue, 85, 50 + Shift * 0.3)
+                Color4 = New MyColor().FromHSL(ColorHue, 78, 60 + Shift * 0.3)
+                Color5 = New MyColor().FromHSL(ColorHue, 20, 94)
+                Color6 = New MyColor().FromHSL(ColorHue, 18, 88)
+                Color7 = New MyColor().FromHSL(ColorHue, 16, 81)
+                Color8 = New MyColor().FromHSL(ColorHue, 14, 73)
+                ColorBg0 = New MyColor().FromHSL(ColorHue, 12, 97)
+                ColorBg1 = New MyColor(200, Color8)
+
+                Application.Current.Resources("ColorBrushCard") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 10, 99))
+                Application.Current.Resources("ColorBrushCardHover") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 16, 96))
+                Application.Current.Resources("ColorBrushBackgroundTransparentSidebar") = New SolidColorBrush(New MyColor(235, Color5))
+                Application.Current.Resources("ColorBrushGray1") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 28, 20))
+                Application.Current.Resources("ColorBrushGray2") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 18, 34))
+                Application.Current.Resources("ColorBrushGray3") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 14, 48))
+                Application.Current.Resources("ColorBrushGray4") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 12, 60))
+                Application.Current.Resources("ColorBrushGray5") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 12, 72))
+                Application.Current.Resources("ColorBrushGray6") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 12, 84))
+                Application.Current.Resources("ColorBrushGray7") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 12, 92))
+                Application.Current.Resources("ColorBrushGray8") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 10, 97))
+                Application.Current.Resources("ColorBrushTitleIcon") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 30, 24))
+                Application.Current.Resources("ColorBrushHalfWhite") = New SolidColorBrush(Color.FromArgb(26, 0, 0, 0))
+                BackColorMain = New MyColor().FromHSL(ColorHue, 16, 96)
+                BackColorSub = New MyColor().FromHSL(ColorHue, 14, 92)
+                TextColorMain = Color1
+                TextColorSub = New MyColor().FromHSL(ColorHue, 14, 48)
+                TitleTextColor = New MyColor(255, 255, 255)
+                BubbleOtherBack = New MyColor().FromHSL(ColorHue, 18, 95)
+                BubbleOtherText = Color1
+                BubbleMineBack = New MyColor().FromHSL(ColorHue, 80, 52)
+                BubbleMineText = New MyColor(255, 255, 255)
+                BubbleMetaText = New MyColor().FromHSL(ColorHue, 14, 46)
+            End If
+            Application.Current.Resources("ColorObjectGray7") = CType(Application.Current.Resources("ColorBrushGray7"), SolidColorBrush).Color
+            Application.Current.Resources("ColorObjectGray8") = CType(Application.Current.Resources("ColorBrushGray8"), SolidColorBrush).Color
 
             ColorSemiTransparent = New MyColor(1, Color8)
             Application.Current.Resources("ColorBrush1") = New SolidColorBrush(Color1)
@@ -114,29 +276,133 @@ Friend Module ModSecret
             '顶部条背景
             Dim Brush = New LinearGradientBrush With {.EndPoint = New Point(1, 0), .StartPoint = New Point(0, 0)}
             Dim Deltas = ColorHueTopbarDelta.Switch(Function(d) New Integer() {-d, 0, d}, Function(d) d)
-            Brush.GradientStops.Add(New GradientStop With {.Offset = 0, .Color = New MyColor().FromHSL2(ColorHue + Deltas(0), ColorSat, 48 + ColorLightAdjust)})
-            Brush.GradientStops.Add(New GradientStop With {.Offset = 0.5, .Color = New MyColor().FromHSL2(ColorHue + Deltas(1), ColorSat, 54 + ColorLightAdjust)})
-            Brush.GradientStops.Add(New GradientStop With {.Offset = 1, .Color = New MyColor().FromHSL2(ColorHue + Deltas(2), ColorSat, 48 + ColorLightAdjust)})
+            Dim IsDarkMode As Boolean = Settings.Get(Of Boolean)("DstDarkMode")
+            '顶栏始终深色：里面的导航按钮、图标都按白字设计
+            Dim TitleLight As Integer = If(IsDarkMode, 20, 26)
+            Dim TitleSat As Double = ColorSat * 0.5
+            Brush.GradientStops.Add(New GradientStop With {.Offset = 0, .Color = New MyColor().FromHSL(ColorHue + Deltas(0), TitleSat, TitleLight + ColorLightAdjust)})
+            Brush.GradientStops.Add(New GradientStop With {.Offset = 0.5, .Color = New MyColor().FromHSL(ColorHue + Deltas(1), TitleSat, TitleLight + 6 + ColorLightAdjust)})
+            Brush.GradientStops.Add(New GradientStop With {.Offset = 1, .Color = New MyColor().FromHSL(ColorHue + Deltas(2), TitleSat, TitleLight + ColorLightAdjust)})
             FrmMain.PanTitle.Background = Brush
             FrmMain.PanTitle.Background.Freeze()
             '主页面背景
             If Settings.Get(Of Boolean)("UiBackgroundColorful") Then
                 Brush = New LinearGradientBrush With {.EndPoint = New Point(0.1, 1), .StartPoint = New Point(0.9, 0)}
-                Brush.GradientStops.Add(New GradientStop With {.Offset = -0.1, .Color = New MyColor().FromHSL2(ColorHue - 15, ColorSat * 0.8, 91)})
-                Brush.GradientStops.Add(New GradientStop With {.Offset = 0.4, .Color = New MyColor().FromHSL2(ColorHue, ColorSat * 0.8, 91)})
-                Brush.GradientStops.Add(New GradientStop With {.Offset = 1.1, .Color = New MyColor().FromHSL2(ColorHue + 15, ColorSat * 0.8, 91)})
+                If IsDarkMode Then
+                    Brush.GradientStops.Add(New GradientStop With {.Offset = -0.1, .Color = New MyColor().FromHSL(ColorHue - 12, 22, 13)})
+                    Brush.GradientStops.Add(New GradientStop With {.Offset = 0.4, .Color = New MyColor().FromHSL(ColorHue, 22, 16)})
+                    Brush.GradientStops.Add(New GradientStop With {.Offset = 1.1, .Color = New MyColor().FromHSL(ColorHue + 12, 22, 13)})
+                Else
+                    Brush.GradientStops.Add(New GradientStop With {.Offset = -0.1, .Color = New MyColor().FromHSL(ColorHue - 12, 24, 93)})
+                    Brush.GradientStops.Add(New GradientStop With {.Offset = 0.4, .Color = New MyColor().FromHSL(ColorHue, 20, 96)})
+                    Brush.GradientStops.Add(New GradientStop With {.Offset = 1.1, .Color = New MyColor().FromHSL(ColorHue + 12, 24, 93)})
+                End If
                 FrmMain.PanForm.Background = Brush
             Else
-                FrmMain.PanForm.Background = New MyColor(245, 245, 245)
+                If IsDarkMode Then
+                    '深色：内容区直接用最深层
+                    FrmMain.PanForm.Background = New MyColor().FromHSL(ColorHue, 24, 12)
+                Else
+                    FrmMain.PanForm.Background = New MyColor().FromHSL(ColorHue, 14, 95)
+                End If
             End If
             FrmMain.PanForm.Background.Freeze()
         End Sub)
     End Sub
-    Friend Sub ThemeCheckAll(EffectSetup As Boolean)
+    ''' <summary>
+    ''' 定制版：主题 ID → 调色参数。开源版里这段映射原本被删掉了，这里补回。
+    ''' </summary>
+    Private Sub ThemeApplyPalette(Id As Integer)
+        ThemeDontClick = 0
+        ColorHueTopbarDelta = 0
+        ColorLightAdjust = 0
+        Select Case Id
+            Case 0 '帝释天蓝黑（默认）
+                ColorHue = 216 : ColorSat = 82 : ColorLightAdjust = -10 : ColorHueTopbarDelta = 10
+            Case 1 '甜柠青
+                ColorHue = 168 : ColorSat = 78
+            Case 2 '小草绿
+                ColorHue = 128 : ColorSat = 62
+            Case 3 '菠萝黄
+                ColorHue = 45 : ColorSat = 88
+            Case 4 '橡木棕
+                ColorHue = 28 : ColorSat = 52
+            Case 5 '玄素黑
+                ColorHue = 220 : ColorSat = 0 : ColorLightAdjust = -16
+            Case 6 '铁杆粉
+                ColorHue = 339 : ColorSat = 82
+            Case 7 '神秘紫
+                ColorHue = 268 : ColorSat = 76
+            Case 8 '秋仪金
+                ColorHue = 41 : ColorSat = 62 : ColorLightAdjust = -6 : ColorHueTopbarDelta = 12
+            Case 9 '活跃橙
+                ColorHue = 22 : ColorSat = 92
+            Case 10 '跳票红
+                ColorHue = 358 : ColorSat = 84
+            Case 11 '极客蓝
+                ColorHue = 197 : ColorSat = 96 : ColorLightAdjust = -8
+            Case 12 '滑稽彩，由主时钟 50ms 反复刷新
+                ColorHue = RandomInteger(0, 359) : ColorSat = RandomInteger(70, 100)
+                ThemeDontClick = 2
+            Case 13 '欧皇彩
+                ColorHue = RandomInteger(0, 359) : ColorSat = RandomInteger(55, 100)
+            Case 14 '自定义
+                If FrmSetupUI IsNot Nothing Then
+                    ColorHue = CInt(FrmSetupUI.SliderLauncherHue.Value)
+                    ColorSat = CInt(FrmSetupUI.SliderLauncherSat.Value)
+                    ColorHueTopbarDelta = CInt(FrmSetupUI.SliderLauncherDelta.Value)
+                    ColorLightAdjust = CInt(FrmSetupUI.SliderLauncherLight.Value)
+                End If
+            Case Else
+                ColorHue = 210 : ColorSat = 85
+        End Select
     End Sub
+    ''' <summary>
+    ''' 统一刷新主题的可用状态与当前配色。
+    ''' EffectSetup 表示是否需要同步刷新设置页的外观（启动流程里为 False，避免过早访问设置页控件）。
+    ''' 定制版：所有主题一律开放，因此这里只负责把控件状态与配色对齐。
+    ''' </summary>
+    Friend Sub ThemeCheckAll(EffectSetup As Boolean)
+        ApplyThemeAvailability()
+        If EffectSetup AndAlso FrmSetupUI IsNot Nothing Then
+            ThemeApplyPalette(Settings.Get(Of Integer)("UiLauncherTheme"))
+        End If
+    End Sub
+
+    ''' <summary>各主题选项在 XAML 里定义的原始文字，用于还原被改写的显示名。</summary>
+    Private ReadOnly _ThemeBaseText As New Dictionary(Of String, String)(StringComparer.Ordinal)
+
+    ''' <summary>把所有主题选项标为可用，并把被改写的显示文字还原成 XAML 里定义的名字。</summary>
+    Private Sub ApplyThemeAvailability()
+        If FrmSetupUI Is Nothing OrElse FrmSetupUI.PanLauncherTheme Is Nothing Then Return
+        For Each Control In FrmSetupUI.PanLauncherTheme.Children
+            Dim Radio = TryCast(Control, MyRadioBox)
+            If Radio Is Nothing Then Continue For
+            Radio.IsEnabled = True
+            Dim Key As String = If(Radio.Name, "")
+            If Key = "" Then Continue For
+            Dim BaseText As String = Nothing
+            If _ThemeBaseText.TryGetValue(Key, BaseText) Then
+                '已经记录过原文，直接还原（别处可能把文字改成了“真·滑稽彩”之类）
+                If Radio.Text <> BaseText Then Radio.Text = BaseText
+            Else
+                _ThemeBaseText(Key) = Radio.Text
+            End If
+        Next
+    End Sub
+
+    ''' <summary>主题是否可用。定制版全部开放，但仍然走这套判断，方便以后按需收紧。</summary>
     Friend Function ThemeCheckOne(Id As Integer) As Boolean
-        Return True
+        '0~14 都是合法主题编号，其余视为无效
+        Return Id >= 0 AndAlso Id <= 14
     End Function
+
+    ''' <summary>
+    ''' 尝试解锁主题。
+    ''' 返回值表示“本次是否发生了新解锁”，调用方据此弹一次庆祝提示（如启动 99 次解锁铁杆粉、正版登录解锁跳票红）。
+    ''' 定制版所有主题默认可用，因此不存在“新解锁”这回事，恒返回 False；
+    ''' 保留完整签名是为了让上述调用点的代码与上游保持一致，不必改动它们。
+    ''' </summary>
     Friend Function ThemeUnlock(Id As Integer, Optional ShowDoubleHint As Boolean = True, Optional UnlockHint As String = Nothing) As Boolean
         Return False
     End Function
@@ -146,13 +412,138 @@ Friend Module ModSecret
 #Region "更新"
 
     Friend Sub UpdateCheckByButton()
-        Hint("该版本中不包含更新功能……")
+        DstUpdate.CheckLauncherUpdateByButton()
     End Sub
 
     Friend IsUpdateWaitingRestart As Boolean = False
     Public Sub UpdateRestart(TriggerRestartAndByEnd As Boolean)
     End Sub
+    ''' <summary>
+    ''' 由新版本进程带着 --update 调用：等旧进程退出后替换主程序，必要时拉起新版本。
+    ''' NewFileName 可以是单个 exe（单程序更新），也可以是同目录下带依赖的整包。
+    ''' </summary>
     Public Sub UpdateReplace(ProcessId As Integer, OldFileName As String, NewFileName As String, TriggerRestart As Boolean)
+        Dim Bak As String = OldFileName & ".old"
+        Try
+            '1. 等旧进程退出
+            Dim Old As Process = Nothing
+            Try
+                Old = Process.GetProcessById(ProcessId)
+            Catch ex As Exception
+            End Try
+            If Old IsNot Nothing Then
+                Try
+                    Old.WaitForExit(60000)
+                Catch ex As Exception
+                End Try
+            End If
+            Thread.Sleep(300)
+
+            Dim TargetDir As String = PathUtils.RemoveLastPart(OldFileName)
+            Dim SourceDir As String = PathUtils.RemoveLastPart(NewFileName)
+            Logger.Info($"开始替换启动器：{NewFileName} → {OldFileName}")
+
+            '替换前确认两个路径都合法：目标必须是 exe，源文件必须存在且不是自己
+            If Not OldFileName.EndsWithF(".exe", ignoreCase:=True) OrElse Not NewFileName.EndsWithF(".exe", ignoreCase:=True) Then
+                Throw New Exception($"更新文件名不合法，已中止：{OldFileName} / {NewFileName}")
+            End If
+            If Not FileUtils.Exists(NewFileName) Then Throw New Exception($"新版本文件不存在，已中止：{NewFileName}")
+            If String.Equals(IO.Path.GetFullPath(NewFileName), IO.Path.GetFullPath(OldFileName), StringComparison.OrdinalIgnoreCase) Then
+                Throw New Exception("新旧文件是同一个文件，已中止替换")
+            End If
+
+            '2. 旧 exe 先改名让位，否则文件占用写不进去
+            Try
+                If FileUtils.Exists(Bak) Then FileUtils.Delete(Bak)
+            Catch ex As Exception
+            End Try
+            If FileUtils.Exists(OldFileName) Then IO.File.Move(OldFileName, Bak)
+
+            '3. 先拷到同目录的临时文件，校验通过后再整体替换，避免写到一半留下残缺的主程序
+            Dim Staging As String = OldFileName & ".new"
+            Try
+                If FileUtils.Exists(Staging) Then FileUtils.Delete(Staging)
+                IO.File.Copy(NewFileName, Staging, True)
+                If New IO.FileInfo(Staging).Length <> New IO.FileInfo(NewFileName).Length Then
+                    Throw New Exception("新文件拷贝不完整")
+                End If
+                IO.File.Move(Staging, OldFileName)
+            Catch ex As Exception
+                '临时文件失败时清掉，保持目标目录干净
+                Try
+                    If FileUtils.Exists(Staging) Then FileUtils.Delete(Staging)
+                Catch ex2 As Exception
+                End Try
+                Throw
+            End Try
+            Logger.Info("主程序已替换")
+
+            '配置文件跟着改名：.NET 只认 <exe名>.config，名字对不上就不会生效
+            Dim SrcConfig As String = NewFileName & ".config"
+            If FileUtils.Exists(SrcConfig) Then
+                Try
+                    IO.File.Copy(SrcConfig, OldFileName & ".config", True)
+                    Logger.Info("配置文件已同步")
+                Catch ex As Exception
+                    Logger.Warn(ex, "同步配置文件失败")
+                End Try
+            End If
+
+            '4. 新版本目录里若还带了别的依赖文件，一并覆盖（跳过用户数据与新主程序自身）
+            Dim SkipDirs As String() = {"PCL", ".minecraft", "PCLData"}
+            Dim Count As Integer = 0
+            For Each FilePath In DirectoryUtils.EnumerateFiles(SourceDir, True)
+                If String.Equals(FilePath, NewFileName, StringComparison.OrdinalIgnoreCase) Then Continue For
+                Dim Rel As String = FilePath.Substring(SourceDir.Length).TrimStart("\"c, "/"c)
+                Dim Top As String = Rel.Split("\"c, "/"c)(0)
+                If SkipDirs.Contains(Top, StringComparer.OrdinalIgnoreCase) Then Continue For
+                Dim Dest As String = IO.Path.Combine(TargetDir, Rel)
+                Try
+                    DirectoryUtils.Create(PathUtils.RemoveLastPart(Dest))
+                    IO.File.Copy(FilePath, Dest, True)
+                    Count += 1
+                Catch ex As Exception
+                    Logger.Warn(ex, $"覆盖文件失败：{Rel}")
+                End Try
+            Next
+            If Count > 0 Then Logger.Info($"附带覆盖了 {Count} 个依赖文件")
+
+            '5. 启动新版本、清理备份
+            Try
+                FileUtils.Delete(Bak)
+            Catch ex As Exception
+            End Try
+            '只有替换确实成功后才会走到这里，此时才拉起新版本
+            If TriggerRestart Then StartLauncherProcess(OldFileName)
+        Catch ex As Exception
+            Logger.Error(ex, "替换启动器文件失败")
+            '失败时把旧文件还回去，别把程序弄坏
+            Dim Restored As Boolean = False
+            Try
+                If FileUtils.Exists(Bak) Then
+                    If FileUtils.Exists(OldFileName) Then FileUtils.Delete(OldFileName)
+                    IO.File.Move(Bak, OldFileName)
+                End If
+                Restored = FileUtils.Exists(OldFileName)
+            Catch ex2 As Exception
+                Logger.Error(ex2, "回滚启动器文件失败")
+            End Try
+            '只有确认旧文件已经回来才重新启动，否则宁可不启动也不要拉起一个残缺的程序
+            If TriggerRestart AndAlso Restored Then StartLauncherProcess(OldFileName)
+        End Try
+    End Sub
+    ''' <summary>启动指定的启动器进程；失败只记日志，不再向外抛。</summary>
+    Private Sub StartLauncherProcess(ExePath As String)
+        Try
+            '走 PCL 的统一入口，顺带处理长路径
+            Dim P As Process = StartProcess(New ProcessStartInfo With {
+                .FileName = ExePath,
+                .WorkingDirectory = PathUtils.RemoveLastPart(ExePath),
+                .UseShellExecute = True})
+            P?.Dispose()
+        Catch ex As Exception
+            Logger.Warn(ex, $"拉起启动器失败：{ExePath}")
+        End Try
     End Sub
 
     ''' <summary>

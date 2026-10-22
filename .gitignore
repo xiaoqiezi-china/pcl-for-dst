@@ -342,3 +342,16 @@ ASALocalRun/
 healthchecksdb
 
 MaskFiles/
+
+# ===== DST 定制版 =====
+# 本地凭据文件：含 OAuth ClientId / CurseForge Key / 机器人预设令牌，
+# 一旦提交就是把可用的密钥公开出去了，务必不要纳入版本控制。
+ModSecret.Local.vb
+
+# 工具链产生的临时锁文件
+.dsh-ops-update-*.lock
+
+
+# ===== 本地发布包与运行数据（含识别码、本机路径，不进仓库）=====
+最新正式版/
+最新正式版.zip

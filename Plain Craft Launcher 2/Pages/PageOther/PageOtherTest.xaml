@@ -6,7 +6,186 @@
     xmlns:local="clr-namespace:PCL"
     xmlns:sys="clr-namespace:System;assembly=mscorlib"
     PanScroll="PanBack">
+    <local:MyPageRight.Resources>
+        <!-- 进度/跳转条：细圆角轨道 + 圆形滑块 -->
+        <Style x:Key="SeekSlider" TargetType="Slider">
+            <!-- 允许点轨道直接跳过去，不加这个只能拖滑块 -->
+            <Setter Property="IsMoveToPointEnabled" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid Height="18" Background="Transparent">
+                            <Border Height="6" CornerRadius="3" VerticalAlignment="Center"
+                                    Background="{DynamicResource ColorBrushGray4}" Opacity="0.4" />
+                            <Track x:Name="PART_Track">
+                                <Track.DecreaseRepeatButton>
+                                    <!-- 已播放的一段：用强调色铺出来 -->
+                                    <RepeatButton Command="Slider.DecreaseLarge" Focusable="False">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Height="6" CornerRadius="3" VerticalAlignment="Center"
+                                                        Background="{DynamicResource ColorBrush3}" />
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="Slider.IncreaseLarge" Opacity="0" Focusable="False" />
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Width="16" Height="16">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border CornerRadius="8" Background="{DynamicResource ColorBrush3}" />
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- 竖向音量条，跟进度条同一套外观 -->
+        <Style x:Key="VolumeSlider" TargetType="Slider">
+            <Setter Property="Orientation" Value="Vertical" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid Width="18" Height="110" Background="Transparent">
+                            <Border Width="6" CornerRadius="3" HorizontalAlignment="Center"
+                                    Background="{DynamicResource ColorBrushGray4}" Opacity="0.4" />
+                            <Track x:Name="PART_Track" Orientation="Vertical">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="Slider.DecreaseLarge" Focusable="False">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Width="6" CornerRadius="3" HorizontalAlignment="Center"
+                                                        Background="{DynamicResource ColorBrush3}" />
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="Slider.IncreaseLarge" Opacity="0" Focusable="False" />
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Width="16" Height="16">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border CornerRadius="8" Background="{DynamicResource ColorBrush3}" />
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>    </local:MyPageRight.Resources>
+
     <local:MyScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" x:Name="PanBack">
-        <TextBlock Text="为便于维护，开源内容中不包含百宝箱功能……" HorizontalAlignment="Center" FontSize="15" Height="30" VerticalAlignment="Center" />
+        <StackPanel Margin="25,0,25,0">
+
+            <local:MyCard Margin="0,15,0,15" Title="音乐播放器">
+                <Grid Margin="25,34,25,16" Height="290">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="1*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- 顶部：音符 + 曲名 + 上一首/播放/下一首 + 设置 -->
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="1*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <Path x:Name="PathMusicNote" Grid.Column="0" Width="26" Height="26" Stretch="Uniform"
+                              VerticalAlignment="Center" Fill="{DynamicResource ColorBrush3}" />
+
+                        <TextBlock x:Name="LabTrack" Grid.Column="1" Text="未在播放" FontSize="18" FontWeight="Bold"
+                                   VerticalAlignment="Center" Margin="14,0,14,0" TextTrimming="CharacterEllipsis" />
+
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border x:Name="BtnPrev" Width="30" Height="30" CornerRadius="15" Background="Transparent"
+                                    Cursor="Hand" ToolTip="上一首">
+                                <Path x:Name="PathPrev" Width="13" Height="13" Stretch="Uniform"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      Fill="{DynamicResource ColorBrush3}" />
+                            </Border>
+                            <Border x:Name="BtnPlay" Width="34" Height="34" CornerRadius="17" Margin="12,0"
+                                    Background="{DynamicResource ColorBrush3}" Cursor="Hand" ToolTip="播放">
+                                <Path x:Name="PathPlay" Width="13" Height="13" Stretch="Uniform"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      Fill="{DynamicResource ColorBrush1}" />
+                            </Border>
+                            <Border x:Name="BtnNext" Width="30" Height="30" CornerRadius="15" Background="Transparent"
+                                    Cursor="Hand" ToolTip="下一首">
+                                <Path x:Name="PathNext" Width="13" Height="13" Stretch="Uniform"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      Fill="{DynamicResource ColorBrush3}" />
+                            </Border>
+                        </StackPanel>
+
+                        <Border x:Name="BtnVolume" Grid.Column="3" Width="30" Height="30" CornerRadius="15"
+                                Background="Transparent" Cursor="Hand" ToolTip="音量"
+                                Margin="14,0,0,0" VerticalAlignment="Top">
+                            <Grid Width="16" Height="16">
+                                <Path Fill="{DynamicResource ColorBrush3}" Stretch="Uniform"
+                                      Data="M2,8 L6,8 L11,3 L11,17 L6,12 L2,12 Z" />
+                                <Path Stroke="{DynamicResource ColorBrush3}" StrokeThickness="1.6"
+                                      Stretch="Uniform" Margin="10,4,0,4"
+                                      Data="M1,3 A5,5 0 0 1 1,11" />
+                            </Grid>
+                        </Border>
+                        <local:MyIconButton x:Name="BtnMusicSetup" Grid.Column="4" Width="28" Height="28"
+                                            LogoScale="0.85" ToolTip="播放器设置" Margin="8,0,0,0"
+                                            VerticalAlignment="Top" />
+                        <Popup x:Name="PopupVolume" PlacementTarget="{Binding ElementName=BtnVolume}"
+                               Placement="Top" StaysOpen="False" AllowsTransparency="True"
+                               HorizontalOffset="0" VerticalOffset="6">
+                            <Border CornerRadius="8" Padding="10,12" Background="{DynamicResource ColorBrush7}"
+                                    BorderThickness="1" BorderBrush="{DynamicResource ColorBrush6}">
+                                <StackPanel>
+                                    <Slider x:Name="SliderVolume" Style="{StaticResource VolumeSlider}"
+                                            Minimum="0" Maximum="100" Value="50" />
+                                    <TextBlock x:Name="LabVolume" Text="50%" FontSize="11" Opacity="0.6"
+                                               HorizontalAlignment="Center" Margin="0,6,0,0" />
+                                </StackPanel>
+                            </Border>
+                        </Popup>
+                    </Grid>
+
+                    <!-- 进度：可拖动跳转 -->
+                    <Grid Grid.Row="1" Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Slider x:Name="SliderSeek" Style="{StaticResource SeekSlider}"
+                                Minimum="0" Maximum="1000" VerticalAlignment="Center" />
+                        <TextBlock x:Name="LabTime" Grid.Column="1" Text="0:00 / 0:00" FontSize="11"
+                                   Opacity="0.5" VerticalAlignment="Center" Margin="12,0,0,0" />
+                    </Grid>
+
+                    <!-- 列表 -->
+                    <Border Grid.Row="2" Margin="0,14,0,0" CornerRadius="6" Padding="6"
+                            BorderThickness="1" BorderBrush="{DynamicResource ColorBrush6}"
+                            Background="{DynamicResource ColorBrush7}">
+                        <local:MyScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel x:Name="PanMusicList" />
+                        </local:MyScrollViewer>
+                    </Border>
+                </Grid>
+            </local:MyCard>
+
+        </StackPanel>
     </local:MyScrollViewer>
 </local:MyPageRight>

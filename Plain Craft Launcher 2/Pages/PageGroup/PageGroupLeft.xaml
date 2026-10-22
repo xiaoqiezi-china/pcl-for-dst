@@ -1,0 +1,16 @@
+<local:MyPageLeft
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:PCL" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="d" x:Class="PageGroupLeft"
+             d:DesignWidth="152" AnimatedControl="PanItem">
+    <StackPanel Margin="0,12,0,0" x:Name="PanItem">
+        <local:MyListItem x:Name="ItemStar" IsScaleAnimationEnabled="False" Checked="True" Tag="2" MinPaddingRight="35" Height="36" VerticalAlignment="Top" Title="收藏夹" Type="RadioBox"
+            LogoScale="0.78" Logo="F1 M 12,2 L 14.94,8.06 L 21.6,9.03 L 16.8,13.72 L 17.93,20.34 L 12,17.22 L 6.07,20.34 L 7.2,13.72 L 2.4,9.03 L 9.06,8.06 Z" />
+        <local:MyListItem x:Name="ItemInfo" IsScaleAnimationEnabled="False" Tag="0" MinPaddingRight="35" Height="36" VerticalAlignment="Top" Title="查看消息" Type="RadioBox"
+            LogoScale="0.8" Logo="M512 64C264.6 64 64 229.6 64 434c0 108 48.4 205 126 271l-36 143c-4 16 12 30 27 22l164-88c52 13 106 20 163 20 247.4 0 448-165.6 448-370S759.4 64 512 64z" />
+        <local:MyListItem x:Name="ItemReport" IsScaleAnimationEnabled="False" Tag="1" MinPaddingRight="35" Height="36" VerticalAlignment="Top" Title="查看公告" Type="RadioBox"
+            LogoScale="0.78" Logo="M112 96h800a48 48 0 0 1 48 48v560a48 48 0 0 1-48 48H112a48 48 0 0 1-48-48V144a48 48 0 0 1 48-48zm80 176v64h640v-64H192zm0 160v64h640v-64H192zm0 160v64h420v-64H192z" />
+
+    </StackPanel>
+</local:MyPageLeft>

@@ -1,0 +1,62 @@
+<local:MyPageRight x:Class="PageInstanceSaveDetail"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:PCL" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d" PanScroll="PanBack">
+    <Grid Margin="25,0,25,0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="1*" />
+        </Grid.RowDefinitions>
+
+        <!-- 头顶信息只在「世界设置」里显示 -->
+        <local:MyCard x:Name="CardHeader" Margin="0,15,0,15" Title="存档详情">
+            <StackPanel Margin="25,40,25,20">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <local:MyButton x:Name="BtnBack" Text="返回列表" MinWidth="100" Height="32" />
+                    <TextBlock x:Name="LabName" Text="存档" FontSize="15" FontWeight="Bold"
+                               VerticalAlignment="Center" Margin="12,0,0,0" MaxWidth="420"
+                               TextTrimming="CharacterEllipsis" />
+                    <local:MyIconButton x:Name="BtnRename" Width="26" Height="26" Margin="8,0,0,0"
+                                        VerticalAlignment="Center" LogoScale="0.8" ToolTip="重命名世界"
+                                        Logo="M732.64 64.32C688.576 21.216 613.696 21.216 569.6 64.32L120.128 499.52c-17.6 12.896-26.432 30.144-30.848 51.68L32 870.048c0 25.856 8.8 56 26.432 73.248 17.632 17.216 17.632 48.704 88.64 48.704h13.248l326.08-56c22.016-4.32 39.68-12.928 52.864-30.176l449.472-435.2c22.048-21.536 35.264-47.36 35.264-77.536 0-30.176-13.216-56-35.264-77.568l-256.096-251.2zM139.712 903.776l56-326.912 311.04-295.136 267.104 269.44-310.976 295.168-323.168 57.44zM844.576 467.84l-273.984-260.672 61.856-59.84c8.832-8.512 26.528-8.512 39.776 0l234.24 226.496c4.384 4.288 8.832 12.8 8.832 17.088s-4.416 8.544-8.864 12.8l-61.856 64.128z" />
+                </StackPanel>
+                <TextBlock x:Name="LabPath" Text="" FontSize="11" Opacity="0.5" Margin="0,10,0,0"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock x:Name="LabLevelName" Text="" FontSize="11" Opacity="0.5" Margin="0,4,0,0"
+                           TextTrimming="CharacterEllipsis" />
+                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                    <local:MyButton x:Name="BtnOpen" Text="打开存档文件夹" MinWidth="150" Height="32" />
+                    <local:MyButton x:Name="BtnRefresh" Text="刷新" MinWidth="100" Height="32" Margin="10,0,0,0" />
+                </StackPanel>
+            </StackPanel>
+        </local:MyCard>
+
+        <Grid Grid.Row="1">
+            <local:MyScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                  x:Name="PanBack">
+                <StackPanel Margin="0,0,0,15">
+                    <local:MyCard x:Name="CardLevel" Margin="0,0,0,15" Title="世界设置（level.dat）">
+                        <StackPanel Margin="25,40,25,20" x:Name="PanLevel" />
+                    </local:MyCard>
+
+                    <local:MyCard x:Name="CardPack" Margin="0,0,0,15" Title="数据包（datapacks）">
+                        <StackPanel Margin="25,40,25,20" x:Name="PanPack" />
+                    </local:MyCard>
+
+                    <local:MyCard x:Name="CardRegion" Margin="0,0,0,15" Title="区域文件（region）">
+                        <StackPanel Margin="25,40,25,20" x:Name="PanRegion" />
+                    </local:MyCard>
+
+                    <local:MyCard x:Name="CardPlayer" Margin="0,0,0,15" Title="玩家数据（playerdata）">
+                        <StackPanel Margin="25,40,25,20" x:Name="PanPlayer" />
+                    </local:MyCard>
+                </StackPanel>
+            </local:MyScrollViewer>
+
+            <!-- 地图管理是独立的一整页，和上面的滚动区同级，切过去时把页面塞进来 -->
+            <Grid x:Name="PanMap" Margin="0,15,0,15" Visibility="Collapsed" />
+        </Grid>
+    </Grid>
+</local:MyPageRight>

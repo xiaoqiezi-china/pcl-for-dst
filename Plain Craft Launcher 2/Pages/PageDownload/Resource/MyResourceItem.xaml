@@ -32,6 +32,14 @@
         <TextBlock x:Name="LabTitle" TextTrimming="WordEllipsis" FontSize="14" Foreground="{DynamicResource ColorBrush1}" />
         <TextBlock x:Name="LabTitleRaw" TextTrimming="WordEllipsis" FontSize="12" Foreground="{StaticResource ColorBrushGray1}" Opacity="0.4" VerticalAlignment="Bottom" Visibility="Collapsed" />
     </StackPanel>
+    <!-- 收藏星：点一下收藏/取消，变黄并弹一下 -->
+    <Border x:Name="PanStar" Grid.Row="1" Grid.Column="4" HorizontalAlignment="Right" VerticalAlignment="Top"
+            Background="Transparent" Padding="3,2,1,2" Margin="0,-3,6,0" Cursor="Hand" ToolTip="收藏"
+            IsHitTestVisible="True">
+        <Path x:Name="PathStar" Stretch="Uniform" Width="13" Height="13" MaxWidth="13" MaxHeight="13"
+              Fill="{StaticResource ColorBrushGray4}" RenderTransformOrigin="0.5,0.5"
+              Data="F1 M 12,2 L 14.94,8.06 L 21.6,9.03 L 16.8,13.72 L 17.93,20.34 L 12,17.22 L 6.07,20.34 L 7.2,13.72 L 2.4,9.03 L 9.06,8.06 Z" />
+    </Border>
     <!-- Tag 与 详情 -->
     <StackPanel x:Name="PanTags" Grid.Row="2" Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Bottom" Margin="-1,0,1,0" Visibility="Collapsed">
         <!--<Border Background="{DynamicResource ColorBrush6}" Padding="3,1" CornerRadius="3" Margin="0,0,4,0" SnapsToDevicePixels="True" UseLayoutRounding="False">

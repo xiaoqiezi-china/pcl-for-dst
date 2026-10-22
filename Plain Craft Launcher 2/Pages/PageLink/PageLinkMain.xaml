@@ -164,7 +164,7 @@
                     <StackPanel Orientation="Horizontal" Margin="3,0">
                         <StackPanel x:Name="BtnFinishPing" Orientation="Horizontal" Background="{StaticResource ColorBrushSemiTransparent}"
                                     ToolTip="延迟" ToolTipService.InitialShowDelay="50">
-                            <Path IsHitTestVisible="False" Height="14" Width="14" Stretch="Uniform" Fill="#9C9C9C" Margin="13,0,8,0"
+                            <Path IsHitTestVisible="False" Height="14" Width="14" Stretch="Uniform" Fill="{DynamicResource ColorBrushGray3}" Margin="13,0,8,0"
                                 Data="M60.9 966.2A60.3 60.3 0 0 1 0.8 906.1v-90.1a60.3 60.3 0 0 1 60.1-60.1 60.3 60.3 0 0 1 60.1 60.1v90.1a60.2 60.2 0 0 1-60.1 60.1z m300.6 0a60.3 60.3 0 0 1-60.1-60.1V665.6a60.3 60.3 0 0 1 60.1-60.1 60.3 60.3 0 0 1 60.1 60.1v240.5a60.2 60.2 0 0 1-60.1 60.1z m300.6 0a60.3 60.3 0 0 1-60.1-60.1V425.1a60.3 60.3 0 0 1 60.1-60.1 60.3 60.3 0 0 1 60.1 60.1v481.0a60.3 60.3 0 0 1-60.1 60.1z m300.6 0a60.3 60.3 0 0 1-60.1-60.1V124.5a60.3 60.3 0 0 1 60.1-60.1 60.3 60.3 0 0 1 60.1 60.1v781.6a60.3 60.3 0 0 1-60.1 60.1z" />
                             <TextBlock x:Name="LabFinishPing" IsHitTestVisible="False" Text="15 ms" VerticalAlignment="Center" Foreground="{StaticResource ColorBrushGray1}" Margin="0,0.5,13,0" />
                         </StackPanel>

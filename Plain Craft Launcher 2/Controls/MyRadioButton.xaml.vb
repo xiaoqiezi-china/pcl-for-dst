@@ -178,22 +178,22 @@ Public Class MyRadioButton
                                          AaColor(ShapeLogo, Shapes.Path.FillProperty, "ColorBrush3", AnimationTimeOfCheck),
                                          AaColor(LabText, TextBlock.ForegroundProperty, "ColorBrush3", AnimationTimeOfCheck)
                                     }, "MyRadioButton Checked " & Uuid)
-                            AniStart(AaColor(Me, BackgroundProperty, New MyColor(255, 255, 255) - Background, AnimationTimeOfCheck), "MyRadioButton Color " & Uuid)
+                            AniStart(AaColor(Me, BackgroundProperty, TitleTextColor - Background, AnimationTimeOfCheck), "MyRadioButton Color " & Uuid)
                         ElseIf IsMouseDown Then
                             '按下
                             AniStart(AaColor(Me, BackgroundProperty, New MyColor(120, Color8) - Background, 60), "MyRadioButton Color " & Uuid)
                         ElseIf IsMouseOver Then
                             '指向
                             AniStart({
-                                 AaColor(ShapeLogo, Shapes.Path.FillProperty, New MyColor(255, 255, 255) - ShapeLogo.Fill, AnimationTimeOfMouseIn),
-                                 AaColor(LabText, TextBlock.ForegroundProperty, New MyColor(255, 255, 255) - LabText.Foreground, AnimationTimeOfMouseIn)
+                                 AaColor(ShapeLogo, Shapes.Path.FillProperty, TitleTextColor - ShapeLogo.Fill, AnimationTimeOfMouseIn),
+                                 AaColor(LabText, TextBlock.ForegroundProperty, TitleTextColor - LabText.Foreground, AnimationTimeOfMouseIn)
                             }, "MyRadioButton Checked " & Uuid)
                             AniStart(AaColor(Me, BackgroundProperty, New MyColor(50, Color8) - Background, AnimationTimeOfMouseIn), "MyRadioButton Color " & Uuid)
                         Else
                             '正常
                             AniStart({
-                                 AaColor(ShapeLogo, Shapes.Path.FillProperty, New MyColor(255, 255, 255) - ShapeLogo.Fill, AnimationTimeOfMouseOut),
-                                 AaColor(LabText, TextBlock.ForegroundProperty, New MyColor(255, 255, 255) - LabText.Foreground, AnimationTimeOfMouseOut)
+                                 AaColor(ShapeLogo, Shapes.Path.FillProperty, TitleTextColor - ShapeLogo.Fill, AnimationTimeOfMouseOut),
+                                 AaColor(LabText, TextBlock.ForegroundProperty, TitleTextColor - LabText.Foreground, AnimationTimeOfMouseOut)
                             }, "MyRadioButton Checked " & Uuid)
                             AniStart(AaColor(Me, BackgroundProperty, ColorSemiTransparent - Background, AnimationTimeOfMouseOut), "MyRadioButton Color " & Uuid)
                         End If
@@ -201,8 +201,8 @@ Public Class MyRadioButton
                         If Checked Then
                             '勾选
                             AniStart({
-                                         AaColor(ShapeLogo, Shapes.Path.FillProperty, New MyColor(255, 255, 255) - ShapeLogo.Fill, AnimationTimeOfCheck),
-                                         AaColor(LabText, TextBlock.ForegroundProperty, New MyColor(255, 255, 255) - LabText.Foreground, AnimationTimeOfCheck)
+                                         AaColor(ShapeLogo, Shapes.Path.FillProperty, TitleTextColor - ShapeLogo.Fill, AnimationTimeOfCheck),
+                                         AaColor(LabText, TextBlock.ForegroundProperty, TitleTextColor - LabText.Foreground, AnimationTimeOfCheck)
                                     }, "MyRadioButton Checked " & Uuid)
                             AniStart(AaColor(Me, BackgroundProperty, "ColorBrush3", AnimationTimeOfCheck), "MyRadioButton Color " & Uuid)
                         ElseIf IsMouseDown Then
@@ -233,19 +233,19 @@ Public Class MyRadioButton
                 Select Case ColorType
                     Case ColorState.White
                         If Checked Then
-                            Background = New MyColor(255, 255, 255)
+                            Background = TitleTextColor
                             ShapeLogo.SetResourceReference(Shapes.Path.FillProperty, "ColorBrush3")
                             LabText.SetResourceReference(TextBlock.ForegroundProperty, "ColorBrush3")
                         Else
                             Background = ColorSemiTransparent
-                            ShapeLogo.Fill = New MyColor(255, 255, 255)
-                            LabText.Foreground = New MyColor(255, 255, 255)
+                            ShapeLogo.Fill = TitleTextColor
+                            LabText.Foreground = TitleTextColor
                         End If
                     Case ColorState.Highlight
                         If Checked Then
                             SetResourceReference(BackgroundProperty, "ColorBrush3")
-                            ShapeLogo.Fill = New MyColor(255, 255, 255)
-                            LabText.Foreground = New MyColor(255, 255, 255)
+                            ShapeLogo.Fill = TitleTextColor
+                            LabText.Foreground = TitleTextColor
                         Else
                             Background = ColorSemiTransparent
                             ShapeLogo.SetResourceReference(Shapes.Path.FillProperty, "ColorBrush3")
