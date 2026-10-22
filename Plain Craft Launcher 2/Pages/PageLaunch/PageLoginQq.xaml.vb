@@ -17,7 +17,7 @@ Public Class PageLoginQq
     Private Sub ShowEmpty()
         LabQqName.Text = "未绑定 QQ"
         LabQqHint.Text = "点击下方「绑定 QQ」开始"
-        PanQqAvatar.Background = New SolidColorBrush(New MyColor(42, 54, 70))
+        PanQqAvatar.Background = New SolidColorBrush(BackColorSub)
     End Sub
 
     Private Sub ShowInfo()

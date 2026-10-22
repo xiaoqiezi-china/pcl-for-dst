@@ -67,7 +67,7 @@ Public Class PageGroupReport
             .Margin = New Thickness(0, 0, 0, 8),
             .Padding = New Thickness(14, 10, 14, 12),
             .CornerRadius = New CornerRadius(6),
-            .Background = New SolidColorBrush(If(Index = 0, New MyColor(30, 42, 60), New MyColor(26, 34, 46)))
+            .Background = New SolidColorBrush(If(Index = 0, BackColorMain, BackColorSub))
         }
         Dim Stack As New StackPanel
         Dim Head As New TextBlock With {

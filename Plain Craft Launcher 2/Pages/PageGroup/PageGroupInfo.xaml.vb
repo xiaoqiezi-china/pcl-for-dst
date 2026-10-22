@@ -418,7 +418,7 @@ Public Class PageGroupInfo
                 Case "at"
                     Panel.Children.Add(New TextBlock With {
                         .Text = Seg.Text, .FontSize = 13, .Margin = New Thickness(0, 0, 3, 2),
-                        .Foreground = New SolidColorBrush(New MyColor(96, 165, 250))
+                        .Foreground = New SolidColorBrush(Color3)
                     })
                 Case "face"
                     Panel.Children.Add(New TextBlock With {.Text = "[表情]", .FontSize = 13, .Opacity = 0.75, .Margin = New Thickness(0, 0, 3, 2)})
@@ -502,8 +502,8 @@ Public Class PageGroupInfo
     Private Function BuildVideoBlock(FileName As String, Url As String, Optional ExpectedSize As Long = 0) As FrameworkElement
         Dim Shell As New Border With {
             .CornerRadius = New CornerRadius(6),
-            .Background = New SolidColorBrush(New MyColor(30, 26, 48)),
-            .BorderBrush = New SolidColorBrush(New MyColor(78, 66, 120)),
+            .Background = New SolidColorBrush(BackColorSub),
+            .BorderBrush = New SolidColorBrush(Color3),
             .BorderThickness = New Thickness(1),
             .Margin = New Thickness(0, 3, 3, 3),
             .Padding = New Thickness(10, 8, 12, 8),
@@ -514,7 +514,7 @@ Public Class PageGroupInfo
         Row.Children.Add(New TextBlock With {
             .Text = "▶", .FontSize = 18, .Margin = New Thickness(2, 0, 10, 0),
             .VerticalAlignment = VerticalAlignment.Center,
-            .Foreground = New SolidColorBrush(New MyColor(167, 139, 250))
+            .Foreground = New SolidColorBrush(Color3)
         })
         Dim Texts As New StackPanel With {.VerticalAlignment = VerticalAlignment.Center}
         Texts.Children.Add(New TextBlock With {
@@ -704,7 +704,7 @@ Public Class PageGroupInfo
         Dim Thumb As New Border With {
             .Width = 48, .Height = 48, .CornerRadius = New CornerRadius(6),
             .Margin = New Thickness(0, 0, 10, 0), .ClipToBounds = True,
-            .Background = New SolidColorBrush(New MyColor(37, 99, 235))
+            .Background = New SolidColorBrush(Color2)
         }
         If Preview <> "" Then
             Try

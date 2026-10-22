@@ -164,7 +164,7 @@ Public Class PageSetupDst
             .CornerRadius = New CornerRadius(6),
             .Cursor = Cursors.Hand,
             .Tag = Item.GroupId,
-            .Background = New SolidColorBrush(If(IsSelected, New MyColor(37, 99, 235), New MyColor(31, 40, 53)))
+            .Background = New SolidColorBrush(If(IsSelected, Color2, BackColorSub))
         }
         Dim G As New Grid
         G.ColumnDefinitions.Add(New ColumnDefinition With {.Width = New GridLength(1, GridUnitType.Star)})
@@ -177,7 +177,7 @@ Public Class PageSetupDst
         Dim Id As New TextBlock With {
             .Text = If(IsSelected, "使用中 · ", "") & Item.GroupId, .FontSize = 12,
             .VerticalAlignment = VerticalAlignment.Center,
-            .Foreground = New SolidColorBrush(If(IsSelected, New MyColor(220, 232, 255), New MyColor(150, 165, 190)))
+            .Foreground = New SolidColorBrush(If(IsSelected, New MyColor(220, 232, 255), TextColorSub))
         }
         Grid.SetColumn(Id, 1)
         G.Children.Add(Id)
