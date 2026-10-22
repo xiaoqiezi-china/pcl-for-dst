@@ -10,6 +10,7 @@ Public Class PageSetupUI
 
         AniControlEnabled += 1
         Refresh() '#4826
+        CheckOfflineMode.Checked = DstBot.IsOffline
         AniControlEnabled -= 1
 
         '非重复加载部分
@@ -491,6 +492,34 @@ Refresh:
             CheckHiddenOtherAbout.Checked = False
             CheckHiddenOtherTest.Checked = False
             CheckHiddenOtherHelp.Checked = False
+        End If
+    End Sub
+
+    '常规模式
+    ''' <summary>切换常规（离线）模式：写配置后立刻刷新主页、登录方式与「额外」页。</summary>
+    Private Sub CheckOfflineMode_Change(sender As Object, user As Boolean) Handles CheckOfflineMode.Change
+        If Not user Then Return
+        Settings.Set("DstOfflineMode", CheckOfflineMode.Checked)
+        If CheckOfflineMode.Checked Then
+            Hint("已切换到常规模式（离线）", HintType.Blue, False)
+            If FrmLaunchLeft IsNot Nothing Then FrmLaunchLeft.RefreshDependentViewsAfterModeChange()
+        Else
+            '取消离线：先探测一次，连不上就自动退回离线
+            RunInThread(
+            Sub()
+                Dim Ok As Boolean = DstBot.ProbeOnline()
+                RunInUi(
+                Sub()
+                    If Ok Then
+                        Hint("已回到在线模式", HintType.Green, False)
+                    Else
+                        Hint("远程服务不可用，继续保持常规模式", HintType.Red)
+                        CheckOfflineMode.Checked = True
+                        Settings.Set("DstOfflineMode", True)
+                    End If
+                    If FrmLaunchLeft IsNot Nothing Then FrmLaunchLeft.RefreshDependentViewsAfterModeChange()
+                End Sub)
+            End Sub)
         End If
     End Sub
 

@@ -230,32 +230,6 @@ Public Class PageSetupDst
             End If
         End Sub)
     End Sub
-    ''' <summary>切换常规（离线）模式：写配置后立刻刷新主页与 QQ 页。</summary>
-    Private Sub CheckOfflineMode_Change(sender As Object, user As Boolean) Handles CheckOfflineMode.Change
-        If Not user Then Return
-        Settings.Set("DstOfflineMode", CheckOfflineMode.Checked)
-        If CheckOfflineMode.Checked Then
-            Hint("已切换到常规模式（离线）", HintType.Blue, False)
-            If FrmLaunchLeft IsNot Nothing Then FrmLaunchLeft.RefreshDependentViewsAfterModeChange()
-        Else
-            '取消离线：先探测一次，连不上就自动退回离线
-            RunInThread(
-            Sub()
-                Dim Ok As Boolean = DstBot.ProbeOnline()
-                RunInUi(
-                Sub()
-                    If Ok Then
-                        Hint("已回到在线模式", HintType.Green, False)
-                    Else
-                        Hint("远程服务不可用，继续保持常规模式", HintType.Red)
-                        CheckOfflineMode.Checked = True
-                        Settings.Set("DstOfflineMode", True)
-                    End If
-                    If FrmLaunchLeft IsNot Nothing Then FrmLaunchLeft.RefreshDependentViewsAfterModeChange()
-                End Sub)
-            End Sub)
-        End If
-    End Sub
     Private Sub BtnDstGroupRefresh_Click(sender As Object, e As EventArgs) Handles BtnDstGroupRefresh.Click
         DstBot.FetchGroups(Force:=True, OnDone:=AddressOf RefreshGroupList)
     End Sub
@@ -263,7 +237,6 @@ Public Class PageSetupDst
 #End Region
 
     Private Sub RefreshState()
-        If CheckOfflineMode IsNot Nothing Then CheckOfflineMode.Checked = Settings.Get(Of Boolean)("DstOfflineMode")
         LabDstService.Text = DstBot.ServiceName
         LabDstGroup.Text = DstBot.GroupDisplay
         LabDstStatus.Text = DstBot.StatusText & If(DstBot.ErrLast = "", "", "（" & DstBot.ErrLast & "）")

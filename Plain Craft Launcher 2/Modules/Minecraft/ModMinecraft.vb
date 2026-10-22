@@ -1743,10 +1743,10 @@ OnLoaded:
         Dim ResultArray As New Dictionary(Of String, McLibEntry)
         Dim GetVersion =
         Function(Token As McLibEntry) As String
-            '测试例：
-            'D:\Minecraft\test\libraries\net\neoforged\mergetool\2.0.0\mergetool-2.0.0-api.jar
-            'D:\Minecraft\test\libraries\org\apache\commons\commons-collections4\4.2\commons-collections4-4.2.jar
-            'D:\Minecraft\test\libraries\com\google\guava\guava\31.1-jre\guava-31.1-jre.jar
+            '测试例（取版本号）：
+            'libraries\net\neoforged\mergetool\2.0.0\mergetool-2.0.0-api.jar        → 2.0.0
+            'libraries\org\apache\commons\commons-collections4\4.2\commons-collections4-4.2.jar → 4.2
+            'libraries\com\google\guava\guava\31.1-jre\guava-31.1-jre.jar          → 31.1-jre
             Return PathUtils.GetLastPart(PathUtils.RemoveLastPart(Token.LocalPath))
         End Function
         For i = 0 To BasicArray.Count - 1

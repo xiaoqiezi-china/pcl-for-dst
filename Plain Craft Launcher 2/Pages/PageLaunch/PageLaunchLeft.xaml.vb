@@ -757,6 +757,8 @@ Finish:
     ''' <summary>模式切换后把主页与 QQ 页一起刷新。</summary>
     Public Sub RefreshDependentViewsAfterModeChange()
         Try
+            '常规模式下没有远程服务，QQ 登录方式没有意义，直接藏掉
+            RadioLoginTypeQq.Visibility = If(DstBot.IsOffline, Visibility.Collapsed, Visibility.Visible)
             If FrmLaunchRight IsNot Nothing Then
                 FrmLaunchRight.ApplyOfflineUi()
                 FrmLaunchRight.ReloadForGroupChange()
