@@ -1,4 +1,4 @@
-<Application x:Class="Application"
+﻿<Application x:Class="Application"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:behaviors="clr-namespace:PCL.Controls.Behaviors"
@@ -19,16 +19,16 @@
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
 
             <!-- 颜色表（深色主题） -->
-            <SolidColorBrush x:Key="ColorBrush1">#E8EEF7</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush2">#2563EB</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush3">#3B82F6</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush4">#60A5FA</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush5">#2E3B4E</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush6">#26313F</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush7">#1E2836</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush8">#161E29</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushBg0">#2E3B4E</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushBg1">#B3161E29</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush1">#333D4A</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush2">#0B5BCB</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush3">#1370F3</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush4">#4890F5</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush5">#96C0F9</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush6">#D5E6FD</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush7">#DEECFD</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush8">#EAF2FE</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushBg0">#96C0F9</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushBg1">#BEDEECFD</SolidColorBrush>
             <Color x:Key="ColorObject1">#E8EEF7</Color>
             <Color x:Key="ColorObject2">#2563EB</Color>
             <Color x:Key="ColorObject3">#3B82F6</Color>
@@ -39,14 +39,14 @@
             <Color x:Key="ColorObject8">#161E29</Color>
             <Color x:Key="ColorObjectBg0">#2E3B4E</Color>
             <Color x:Key="ColorObjectBg1">#B3161E29</Color>
-            <SolidColorBrush x:Key="ColorBrushGray1">#E8EEF7</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray2">#B6C2D2</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray3">#93A1B5</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray4">#6E7C90</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray5">#47536A</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray6">#333D4C</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray7">#262E3A</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray8">#1B2230</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray1">#404040</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray2">#737373</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray3">#8C8C8C</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray4">#A6A6A6</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray5">#CCCCCC</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray6">#EBEBEB</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray7">#F0F0F0</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray8">#F5F5F5</SolidColorBrush>
             <Color x:Key="ColorObjectGray1">#E8EEF7</Color>
             <Color x:Key="ColorObjectGray2">#B6C2D2</Color>
             <Color x:Key="ColorObjectGray3">#93A1B5</Color>
@@ -62,11 +62,11 @@
             <SolidColorBrush x:Key="ColorBrushSemiWhite" Color="#CCFFFFFF" />
             <SolidColorBrush x:Key="ColorBrushWhite" Color="#FFFFFF" />
             <SolidColorBrush x:Key="ColorBrushTransparent" Color="Transparent" />
-            <SolidColorBrush x:Key="ColorBrushSemiTransparent">#01161E29</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushBackgroundTransparentSidebar" Color="#F0161E29" />
+            <SolidColorBrush x:Key="ColorBrushSemiTransparent">#01EAF2FE</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushBackgroundTransparentSidebar" Color="#EBF5F5F5" />
             <SolidColorBrush x:Key="ColorBrushTitleIcon" Color="#FFFFFF" />
-            <SolidColorBrush x:Key="ColorBrushCard" Color="#F21C2532" />
-            <SolidColorBrush x:Key="ColorBrushCardHover" Color="#F2243040" />
+            <SolidColorBrush x:Key="ColorBrushCard" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ColorBrushCardHover" Color="#FAFAFA" />
             <!-- Window -->
             <Style TargetType="{x:Type Window}" x:Key="MyWindow">
                 <Setter Property="OverridesDefaultStyle" Value="True"/>
@@ -142,7 +142,7 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Thumb">
-                            <Border Background="{StaticResource ColorBrushSemiTransparent}" SnapsToDevicePixels="True">
+                            <Border Background="{DynamicResource ColorBrushSemiTransparent}" SnapsToDevicePixels="True">
                                 <Border Background="{TemplateBinding Foreground}" CornerRadius="3" Margin="2" />
                             </Border>
                         </ControlTemplate>
@@ -244,7 +244,7 @@
             <!-- TextBox -->
             <Style TargetType="local:MyTextBox">
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="Background" Value="{StaticResource ColorBrushHalfWhite}" />
+                <Setter Property="Background" Value="{DynamicResource ColorBrushHalfWhite}" />
                 <Setter Property="FontSize" Value="13" />
                 <Setter Property="SelectionBrush" Value="{DynamicResource ColorBrush3}" />
                 <Setter Property="Foreground" Value="{DynamicResource ColorBrush1}" />
@@ -275,7 +275,7 @@
                                     <!-- 由于未知原因，TextView 会有 2,0 的 Margin -->
                                 </Border>
                                 <Border Margin="{TemplateBinding Padding}" IsHitTestVisible="False" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" BorderThickness="0">
-                                    <TextBlock x:Name="labHint" Foreground="{StaticResource ColorBrushGray4}" Margin="7,0,0,0" Padding="{TemplateBinding BorderThickness}" FontSize="{TemplateBinding FontSize}" FontFamily="Resources/#PCL English, Microsoft YaHei UI" />
+                                    <TextBlock x:Name="labHint" Foreground="{DynamicResource ColorBrushGray4}" Margin="7,0,0,0" Padding="{TemplateBinding BorderThickness}" FontSize="{TemplateBinding FontSize}" FontFamily="Resources/#PCL English, Microsoft YaHei UI" />
                                 </Border>
                                 <TextBlock Grid.Row="1" x:Name="labWrong" Height="0" Foreground="{TemplateBinding BorderBrush}" Padding="0,4,0,0" Margin="0,0,0,-3" />
                             </Grid>
@@ -289,7 +289,7 @@
                 <Setter Property="VerticalContentAlignment" Value="Top" />
                 <Setter Property="SelectionBrush" Value="{DynamicResource ColorBrush3}" />
                 <Setter Property="Foreground" Value="{DynamicResource ColorBrush1}" />
-                <Setter Property="Background" Value="{StaticResource ColorBrushHalfWhite}" />
+                <Setter Property="Background" Value="{DynamicResource ColorBrushHalfWhite}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource ColorBrushBg0}" />
                 <Setter Property="KeyboardNavigation.TabNavigation" Value="None"/>
                 <Setter Property="HorizontalContentAlignment" Value="Left"/>
@@ -304,8 +304,8 @@
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Trigger.Setters>
-                                        <Setter Property="BorderBrush" Value="{StaticResource ColorBrushGray5}" />
-                                        <Setter Property="Background" Value="{StaticResource ColorBrushGray6}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource ColorBrushGray5}" />
+                                        <Setter Property="Background" Value="{DynamicResource ColorBrushGray6}" />
                                     </Trigger.Setters>
                                 </Trigger>
                                 <Trigger Property="IsMouseOver" Value="True">
@@ -341,7 +341,7 @@
                 <Setter Property="OverridesDefaultStyle" Value="True" />
                 <Setter Property="SnapsToDevicePixels" Value="True" />
                 <Setter Property="Foreground" Value="{DynamicResource ColorBrushBg0}" />
-                <Setter Property="Background" Value="{StaticResource ColorBrushHalfWhite}" />
+                <Setter Property="Background" Value="{DynamicResource ColorBrushHalfWhite}" />
                 <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                 <Setter Property="FontSize" Value="13" />
                 <Setter Property="MaxDropDownHeight" Value="320" />
@@ -411,7 +411,7 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ToggleButton">
-                            <Border Background="{StaticResource ColorBrushSemiTransparent}">
+                            <Border Background="{DynamicResource ColorBrushSemiTransparent}">
                                 <Path x:Name="path" Width="15" RenderTransformOrigin="0.3,0.5" HorizontalAlignment="Right" Data="M1,1L4.5,4.5L8,1" StrokeThickness="1.5" Stroke="{TemplateBinding Foreground}" VerticalAlignment="Center">
                                     <Path.RenderTransform>
                                         <RotateTransform />

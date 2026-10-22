@@ -1,11 +1,11 @@
-<Grid x:Class="PageLoginMsSkin" Tag="True"
+﻿<Grid x:Class="PageLoginMsSkin" Tag="True"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
       xmlns:local="clr-namespace:PCL"
       mc:Ignorable="d" d:DesignWidth="297.6" Margin="0,60,0,5">
-    <Grid Background="{StaticResource ColorBrushSemiTransparent}" Name="PanData">
+    <Grid Background="{DynamicResource ColorBrushSemiTransparent}" Name="PanData">
         <Grid.RowDefinitions>
             <RowDefinition Height="75" />
             <RowDefinition Height="Auto" MinHeight="30" />
