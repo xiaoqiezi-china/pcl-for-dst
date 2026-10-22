@@ -11,10 +11,11 @@ Public Class PageInstanceShaderPack
 
 #Region "初始化"
 
+    '最近一次扫描到的完整列表，供搜索与筛选复用，避免每次输入都重新扫盘
+    Private AllItems As New List(Of ShaderPackItem)
+    Private CurrentFolder As String = ""
+
     Private Sub PageInstanceShaderPack_Loaded(sender As Object, e As RoutedEventArgs) Handles Me.Loaded
-        '顶部按钮用 PCL 自带的图标，不写字
-        BtnOpenFolder.Logo = Logo.IconButtonOpen
-        BtnRefresh.Logo = Logo.IconButtonRefresh
         RefreshList()
     End Sub
 
@@ -76,11 +77,9 @@ Public Class PageInstanceShaderPack
         PanList.Children.Clear()
         Dim Folder As String = PackFolder
         If Folder = "" Then
-            LabPath.Text = ""
             PanList.Children.Add(EmptyHint("还没有选择版本，无法读取光影包。"))
             Return
         End If
-        LabPath.Text = Folder
         Logger.Info("已刷新光影包列表")
         RefreshToken += 1
         Dim Token As Integer = RefreshToken
@@ -185,13 +184,41 @@ Public Class PageInstanceShaderPack
 
     ''' <summary>把扫描结果画成列表行。只能在 UI 线程调用。</summary>
     Private Sub ShowList(Items As List(Of ShaderPackItem), Folder As String)
+        AllItems = If(Items, New List(Of ShaderPackItem))
+        CurrentFolder = Folder
+        ApplyFilter()
+    End Sub
+
+    ''' <summary>按搜索框与筛选标签过滤后重新绘制列表。</summary>
+    Private Sub ApplyFilter()
         If PanList Is Nothing Then Return
         PanList.Children.Clear()
-        If Items Is Nothing OrElse Items.Count = 0 Then
-            PanList.Children.Add(EmptyHint("还没有光影包。把 .zip 文件或光影包文件夹放进 " & Folder & " 即可。"))
+        If AllItems.Count = 0 Then
+            PanList.Children.Add(EmptyHint("还没有光影包。把 .zip 文件或光影包文件夹放进 " & CurrentFolder & " 即可。"))
             Return
         End If
-        For Each Item In Items
+
+        Dim Keyword As String = If(SearchBox Is Nothing, "", SearchBox.Text.Trim())
+        Dim Mode As Integer = 0
+        If BtnFilterEnabled IsNot Nothing AndAlso BtnFilterEnabled.Checked Then Mode = 1
+        If BtnFilterDisabled IsNot Nothing AndAlso BtnFilterDisabled.Checked Then Mode = 2
+
+        Dim Shown As New List(Of ShaderPackItem)
+        For Each Item In AllItems
+            If Keyword <> "" AndAlso
+               Item.DisplayName.IndexOf(Keyword, StringComparison.OrdinalIgnoreCase) < 0 Then Continue For
+            Select Case Mode
+                Case 1 : If Not Item.IsEnabled Then Continue For
+                Case 2 : If Item.IsEnabled Then Continue For
+            End Select
+            Shown.Add(Item)
+        Next
+
+        If Shown.Count = 0 Then
+            PanList.Children.Add(EmptyHint("没有符合条件的光影包"))
+            Return
+        End If
+        For Each Item In Shown
             Dim Entry As ShaderPackItem = Item '防止闭包捕获同一个循环变量
             '单个包出问题不应该让整个列表变空
             Try
@@ -201,7 +228,7 @@ Public Class PageInstanceShaderPack
             End Try
         Next
         PanList.Children.Add(New TextBlock With {
-            .Text = "启用中的光影包是 .zip，停用后改名成 .zip.disabled；文件夹形态的光影包由游戏直接读取，这里不能切换。",
+            .Text = $"共 {Shown.Count} 个。启用中的光影包是 .zip，停用后改名成 .zip.disabled；文件夹形态的光影包由游戏直接读取，这里不能切换。",
             .FontSize = 11, .Opacity = 0.45, .TextWrapping = TextWrapping.Wrap,
             .Margin = New Thickness(2, 6, 0, 0)
         })
@@ -834,6 +861,17 @@ Public Class PageInstanceShaderPack
             Return -1
         End Try
     End Function
+
+    '搜索与筛选：只重绘列表，不重新扫盘
+    Private Sub SearchBox_TextChanged(sender As Object, e As EventArgs) Handles SearchBox.TextChanged
+        ApplyFilter()
+    End Sub
+
+    Private Sub Filter_Check(sender As Object, raiseByMouse As Boolean) Handles BtnFilterAll.Check, BtnFilterEnabled.Check, BtnFilterDisabled.Check
+        Dim Btn = TryCast(sender, MyRadioButton)
+        If Btn Is Nothing OrElse Not Btn.Checked Then Return
+        ApplyFilter()
+    End Sub
 
     Private Function EmptyHint(Text As String) As FrameworkElement
         Return New TextBlock With {

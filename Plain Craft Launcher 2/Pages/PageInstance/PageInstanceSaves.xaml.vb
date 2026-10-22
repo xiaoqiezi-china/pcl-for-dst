@@ -31,7 +31,7 @@ Public Class PageInstanceSaves
     Public Sub RefreshSaves()
         If PanSaves Is Nothing Then Return
         Dim Root As String = SaveRoot
-        LabSavePath.Text = If(Root = "", "未选择版本", Root)
+        CurrentRoot = Root
         PanSaves.Children.Clear()
         If Root = "" Then
             PanSaves.Children.Add(EmptyHint("请先选择一个版本"))
@@ -66,9 +66,56 @@ Public Class PageInstanceSaves
                       End Try
                       Return TB.CompareTo(TA)
                   End Function)
-        For Each SaveDir In Dirs
+        AllSaves = Dirs
+        ApplyFilter()
+    End Sub
+
+    '最近一次扫描到的存档列表，供搜索与筛选复用
+    Private AllSaves As New List(Of String)
+    Private CurrentRoot As String = ""
+
+    ''' <summary>按搜索框与筛选标签过滤后重新绘制列表。</summary>
+    Private Sub ApplyFilter()
+        If PanSaves Is Nothing Then Return
+        PanSaves.Children.Clear()
+        If AllSaves.Count = 0 Then Return
+
+        Dim Keyword As String = If(SearchBox Is Nothing, "", SearchBox.Text.Trim())
+        Dim WithIcon As Integer = 0 '0=全部 1=有图标 2=无图标
+        If BtnFilterEnabled IsNot Nothing AndAlso BtnFilterEnabled.Checked Then WithIcon = 1
+        If BtnFilterDisabled IsNot Nothing AndAlso BtnFilterDisabled.Checked Then WithIcon = 2
+
+        Dim Shown As New List(Of String)
+        For Each SaveDir In AllSaves
+            Dim Name As String = PathUtils.GetLastPart(SaveDir)
+            If Keyword <> "" AndAlso
+               Name.IndexOf(Keyword, StringComparison.OrdinalIgnoreCase) < 0 Then Continue For
+            If WithIcon <> 0 Then
+                Dim HasIcon As Boolean = FileUtils.Exists(SaveDir & "\icon.png")
+                If WithIcon = 1 AndAlso Not HasIcon Then Continue For
+                If WithIcon = 2 AndAlso HasIcon Then Continue For
+            End If
+            Shown.Add(SaveDir)
+        Next
+
+        If Shown.Count = 0 Then
+            PanSaves.Children.Add(EmptyHint("没有符合条件的存档"))
+            Return
+        End If
+        For Each SaveDir In Shown
             PanSaves.Children.Add(BuildSaveRow(SaveDir))
         Next
+    End Sub
+
+    '搜索与筛选：只重绘列表，不重新扫盘
+    Private Sub SearchBox_TextChanged(sender As Object, e As EventArgs) Handles SearchBox.TextChanged
+        ApplyFilter()
+    End Sub
+
+    Private Sub Filter_Check(sender As Object, raiseByMouse As Boolean) Handles BtnFilterAll.Check, BtnFilterEnabled.Check, BtnFilterDisabled.Check
+        Dim Btn = TryCast(sender, MyRadioButton)
+        If Btn Is Nothing OrElse Not Btn.Checked Then Return
+        ApplyFilter()
     End Sub
 
     Private Function EmptyHint(Text As String) As FrameworkElement
