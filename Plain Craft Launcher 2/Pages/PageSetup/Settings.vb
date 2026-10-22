@@ -165,7 +165,7 @@ Public Class Settings
         New Setting("DstHomeOrder", "servers,report,bot"),
         New Setting("DstSeenReports", ""),
         New Setting("DstQqMode", False),
-        New Setting("DstDarkMode", True),
+        New Setting("DstDarkMode", False),
         New Setting("MsClientId", ""),
         New Setting("DstHomeShowServers", True),
         New Setting("DstHomeShowReport", True),

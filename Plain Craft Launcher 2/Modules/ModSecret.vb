@@ -195,6 +195,8 @@ Friend Module ModSecret
                 Application.Current.Resources("ColorBrushGray8") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 22, 16))
                 Application.Current.Resources("ColorBrushTitleIcon") = New SolidColorBrush(Color.FromRgb(255, 255, 255))
                 Application.Current.Resources("ColorBrushHalfWhite") = New SolidColorBrush(Color.FromArgb(26, 255, 255, 255))
+                '控件默认底/悬停底：极淡的主题色，深浅两套都要给，否则浅色模式下会沿用深色值
+                Application.Current.Resources("ColorBrushSemiTransparent") = New SolidColorBrush(New MyColor(1, Color8))
                 BackColorMain = New MyColor().FromHSL(ColorHue, 18, 24)
                 BackColorSub = New MyColor().FromHSL(ColorHue, 16, 18)
                 TextColorMain = Color1
@@ -206,45 +208,50 @@ Friend Module ModSecret
                 BubbleMineText = New MyColor(255, 255, 255)
                 BubbleMetaText = New MyColor().FromHSL(ColorHue, 14, 74)
             Else
-                '浅色：面由浅到深，文字反而要压深
-                Color1 = New MyColor().FromHSL(ColorHue, 28, 20 - Shift * 0.25)
-                Color2 = New MyColor().FromHSL(ColorHue, 80, 42 + Shift * 0.3)
-                Color3 = New MyColor().FromHSL(ColorHue, 85, 50 + Shift * 0.3)
-                Color4 = New MyColor().FromHSL(ColorHue, 78, 60 + Shift * 0.3)
-                Color5 = New MyColor().FromHSL(ColorHue, 20, 94)
-                Color6 = New MyColor().FromHSL(ColorHue, 18, 88)
-                Color7 = New MyColor().FromHSL(ColorHue, 16, 81)
-                Color8 = New MyColor().FromHSL(ColorHue, 14, 73)
-                ColorBg0 = New MyColor().FromHSL(ColorHue, 12, 97)
-                ColorBg1 = New MyColor(200, Color8)
+                '浅色：完全沿用 PCL 原版的配色算法（FromHSL2），保证观感与官方一致
+                Color1 = New MyColor().FromHSL2(ColorHue, ColorSat * 0.2, 25 + ColorLightAdjust * 0.3)
+                Color2 = New MyColor().FromHSL2(ColorHue, ColorSat, 45 + ColorLightAdjust)
+                Color3 = New MyColor().FromHSL2(ColorHue, ColorSat, 55 + ColorLightAdjust)
+                Color4 = New MyColor().FromHSL2(ColorHue, ColorSat, 65 + ColorLightAdjust)
+                Color5 = New MyColor().FromHSL2(ColorHue, ColorSat, 80 + ColorLightAdjust * 0.4)
+                Color6 = New MyColor().FromHSL2(ColorHue, ColorSat, 91 + ColorLightAdjust * 0.1)
+                Color7 = New MyColor().FromHSL2(ColorHue, ColorSat, 95)
+                Color8 = New MyColor().FromHSL2(ColorHue, ColorSat, 97)
+                ColorBg0 = Color4 * 0.4 + Color5 * 0.4 + ColorGray4 * 0.2
+                ColorBg1 = New MyColor(190, Color7)
 
-                Application.Current.Resources("ColorBrushCard") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 10, 99))
-                Application.Current.Resources("ColorBrushCardHover") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 16, 96))
-                Application.Current.Resources("ColorBrushBackgroundTransparentSidebar") = New SolidColorBrush(New MyColor(235, Color5))
-                Application.Current.Resources("ColorBrushGray1") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 28, 20))
-                Application.Current.Resources("ColorBrushGray2") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 18, 34))
-                Application.Current.Resources("ColorBrushGray3") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 14, 48))
-                Application.Current.Resources("ColorBrushGray4") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 12, 60))
-                Application.Current.Resources("ColorBrushGray5") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 12, 72))
-                Application.Current.Resources("ColorBrushGray6") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 12, 84))
-                Application.Current.Resources("ColorBrushGray7") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 12, 92))
-                Application.Current.Resources("ColorBrushGray8") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 10, 97))
-                Application.Current.Resources("ColorBrushTitleIcon") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 30, 24))
-                Application.Current.Resources("ColorBrushHalfWhite") = New SolidColorBrush(Color.FromArgb(26, 0, 0, 0))
-                BackColorMain = New MyColor().FromHSL(ColorHue, 16, 96)
-                BackColorSub = New MyColor().FromHSL(ColorHue, 14, 92)
+                '浅色一律用原版的固定灰阶，不跟着主题色相走
+                Application.Current.Resources("ColorBrushCard") = New SolidColorBrush(New MyColor(255, 255, 255))
+                Application.Current.Resources("ColorBrushCardHover") = New SolidColorBrush(New MyColor(250, 250, 250))
+                Application.Current.Resources("ColorBrushBackgroundTransparentSidebar") = New SolidColorBrush(New MyColor(235, 245, 245, 245))
+                Application.Current.Resources("ColorBrushGray1") = New SolidColorBrush(New MyColor(64, 64, 64))
+                Application.Current.Resources("ColorBrushGray2") = New SolidColorBrush(New MyColor(115, 115, 115))
+                Application.Current.Resources("ColorBrushGray3") = New SolidColorBrush(New MyColor(140, 140, 140))
+                Application.Current.Resources("ColorBrushGray4") = New SolidColorBrush(New MyColor(166, 166, 166))
+                Application.Current.Resources("ColorBrushGray5") = New SolidColorBrush(New MyColor(204, 204, 204))
+                Application.Current.Resources("ColorBrushGray6") = New SolidColorBrush(New MyColor(235, 235, 235))
+                Application.Current.Resources("ColorBrushGray7") = New SolidColorBrush(New MyColor(240, 240, 240))
+                Application.Current.Resources("ColorBrushGray8") = New SolidColorBrush(New MyColor(245, 245, 245))
+                Application.Current.Resources("ColorBrushTitleIcon") = New SolidColorBrush(Color.FromRgb(255, 255, 255))
+                '原版恒为白色 10%：白色叠在白卡片上看不见，换成黑色就会变成灰块
+                Application.Current.Resources("ColorBrushHalfWhite") = New SolidColorBrush(Color.FromArgb(26, 255, 255, 255))
+                '原版就是 1/255 的极淡蒙层，直接照搬
+                Application.Current.Resources("ColorBrushSemiTransparent") = New SolidColorBrush(New MyColor(1, Color8))
+                BackColorMain = New MyColor(245, 245, 245)
+                BackColorSub = New MyColor(235, 235, 235)
                 TextColorMain = Color1
-                TextColorSub = New MyColor().FromHSL(ColorHue, 14, 48)
+                TextColorSub = New MyColor(140, 140, 140)
                 TitleTextColor = New MyColor(255, 255, 255)
-                BubbleOtherBack = New MyColor().FromHSL(ColorHue, 18, 95)
+                BubbleOtherBack = New MyColor(245, 245, 245)
                 BubbleOtherText = Color1
-                BubbleMineBack = New MyColor().FromHSL(ColorHue, 80, 52)
+                BubbleMineBack = New MyColor().FromHSL2(ColorHue, ColorSat, 55)
                 BubbleMineText = New MyColor(255, 255, 255)
-                BubbleMetaText = New MyColor().FromHSL(ColorHue, 14, 46)
+                BubbleMetaText = New MyColor(166, 166, 166)
             End If
             Application.Current.Resources("ColorObjectGray7") = CType(Application.Current.Resources("ColorBrushGray7"), SolidColorBrush).Color
             Application.Current.Resources("ColorObjectGray8") = CType(Application.Current.Resources("ColorBrushGray8"), SolidColorBrush).Color
 
+            '原版就是 1/255 的极淡蒙层，深浅两套都用它，保持与官方一致
             ColorSemiTransparent = New MyColor(1, Color8)
             Application.Current.Resources("ColorBrush1") = New SolidColorBrush(Color1)
             Application.Current.Resources("ColorBrush2") = New SolidColorBrush(Color2)
@@ -295,9 +302,10 @@ Friend Module ModSecret
                     Brush.GradientStops.Add(New GradientStop With {.Offset = 0.4, .Color = New MyColor().FromHSL(ColorHue, 22, 16)})
                     Brush.GradientStops.Add(New GradientStop With {.Offset = 1.1, .Color = New MyColor().FromHSL(ColorHue + 12, 22, 13)})
                 Else
-                    Brush.GradientStops.Add(New GradientStop With {.Offset = -0.1, .Color = New MyColor().FromHSL(ColorHue - 12, 24, 93)})
-                    Brush.GradientStops.Add(New GradientStop With {.Offset = 0.4, .Color = New MyColor().FromHSL(ColorHue, 20, 96)})
-                    Brush.GradientStops.Add(New GradientStop With {.Offset = 1.1, .Color = New MyColor().FromHSL(ColorHue + 12, 24, 93)})
+                    '浅色：与 PCL 原版一致，用 FromHSL2 的低饱和度渐变，而不是压暗的低亮度
+                    Brush.GradientStops.Add(New GradientStop With {.Offset = -0.1, .Color = New MyColor().FromHSL2(ColorHue - 15, ColorSat * 0.8, 91)})
+                    Brush.GradientStops.Add(New GradientStop With {.Offset = 0.4, .Color = New MyColor().FromHSL2(ColorHue, ColorSat * 0.8, 91)})
+                    Brush.GradientStops.Add(New GradientStop With {.Offset = 1.1, .Color = New MyColor().FromHSL2(ColorHue + 15, ColorSat * 0.8, 91)})
                 End If
                 FrmMain.PanForm.Background = Brush
             Else
@@ -305,7 +313,8 @@ Friend Module ModSecret
                     '深色：内容区直接用最深层
                     FrmMain.PanForm.Background = New MyColor().FromHSL(ColorHue, 24, 12)
                 Else
-                    FrmMain.PanForm.Background = New MyColor().FromHSL(ColorHue, 14, 95)
+                    '浅色：原版用的就是固定灰白，不跟色相走
+                    FrmMain.PanForm.Background = New MyColor(245, 245, 245)
                 End If
             End If
             FrmMain.PanForm.Background.Freeze()
@@ -319,8 +328,10 @@ Friend Module ModSecret
         ColorHueTopbarDelta = 0
         ColorLightAdjust = 0
         Select Case Id
-            Case 0 '帝释天蓝黑（默认）
-                ColorHue = 216 : ColorSat = 82 : ColorLightAdjust = -10 : ColorHueTopbarDelta = 10
+            Case 0 '龙猫蓝（默认，与 PCL 原版一致）
+                'ColorLightAdjust 必须为 0，否则会把浅色主题整体压暗成偏暖的米色
+                '顶栏不做色相偏移，保持原版那种纯蓝渐变
+                ColorHue = 210 : ColorSat = 85
             Case 1 '甜柠青
                 ColorHue = 168 : ColorSat = 78
             Case 2 '小草绿

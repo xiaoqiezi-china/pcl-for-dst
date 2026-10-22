@@ -55,7 +55,7 @@
                             </Grid.RowDefinitions>
                             <TextBlock VerticalAlignment="Center" HorizontalAlignment="Left" Text="主题" Margin="0,0,20,0" />
                             <local:MyRadioBox local:SettingService.Key="UiLauncherTheme" local:SettingService.Value="0" 
-                                              Grid.Column="1" Grid.Row="0" Text="帝释天蓝黑" x:Name="RadioLauncherTheme0" />
+                                              Grid.Column="1" Grid.Row="0" Text="龙猫蓝" x:Name="RadioLauncherTheme0" />
                             <local:MyRadioBox local:SettingService.Key="UiLauncherTheme" local:SettingService.Value="1" 
                                               Grid.Column="2" Grid.Row="0" Text="甜柠青" x:Name="RadioLauncherTheme1" />
                             <local:MyRadioBox local:SettingService.Key="UiLauncherTheme" local:SettingService.Value="2" 
@@ -253,6 +253,13 @@
                             <local:MyComboBoxItem local:SettingService.Value="24" Content="新一代狗屁王大杂烩主页（作者：llsgllsg）" />
                         </local:MyComboBox>
                     </Grid>
+                </StackPanel>
+            </local:MyCard>
+            <local:MyCard x:Name="CardOffline" Margin="0,0,0,15" Title="常规模式">
+                <StackPanel Margin="25,38,15,15">
+                    <local:MyCheckBox x:Name="CheckOfflineMode" Text="启用常规模式（离线，不连接远程服务）" />
+                    <TextBlock x:Name="LabOfflineHint" FontSize="12" Margin="0,8,0,0" Opacity="0.6" TextWrapping="Wrap"
+                               Text="开启后主页不显示服务器、公告与机器人卡片，也不显示「QQ」登录方式，顶部「额外」页面只保留收藏夹。随时取消勾选即可上线。" />
                 </StackPanel>
             </local:MyCard>
             <local:MyCard x:Name="CardSwitch" Margin="0,0,0,15" Title="功能隐藏">
