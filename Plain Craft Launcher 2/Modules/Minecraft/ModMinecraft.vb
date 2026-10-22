@@ -1139,7 +1139,17 @@ OnLoaded:
 
 #Region "循环加载每个版本的信息"
         For Each VersionFolderInfo As DirectoryInfo In DirectoryUtils.GetInfo(Folder & "versions").GetDirectories
-            If Not VersionFolderInfo.Exists OrElse Not VersionFolderInfo.EnumerateFiles.Any Then
+            '文件夹可能在枚举途中被删掉（例如取消安装时清理目录），这里必须容错，
+            '否则一次 DirectoryNotFoundException 会让整个版本列表加载失败
+            Dim HasFiles As Boolean
+            Try
+                If Not VersionFolderInfo.Exists Then Continue For
+                HasFiles = VersionFolderInfo.EnumerateFiles.Any()
+            Catch ex As Exception
+                Logger.Info($"跳过读取失败的版本文件夹：{VersionFolderInfo.FullName}（{ex.GetType().Name}）")
+                Continue For
+            End Try
+            If Not HasFiles Then
                 Logger.Info($"跳过空文件夹：{VersionFolderInfo.FullName}")
                 Continue For
             End If

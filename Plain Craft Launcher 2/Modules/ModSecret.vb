@@ -3,8 +3,10 @@ Friend Module ModSecret
 
     '标注 PCL 的不同分支，仅用于替换标记
     Public Const VersionBranchMain As String = "DST"
-    '在开源版的注册表与常规版的注册表隔离，以防数据冲突
-    Public Const RegFolder As String = "DSTLauncher"
+    '注册表根，同时也是本启动器的内部标识。
+    '统一用 "PCL" 是为了兼容原版 PCL 的既有设置（主题、账号、路径等开机即生效）；
+    '旧版曾用过 "DSTLauncher"，启动时会自动搬一次，见 Application.MigrateLegacyRegistry。
+    Public Const RegFolder As String = "PCL"
 #Region "账号与 API 凭据"
 
     '凭据分两层：

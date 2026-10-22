@@ -374,7 +374,9 @@ Public Class Settings
                     Try
                         GotValue = DesDecrypt(GotValue, "PCL" & Identify)
                     Catch ex As Exception
-                        Logger.Warn(ex, $"解密设置失败：{Key}")
+                        '统一到 Software\PCL 之后，这里会读到其它 PCL 版本用不同识别码写下的密文，
+                        '解不开是预期行为：直接回落默认值并重新写入，不必每次启动都刷一堆异常堆栈
+                        Logger.Info($"设置项 {Key} 无法解密（可能来自其它 PCL 版本），已重置为默认值")
                         GotValue = Entry.DefaultValue
                         Entry.Set(Entry.DefaultValue, Instance)
                         Entry.Save(Instance)

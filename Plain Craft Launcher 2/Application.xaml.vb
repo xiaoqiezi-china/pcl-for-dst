@@ -3,6 +3,54 @@ Imports System.Windows.Threading
 
 Public Class Application
 
+    ''' <summary>
+    ''' 旧版定制版把设置写在 Software\DSTLauncher，现在统一到 Software\PCL 以兼容原版 PCL。
+    ''' 仅当目标键里还没有启动器数据时整块搬一次；
+    ''' 必须连 Identify 一起搬：加密项的解密密钥是 "PCL" &amp; Identify，只搬密文会解不开。
+    ''' </summary>
+    Private Shared Sub MigrateLegacyRegistry()
+        Try
+            Using OldKey As Microsoft.Win32.RegistryKey = Microsoft.Win32.Registry.CurrentUser.OpenSubKey("Software\DSTLauncher")
+                If OldKey Is Nothing Then Return
+                Dim Names As String() = OldKey.GetValueNames()
+                If Names.Length = 0 Then Return
+                Using NewKey As Microsoft.Win32.RegistryKey = Microsoft.Win32.Registry.CurrentUser.CreateSubKey("Software\PCL")
+                    If NewKey Is Nothing Then Return
+                    Dim Count As Integer = 0
+                    If NewKey.GetValue("SystemCount") Is Nothing Then
+                        '目标键是空的：整块搬过去，连 Identify 一起（加密项的解密密钥要用到它）
+                        For Each Name As String In Names
+                            Try
+                                Dim Value As Object = OldKey.GetValue(Name)
+                                If Value Is Nothing Then Continue For
+                                NewKey.SetValue(Name, Value, OldKey.GetValueKind(Name))
+                                Count += 1
+                            Catch ex As Exception
+                            End Try
+                        Next
+                    Else
+                        '目标键里已经有原版 PCL 的数据：只补搬本定制版独有的 Dst* 设置，
+                        '而且只补目标里没有的，绝不覆盖原版 PCL 的既有配置
+                        For Each Name As String In Names
+                            If Not Name.StartsWithF("Dst", True) Then Continue For
+                            Try
+                                If NewKey.GetValue(Name) IsNot Nothing Then Continue For
+                                Dim Value As Object = OldKey.GetValue(Name)
+                                If Value Is Nothing Then Continue For
+                                NewKey.SetValue(Name, Value, OldKey.GetValueKind(Name))
+                                Count += 1
+                            Catch ex As Exception
+                            End Try
+                        Next
+                    End If
+                    If Count > 0 Then Logger.Info($"已从 Software\DSTLauncher 迁移 {Count} 项设置到 Software\PCL")
+                End Using
+            End Using
+        Catch ex As Exception
+            Logger.Warn(ex, "迁移旧版注册表设置失败")
+        End Try
+    End Sub
+
     '开始
     Private Sub Application_Startup(sender As Object, e As StartupEventArgs) Handles Me.Startup
         Try
@@ -13,6 +61,8 @@ Public Class Application
                 WaitingMutex(e)
                 Logger.Instance = New PclLogger With {.logFolder = Paths.BaseThenName, .MinLevel = If(ModeDebug, LogLevel.Trace, LogLevel.Info)}
             End If
+            '把旧版写在 Software\DSTLauncher 的设置搬到 Software\PCL（只搬一次）
+            MigrateLegacyRegistry()
             '提升主线程优先级
             Thread.CurrentThread.Priority = ThreadPriority.Highest
             '执行开发版测试

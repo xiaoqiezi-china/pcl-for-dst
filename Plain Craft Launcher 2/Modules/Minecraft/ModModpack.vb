@@ -148,6 +148,33 @@ Public Module ModModpack
         IniClearCache(VersionIni) '重置缓存，避免被安装过程中写入的 ini 覆盖
     End Sub
     ''' <summary>
+    ''' 整合包用到了 PCL 还不支持的启动组件（典型例子是 GTNH 的 LWJGL3ify / RetrofuturaBootstrap）。
+    ''' 这类包需要特殊的主类与 JVM 参数，PCL 装完也起不来，所以这里不硬做，直接把用户引到原生支持它的启动器。
+    ''' 返回 True 表示用户选择「仍然尝试安装」。
+    ''' </summary>
+    Private Function ConfirmUnsupportedComponents(InstanceName As String, Components As List(Of String)) As Boolean
+        Dim Detail As String = String.Join(vbCrLf, Components.Select(Function(C) "  " & C))
+        Dim Text As String =
+            $"目标 {InstanceName} 包含以下暂不支持的组件" & vbCrLf &
+            Detail & vbCrLf &
+            "这可能是例如 GTNH 等特殊整合包，强行执行无法完整安装。" & vbCrLf &
+            "您可以使用 Prism Launcher 来进行安装。安装后可以使用 PCL(DST) 进行启动。"
+        'Button2 是副选键，ESC 会命中它，所以"取消"必须放在第二位
+        Select Case MyMsgBox(Text, "暂不支持的安装包", "去 Prism 官网", "取消", "仍然尝试安装")
+            Case 1
+                OpenWebsite("https://prismlauncher.org/download/")
+                Logger.Info($"已引导用户改用 Prism 安装：{InstanceName}（不支持的组件：{String.Join(", ", Components)}）")
+                Return False
+            Case 3
+                Logger.Warn($"用户坚持用 PCL 安装不支持的整合包：{InstanceName}")
+                Return True
+            Case Else
+                Logger.Info($"用户取消了不支持的整合包安装：{InstanceName}")
+                Return False
+        End Select
+    End Function
+
+    ''' <summary>
     ''' 弹窗提示整合包中存在不兼容的加载器。
     ''' 如果取消，则抛出 CancelledException。
     ''' </summary>
@@ -628,6 +655,8 @@ Public Module ModModpack
         If PackJson("components") Is Nothing Then Throw New Exception("该 MMC 整合包未提供游戏版本信息，无法安装！")
         Dim MinecraftVersion As String = Nothing
         Dim ModLoaderVersions As New Dictionary(Of ModLoaders, String)
+        'PCL 处理不了的组件先收集起来，循环结束后统一提示一次，避免同一个包连弹好几下
+        Dim UnsupportedComponents As New List(Of String)
         For Each Component As JObject In PackJson("components")
             If Not Component.ContainsKey("uid") Then Continue For
             Dim UID As String = Component("uid").ToString
@@ -644,10 +673,14 @@ Public Module ModModpack
                     If UID.StartsWithF("org.lwjgl") Then '#8210
                         Logger.Info($"已跳过 LWJGL 项：{UID}")
                     Else
-                        NotifyIncompatibleLoader(UID)
+                        UnsupportedComponents.Add(UID)
                     End If
             End Select
         Next
+        '整合包依赖 PCL 还不支持的启动组件时，引导用户改用原生支持它的启动器
+        If UnsupportedComponents.Count > 0 Then
+            If Not ConfirmUnsupportedComponents(InstanceName, UnsupportedComponents) Then Throw New OperationCanceledException
+        End If
         '构造加载器
         Dim Target As New McComponents(MinecraftVersion, ModLoaderVersions)
         Dim MergeLoaders = McInstallLoadersGet(New McInstallRequest With {
