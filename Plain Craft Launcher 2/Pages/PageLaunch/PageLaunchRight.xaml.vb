@@ -346,7 +346,11 @@ Public Class PageLaunchRight
     End Sub
     Private Function BuildServerRow(Server As DstServer) As FrameworkElement
         Dim CanDownload As Boolean = Server.DownloadIndex <> ""
-        Dim HoverBack As MyColor = New MyColor().FromHSL(ColorHue, 22, If(DstDarkMode, 30, 94))
+        '悬停底色：Indra 用偏亮的深蓝，PCL 沿用主题色相算出来的中性面。
+        '原来的 HSL(22,30) 在深色下是接近背景的灰，压上去文字就糊了。
+        Dim HoverBack As MyColor = If(Appearance = AppearanceStyle.Indra,
+                                      New MyColor(30, 41, 59),
+                                      New MyColor().FromHSL(ColorHue, 22, If(DstDarkMode, 30, 94)))
 
         Dim Card As New Border With {
             .Margin = New Thickness(0, 0, 0, 6),
