@@ -351,6 +351,7 @@ Public Class FormMain
         Handle = New WindowInteropHelper(Me).Handle
         '读取设置
         UpdateBackgroundAndTitleBar()
+        RefreshTitleVersion()
         PageSetupUI.HiddenRefresh()
         '没有配置远程服务时，连 QQ 入口都不露出来，避免让人以为这是某个机器人的附属启动器
         If Not DstBot.HasService Then BtnTitleSelect5.Visibility = Visibility.Collapsed
@@ -684,10 +685,15 @@ Public Class FormMain
         RectForm.Rect = New Rect(0, 0, BorderForm.ActualWidth, BorderForm.ActualHeight)
         PanForm.Width = BorderForm.ActualWidth + 0.001
         PanForm.Height = BorderForm.ActualHeight + 0.001
-        '导航栏占位由 PanForm 的第 0 列负责，这里只按列宽扣减，保持与窗口一致
-        Dim NavWidth As Double = If(ColNav IsNot Nothing, ColNav.Width.Value, 0)
-        PanMain.Width = Math.Max(0, PanForm.Width - NavWidth)
-        PanMain.Height = Math.Max(0, PanForm.Height - PanTitle.ActualHeight)
+        '皮肤布局激活时，PanMain 的尺寸由皮肤插槽决定，这里不要再写死。
+        '不能只看 SkinLayoutActive：SizeChanged 是布局之后才跑的，
+        '套用皮肤那一刻排队的这一次会把刚清掉的宽高又写回去。
+        '所以同时看宿主里有没有内容——那是"已经在接管界面"的直接证据。
+        Dim SkinOwnsContent As Boolean = SkinLayoutActive OrElse (PanSkinHost IsNot Nothing AndAlso PanSkinHost.Children.Count > 0)
+        If Not SkinOwnsContent Then
+            PanMain.Width = PanForm.Width
+            PanMain.Height = Math.Max(0, PanForm.Height - PanTitle.ActualHeight)
+        End If
         If WindowState = WindowState.Maximized Then WindowState = WindowState.Normal '修复 #1938
     End Sub
 
@@ -1452,124 +1458,276 @@ Public Class FormMain
         End If
     End Sub
     ''' <summary>
-    ''' 按皮肤要求重排导航栏：顶部横排（内置）或左侧竖排。
+    ''' 皮肤整窗布局的宿主状态。
     ''' <para>
-    ''' 只移动同一个 PanTitleSelect 容器，不重建按钮、不复制控件，
-    ''' 因此选中状态、事件绑定、以及功能隐藏的可见性判断全部照旧。
+    ''' 皮肤通过 Layout.xaml 声明界面骨架，并用名字带 <c>PCL:</c> 前缀的
+    ''' 容器作为"插槽"。PCL 会把**真实控件**（标题栏、导航、内容区、扩展按钮）
+    ''' 搬进对应插槽，而不是复制一套。
+    ''' </para>
+    ''' <para>
+    ''' 这样做的好处是皮肤只负责版式，逻辑、事件、绑定、状态全都是原来那份，
+    ''' 因此无论皮肤怎么排，功能都不会丢；皮肤不提供布局时，界面还是 PCL 原样。
     ''' </para>
     ''' </summary>
-    Public Sub ApplySkinLayout()
-        If PanTitle Is Nothing OrElse PanTitleSelect Is Nothing OrElse PanTitleMain Is Nothing Then Return
-        If PanNavItems Is Nothing Then Return
-        Dim LeftMode As Boolean = String.Equals(SkinMetrics.NavPosition, "left", StringComparison.OrdinalIgnoreCase)
-        '有没有自定义控件，决定侧栏要留多宽（按钮里是中文，窄了会截断）
-        Dim HasCustomUi As Boolean = PanSkinNavExtra IsNot Nothing AndAlso PanSkinNavExtra.Children.Count > 0
-        If LeftMode Then
-            '竖排：导航条整体搬进左侧栏，标题栏只留窗口按钮
-            PanTitleSelect.Orientation = Orientation.Vertical
-            PanTitleSelect.HorizontalAlignment = HorizontalAlignment.Stretch
-            PanTitleSelect.VerticalAlignment = VerticalAlignment.Top
-            PanTitleSelect.Height = Double.NaN
-            PanTitleSelect.Margin = New Thickness(0)
-            If Not PanNavItems.Children.Contains(PanTitleSelect) Then
-                PanTitleMain.Children.Remove(PanTitleSelect)
-                PanNavItems.Children.Add(PanTitleSelect)
+    Public Property SkinLayoutActive As Boolean = False
+
+    ''' <summary>搬进插槽前控件原本的对齐方式，用于还原。</summary>
+    Private ReadOnly SkinAlignSaved As New Dictionary(Of FrameworkElement, (H As HorizontalAlignment, V As VerticalAlignment))
+
+    ''' <summary>已搬进插槽的控件，及其原来的父容器与同级索引，用于还原。</summary>
+    Private ReadOnly SkinMoved As New List(Of (Element As UIElement, Parent As Panel, Index As Integer))
+
+    ''' <summary>
+    ''' 应用皮肤提供的整窗 XAML 布局。
+    ''' <para>
+    ''' <c>skin.json</c> 里写 <c>"layout": "Layout.xaml"</c> 并提供该文件时启用。
+    ''' 没有布局、或解析失败时，一律还原成 PCL 原界面，不留半截空白。
+    ''' </para>
+    ''' </summary>
+    Public Sub ApplySkinLayoutXaml()
+        Try
+            RestoreSkinLayout()
+            If PanSkinHost Is Nothing Then Return
+
+            Dim Pack = SkinManager.CurrentPack
+            Dim LayoutPath As String = ""
+            If Pack IsNot Nothing AndAlso Pack.LayoutFile <> "" Then
+                LayoutPath = IO.Path.Combine(Pack.FolderPath, Pack.LayoutFile)
             End If
-            For Each Child In PanTitleSelect.Children
-                Dim Btn = TryCast(Child, MyRadioButton)
-                If Btn Is Nothing Then Continue For
-                Btn.VerticalLayout = True
-                Btn.MinWidth = If(HasCustomUi, 134, SkinMetrics.NavWidth)
-                Btn.HorizontalAlignment = HorizontalAlignment.Stretch
-                '左右各留 8：MyRadioButton 内部还有 12 的左内边距，
-                '不预留的话图标会被裁在容器外面
-                Btn.Margin = New Thickness(8, 4, 8, 4)
-            Next
-            PanNavItems.Margin = New Thickness(0, 10, 0, 0)
-            '用列宽把导航栏真正“占位”下来：内容区自动排到第 1 列，
-            '不需要再手工算 Margin 和 PanMain.Width，窗口缩放也不会错位
-            '有自定义控件时侧栏要更宽：按钮里是中文，76px 放不下会被截断
-            Dim NavTotal As Double = If(HasCustomUi, Math.Max(SkinMetrics.NavWidth, 150) + 8, SkinMetrics.NavWidth + 8)
-            ColNav.Width = New GridLength(NavTotal)
-            PanNavHost.Visibility = Visibility.Visible
-            PanHint.Margin = New Thickness(NavTotal + 20, 0, 0, 20)
-        Else
-            '横排：恢复内置位置与尺寸
-            PanTitleSelect.Orientation = Orientation.Horizontal
-            PanTitleSelect.HorizontalAlignment = HorizontalAlignment.Left
-            PanTitleSelect.VerticalAlignment = VerticalAlignment.Center
-            PanTitleSelect.Height = 27
-            PanTitleSelect.Margin = New Thickness(13, 0, 0, 0)
-            If Not PanTitleMain.Children.Contains(PanTitleSelect) Then
-                PanNavItems.Children.Remove(PanTitleSelect)
-                PanTitleMain.Children.Add(PanTitleSelect)
+            If LayoutPath = "" OrElse Not FileUtils.Exists(LayoutPath) Then Return
+
+            Dim Root = SkinXaml.LoadFile(LayoutPath)
+            Dim Host = TryCast(Root, Panel)
+            If Host Is Nothing Then
+                Dim Detail As String = If(SkinXaml.ErrorText, "布局的根元素必须是容器（如 Grid / StackPanel / Border）")
+                Logger.Warn("皮肤布局不可用：" & Detail)
+                Hint("皮肤布局加载失败：" & Detail, HintType.Red)
+                Return
             End If
-            For Each Child In PanTitleSelect.Children
-                Dim Btn = TryCast(Child, MyRadioButton)
-                If Btn Is Nothing Then Continue For
-                Btn.VerticalLayout = False
-                Btn.MinWidth = 0
-                Btn.HorizontalAlignment = HorizontalAlignment.Center
-                Btn.Margin = New Thickness(5, 0, 5, 0)
+
+            '缺关键插槽就整体回退：宁可用回 PCL 原界面，也不要给用户一屏空白
+            Dim Missing As New List(Of String)
+            For Each Required As String In {SkinSlots.SlotTitle, SkinSlots.SlotContent}
+                If SkinSlots.FindSlot(Host, Required) Is Nothing Then Missing.Add(Required)
             Next
-            PanNavHost.Visibility = Visibility.Collapsed
-            ColNav.Width = New GridLength(0)
-            PanHint.Margin = New Thickness(0, 0, 0, 20)
-        End If
-        '标题栏高度：竖排时导航已经搬走，标题栏只剩窗口按钮，
-        '用皮肤给的高度会把顶栏撑得很空；横排时高度必须够放下导航。
-        PanTitle.Height = If(LeftMode, Math.Max(40, SkinMetrics.TitlebarHeight), SkinMetrics.TitlebarHeight)
-        ShapeTitleLogo.Visibility = If(SkinMetrics.HideTitleLogo, Visibility.Collapsed, Visibility.Visible)
-        LabTitleLogo.Visibility = Visibility.Collapsed
+            If Missing.Count > 0 Then
+                Dim Detail As String = "皮肤布局缺少必需的插槽：" & String.Join("、", Missing)
+                Logger.Warn(Detail)
+                Hint(Detail, HintType.Red)
+                Return
+            End If
+
+            '先挂上去，插槽才能被找到并测量
+            Host.HorizontalAlignment = HorizontalAlignment.Stretch
+            Host.VerticalAlignment = VerticalAlignment.Stretch
+            PanSkinHost.Children.Clear()
+            PanSkinHost.Children.Add(Host)
+            PanSkinHost.Visibility = Visibility.Visible
+            SkinLayoutActive = True
+
+            '把真实控件搬进插槽。找不到的插槽就跳过，皮肤没声明的部分仍留在原处
+            MoveToSlot(Host, "Title", PanTitle)
+            MoveToSlot(Host, "Nav", PanTitleSelect)
+            MoveToSlot(Host, "Extra", PanExtraButtons)
+            '内容区：整块搬（PanMain 里是页面实例，搬 PanMain 才不丢状态）
+            MoveToSlot(Host, "Content", PanMain)
+            '提示条与进度条跟着内容区走，否则会飘到皮肤布局外面去
+            MoveToSlot(Host, "Hint", PanHint)
+            MoveToSlot(Host, "Progress", HintProgress)
+
+            '但凡有插槽没被皮肤声明，剩下的原界面就会和皮肤布局叠在一起。
+            '这里把所有没搬走的原界面部分一并藏起来：皮肤一旦接管界面，就该是完整的接管。
+            HideIfStillPlaced(PanTitle, PanTitleSelect, PanMain, PanHint, HintProgress, PanExtraButtons)
+
+            '导航改为竖排（皮肤把导航槽摆在左栏时才需要）
+            ApplyNavOrientation()
+        Catch ex As Exception
+            Logger.Error(ex, "应用皮肤布局失败", LogBehavior.Toast)
+            RestoreSkinLayout()
+        End Try
     End Sub
 
     ''' <summary>
-    ''' 构建并插入皮肤自定义的界面控件。
+    ''' 把一个控件搬进皮肤布局里名为 <c>PCL:名字</c> 的插槽。
     ''' <para>
-    ''' 只重建自己那一个容器，不碰 PCL 原有控件；皮肤没写 customUi 时就清空。
-    ''' 这样换皮肤、关皮肤都不会残留上一次的控件。
+    ''' 插槽按名字找：皮肤写 <c>&lt;Border PCL:Slot="Content" /&gt;</c> 即可。
+    ''' 找不到同名插槽时什么也不做，控件留在原处。
     ''' </para>
     ''' </summary>
-    Public Sub ApplySkinCustomUi()
-        If PanSkinNavExtra Is Nothing Then Return
-        PanSkinNavExtra.Children.Clear()
-        Dim Pack = SkinManager.CurrentPack
-        If Pack Is Nothing Then Return
+    Private Sub MoveToSlot(Host As Panel, SlotName As String, Element As UIElement)
+        If Element Is Nothing Then Return
+        Dim Slot = SkinSlots.FindSlot(Host, SlotName)
+        If Slot Is Nothing Then Return
+        '记下原位置，换皮肤或关皮肤时原样放回
+        Dim OldParent = TryCast(VisualTreeHelper.GetParent(Element), Panel)
+        If OldParent IsNot Nothing Then
+            SkinMoved.Add((Element, OldParent, OldParent.Children.IndexOf(Element)))
+            OldParent.Children.Remove(Element)
+        End If
+        '插槽本身也是容器：它已有的内容先清掉，避免与搬进来的控件叠在一起
+        If TypeOf Slot Is Panel Then CType(Slot, Panel).Children.Clear()
+        If TypeOf Slot Is ContentControl Then CType(Slot, ContentControl).Content = Nothing
+        If TypeOf Slot Is Decorator Then CType(Slot, Decorator).Child = Nothing
 
-        If Pack.CustomUi Is Nothing OrElse Pack.CustomUi.Count = 0 Then Return
-        Dim Built = SkinControls.Build(Pack.CustomUi)
-        For Each Element In Built
-            PanSkinNavExtra.Children.Add(Element)
+        '控件铺满插槽：插槽尺寸就是皮肤给这块区域分配的尺寸。
+        '必须先清掉原来写死的尺寸——PanMain 在窗口尺寸变化时会被写成固定宽高，
+        '带着那个值进插槽就会顶出一片空白。
+        Dim Fe = TryCast(Element, FrameworkElement)
+        If Fe IsNot Nothing Then
+            Fe.Width = Double.NaN
+            Fe.Height = Double.NaN
+            '记下原本的对齐方式：PCL 的 PanMain / PanLeft 是 Left+Top 靠左上摆的，
+            '换皮肤时关掉它，还原时再放回去，否则内容区会缩成一小块。
+            If Not SkinAlignSaved.ContainsKey(Fe) Then
+                SkinAlignSaved(Fe) = (Fe.HorizontalAlignment, Fe.VerticalAlignment)
+            End If
+            Fe.HorizontalAlignment = HorizontalAlignment.Stretch
+            Fe.VerticalAlignment = VerticalAlignment.Stretch
+        End If
+        Select Case True
+            Case TypeOf Slot Is Panel
+                CType(Slot, Panel).Children.Add(Element)
+            Case TypeOf Slot Is ContentControl
+                CType(Slot, ContentControl).Content = Element
+            Case TypeOf Slot Is Decorator
+                CType(Slot, Decorator).Child = Element
+        End Select
+    End Sub
+
+    ''' <summary>
+    ''' 隐藏仍然留在原界面里的控件。
+    ''' <para>
+    ''' 皮肤只声明了部分插槽时，没被搬走的控件会继续按原布局显示，
+    ''' 和皮肤画出来的界面叠在一起，看上去就是两套 UI 糊成一团。
+    ''' 所以凡是没进插槽的，一律藏起来；还原时统一恢复。
+    ''' </para>
+    ''' </summary>
+    Private Sub HideIfStillPlaced(ParamArray Elements As UIElement())
+        For Each Element In Elements
+            If Element Is Nothing Then Continue For
+            '搬进插槽的控件父级已经变了，只有还留在原位（或根本找不到插槽）的才需要藏
+            If SkinMoved.Any(Function(M) M.Element Is Element) Then Continue For
+            '记下原本的可见性：HintProgress 这类本来就是 Collapsed 的，
+            '还原时不能一律改成 Visible。
+            If Not SkinHidden.ContainsKey(Element) Then SkinHidden(Element) = Element.Visibility
+            Element.Visibility = Visibility.Collapsed
         Next
-        If SkinControls.ErrorText IsNot Nothing Then
-            Logger.Warn("皮肤自定义界面有错误：" & SkinControls.ErrorText)
+    End Sub
+
+    ''' <summary>被临时藏起来的原界面控件，还原时统一恢复。</summary>
+    Private ReadOnly SkinHidden As New Dictionary(Of UIElement, Visibility)
+
+    ''' <summary>
+    ''' 把搬走的控件放回原位，并恢复 PCL 原界面。
+    ''' 每次应用新皮肤前都先调用它，因此换皮肤不会累积残留。
+    ''' </summary>
+    Public Sub RestoreSkinLayout()
+        '按记录逆序还原：同一个父容器里可能搬走多个控件，倒着插回去索引才对得上
+        For Index = SkinMoved.Count - 1 To 0 Step -1
+            Dim Item = SkinMoved(Index)
+            Try
+                '先把它从当前所在的容器（可能是插槽）里摘掉
+                Dim CurrentParent = TryCast(VisualTreeHelper.GetParent(Item.Element), Panel)
+                If CurrentParent IsNot Nothing Then CurrentParent.Children.Remove(Item.Element)
+                '再按记录的索引插回原位，超出范围就追加
+                If Item.Index >= 0 AndAlso Item.Index <= Item.Parent.Children.Count Then
+                    Item.Parent.Children.Insert(Item.Index, Item.Element)
+                Else
+                    Item.Parent.Children.Add(Item.Element)
+                End If
+            Catch ex As Exception
+                Logger.Warn(ex, "还原皮肤布局控件失败")
+            End Try
+        Next
+        SkinMoved.Clear()
+        '恢复被藏起来的原界面部分
+        For Each Pair In SkinHidden
+            Try
+                Pair.Key.Visibility = Pair.Value
+            Catch
+            End Try
+        Next
+        SkinHidden.Clear()
+        '把对齐方式还给控件
+        For Each Pair In SkinAlignSaved
+            Try
+                Pair.Key.HorizontalAlignment = Pair.Value.H
+                Pair.Key.VerticalAlignment = Pair.Value.V
+            Catch
+            End Try
+        Next
+        SkinAlignSaved.Clear()
+        '还原后尺寸重新交给窗口尺寸逻辑管
+        If PanMain IsNot Nothing Then
+            PanMain.Width = PanForm.Width
+            PanMain.Height = Math.Max(0, PanForm.Height - PanTitle.ActualHeight)
         End If
+
+        If PanSkinHost IsNot Nothing Then
+            PanSkinHost.Children.Clear()
+            PanSkinHost.Visibility = Visibility.Collapsed
+        End If
+        SkinLayoutActive = False
+        ApplyNavOrientation()
     End Sub
 
     ''' <summary>
-    ''' 把皮肤里的图标覆盖套用到标题栏导航。
+    ''' 按皮肤度量设置导航是横排还是竖排。
+    ''' <para>
+    ''' 走的是同一个 <see cref="MyRadioButton"/> 的 <c>VerticalLayout</c>，
+    ''' 不新建控件、不复制事件，因此选中状态与点击逻辑天然一致。
+    ''' </para>
+    ''' </summary>
+    Public Sub ApplyNavOrientation()
+        If PanTitleSelect Is Nothing Then Return
+        Dim Vertical As Boolean = SkinMetrics.NavVertical AndAlso SkinLayoutActive
+        PanTitleSelect.Orientation = If(Vertical, Orientation.Vertical, Orientation.Horizontal)
+        PanTitleSelect.HorizontalAlignment = If(Vertical, HorizontalAlignment.Center, HorizontalAlignment.Left)
+        PanTitleSelect.VerticalAlignment = If(Vertical, VerticalAlignment.Top, VerticalAlignment.Center)
+        PanTitleSelect.Height = If(Vertical, Double.NaN, 27)
+        PanTitleSelect.Margin = If(Vertical, New Thickness(0, 12, 0, 0), New Thickness(13, 0, 0, 0))
+        For Each Child In PanTitleSelect.Children
+            Dim Btn = TryCast(Child, MyRadioButton)
+            If Btn Is Nothing Then Continue For
+            Btn.VerticalLayout = Vertical
+        Next
+    End Sub
+
+    ''' <summary>
+    ''' 把皮肤里的图标覆盖套用到导航按钮。
     ''' <para>
     ''' Logo 是普通 CLR 属性，不能像颜色那样用 DynamicResource 自动联动，
-    ''' 只能在每次主题刷新后主动推一次。这里用“控件 → 语义名”的显式映射，
-    ''' 而不是给控件加自定义附加属性：映射集中在一处，皮肤作者只需要记语义名，
-    ''' 也不必为了支持换图标去改动 XAML 的控件类型。
+    ''' 只能在每次主题刷新后主动推一次。
     ''' </para>
     ''' </summary>
     Public Sub ApplySkinIcons()
-        If FrmMain Is Nothing Then Return
-        Dim Nav As New Dictionary(Of MyRadioButton, String) From {
-            {BtnTitleSelect0, "Launch"},
-            {BtnTitleSelect1, "Download"},
-            {BtnTitleSelect2, "Link"},
-            {BtnTitleSelect3, "Setup"},
-            {BtnTitleSelect4, "More"},
-            {BtnTitleSelect5, "Extra"}
-        }
-        For Each Pair In Nav
-            Dim Override = SkinMetrics.GetIcon(Pair.Value)
+        If PanTitleSelect Is Nothing Then Return
+        Dim Names As String() = {"Launch", "Download", "Link", "Setup", "More", "Extra"}
+        For Index = 0 To Math.Min(Names.Length, PanTitleSelect.Children.Count) - 1
+            Dim Btn = TryCast(PanTitleSelect.Children(Index), MyRadioButton)
+            If Btn Is Nothing Then Continue For
+            Dim Override = SkinMetrics.GetIcon(Names(Index))
             '没有覆盖就保持 XAML 里原本的图标，不要动它
-            If Override IsNot Nothing Then Pair.Key.Logo = Override
+            If Override IsNot Nothing Then Btn.Logo = Override
         Next
+    End Sub
+
+    ''' <summary>
+    ''' 标题栏版本号：显示当前版本，点击检查更新。
+    ''' 内容与 DstUpdate 的自动检查共用同一套逻辑，避免两处判断口径不一致。
+    ''' </summary>
+    Private Sub RefreshTitleVersion()
+        If LabTitleVersion Is Nothing Then Return
+        LabTitleVersion.Text = "v" & VersionBaseName
+        If BtnTitleVersion IsNot Nothing Then
+            BtnTitleVersion.ToolTip = $"当前版本 {VersionDisplay}，点击检查更新"
+        End If
+    End Sub
+
+    ''' <summary>点版本号 = 检查更新。</summary>
+    Private Sub BtnTitleVersion_Click(sender As Object, e As MouseButtonEventArgs) Handles BtnTitleVersion.MouseLeftButtonUp
+        e.Handled = True
+        DstUpdate.CheckLauncherUpdateByButton()
     End Sub
 
     ''' <summary>

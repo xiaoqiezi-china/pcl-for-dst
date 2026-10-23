@@ -291,7 +291,7 @@
   <Compile Include="Modules\Skin\SkinManager.vb" />
   <Compile Include="Modules\Skin\SkinAction.vb" />
   <Compile Include="Modules\Skin\SkinEvents.vb" />
-  <Compile Include="Modules\Skin\SkinControls.vb" />
+  <Compile Include="Modules\Skin\SkinXaml.vb" />
   <Compile Include="Modules\DstAnnounce.vb" />
         <Compile Include="Modules\ModFavorite.vb" />
     <Compile Include="Controls\WindowImagePreview.vb" />

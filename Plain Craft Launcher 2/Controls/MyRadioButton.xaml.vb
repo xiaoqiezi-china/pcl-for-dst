@@ -219,11 +219,21 @@ Public Class MyRadioButton
                     Case ColorState.White
                         If Checked Then
                             '勾选
-                            AniStart({
-                                         AaColor(ShapeLogo, Shapes.Path.FillProperty, "ColorBrush3", AnimationTimeOfCheck),
-                                         AaColor(LabText, TextBlock.ForegroundProperty, "ColorBrush3", AnimationTimeOfCheck)
-                                    }, "MyRadioButton Checked " & Uuid)
-                            AniStart(AaColor(Me, BackgroundProperty, TitleTextColor - Background, AnimationTimeOfCheck), "MyRadioButton Color " & Uuid)
+                            If _VerticalLayout Then
+                                '竖排导航：选中态用主题色半透明块。
+                                '原来用的是 TitleTextColor（深色主题下是纯白），铺满一整块非常刺眼。
+                                AniStart({
+                                             AaColor(ShapeLogo, Shapes.Path.FillProperty, "ColorBrush3", AnimationTimeOfCheck),
+                                             AaColor(LabText, TextBlock.ForegroundProperty, "ColorBrush3", AnimationTimeOfCheck)
+                                        }, "MyRadioButton Checked " & Uuid)
+                                AniStart(AaColor(Me, BackgroundProperty, New MyColor(46, Color3) - Background, AnimationTimeOfCheck), "MyRadioButton Color " & Uuid)
+                            Else
+                                AniStart({
+                                             AaColor(ShapeLogo, Shapes.Path.FillProperty, "ColorBrush3", AnimationTimeOfCheck),
+                                             AaColor(LabText, TextBlock.ForegroundProperty, "ColorBrush3", AnimationTimeOfCheck)
+                                        }, "MyRadioButton Checked " & Uuid)
+                                AniStart(AaColor(Me, BackgroundProperty, TitleTextColor - Background, AnimationTimeOfCheck), "MyRadioButton Color " & Uuid)
+                            End If
                         ElseIf IsMouseDown Then
                             '按下
                             AniStart(AaColor(Me, BackgroundProperty, New MyColor(120, Color8) - Background, 60), "MyRadioButton Color " & Uuid)

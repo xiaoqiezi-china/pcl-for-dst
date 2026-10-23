@@ -361,12 +361,15 @@ Friend Module ModSecret
                 End If
             End If
             FrmMain.PanForm.Background.Freeze()
-            '图标与布局都不是依赖属性，颜色刷新管不到它们，必须在这里主动推一次
-            '顺序有讲究：先建自定义控件，再排布局——
-            '布局要靠“有没有自定义控件”来决定侧栏宽度，反过来就会量不到
-            FrmMain.ApplySkinCustomUi()
+            '图标与布局都不是依赖属性，颜色刷新管不到它们，必须在这里主动推一次。
+            '顺序有讲究：先套插槽布局（它决定导航横排还是竖排），
+            '再推导航朝向与图标，最后建自定义控件。
+            FrmMain.ApplySkinLayoutXaml()
+            FrmMain.ApplyNavOrientation()
             FrmMain.ApplySkinIcons()
-            FrmMain.ApplySkinLayout()
+            '已建好的控件不会自己重读度量：启动时控件的 Loaded 早于皮肤覆盖，
+            '那时 ButtonFilled 还是默认值，按钮会画成描边。这里统一重推一次。
+            SkinManager.RefreshExistingControls()
         End Sub)
     End Sub
     ''' <summary>

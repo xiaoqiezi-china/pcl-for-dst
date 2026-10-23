@@ -9,7 +9,23 @@ Public Class PageLaunchLeft
     '启动时只探测一次远程服务，避免每次切页面都打接口
     Private OfflineChecked As Boolean = False
 
+    ''' <summary>
+    ''' 临时探针：量出按钮底边到窗口底边的距离，用来核对“下对齐”是否真的贴底。
+    ''' </summary>
+    Private Sub LogBottomAlignment()
+        Try
+            If BtnVersion Is Nothing OrElse BtnLaunch Is Nothing Then Return
+            Dim BottomOfWindow As Double = ActualHeight
+            Dim VerBottom As Double = BtnVersion.TranslatePoint(New Point(0, BtnVersion.ActualHeight), Me).Y
+            Dim LaunchBottom As Double = BtnLaunch.TranslatePoint(New Point(0, BtnLaunch.ActualHeight), Me).Y
+            Logger.Info($"[对齐探针] 页高={BottomOfWindow:F1} 启动按钮底={LaunchBottom:F1} 版本按钮底={VerBottom:F1} 差值={BottomOfWindow - VerBottom:F1}")
+        Catch ex As Exception
+            Logger.Warn(ex, "对齐探针失败")
+        End Try
+    End Sub
+
     Public Sub PageLaunchLeft_Loaded() Handles Me.Loaded
+        RunInUi(Sub() LogBottomAlignment(), True)
         If IsLoad Then RefreshPage(True, False)
         If Not OfflineChecked Then
             OfflineChecked = True

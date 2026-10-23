@@ -122,6 +122,11 @@ Public Class MyLoading
         End If
     End Sub
     Private Sub RefreshState() Handles _State.LoadingStateChanged, Me.Loaded, Me.Unloaded
+        '控件可能在被 State 赋值之前就触发 Loaded / Unloaded（例如被移动到别的容器里重新挂载），
+        '此时 _State 还是 Nothing，下面直接访问它的属性会抛 NullReferenceException。
+        '这里补一次初始化：界面移动不该让整个程序崩在 Unloaded 上。
+        If _State Is Nothing Then InitState()
+        If _State Is Nothing Then Return
         If _State.LoadingState = MyLoadingState.Run AndAlso Not IsLoaded Then InnerState = MyLoadingState.Stop
         InnerState = _State.LoadingState
         OuterState = _State.LoadingState

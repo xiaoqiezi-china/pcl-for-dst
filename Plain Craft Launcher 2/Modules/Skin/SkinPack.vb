@@ -39,6 +39,12 @@ Public Class SkinPack
     ''' </summary>
     Public Property CustomUi As JArray = Nothing
 
+    ''' <summary>
+    ''' 整窗 XAML 布局文件名（相对皮肤目录）。存在时用它替换主界面骨架，
+    ''' 皮肤作者可以像写普通 WPF 页面一样布局，并通过 CustomEventService 绑事件。
+    ''' </summary>
+    Public Property LayoutFile As String = ""
+
     ''' <summary>皮肤目录的完整路径。</summary>
     Public Property FolderPath As String = ""
     ''' <summary>预览图路径，没有则为空。</summary>

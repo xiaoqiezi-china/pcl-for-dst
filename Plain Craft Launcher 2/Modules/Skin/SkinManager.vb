@@ -143,6 +143,9 @@ Public Module SkinManager
                 Pack.CustomUi = CType(UiNode, JArray)
             End If
 
+            '整窗布局文件
+            Pack.LayoutFile = If(Json.Value(Of String)("layout"), "").Trim()
+
             '预览图
             For Each Candidate In {"preview.png", "preview.jpg", "preview.jpeg"}
                 Dim P = IO.Path.Combine(Folder, Candidate)
@@ -210,7 +213,11 @@ Public Module SkinManager
                     '标题栏
                     Case "TitlebarSolid" : SkinMetrics.TitlebarSolid = Pair.Value > 0.5
                     '布局
-                    Case "NavWidth" : SkinMetrics.NavWidth = Pair.Value
+                    Case "NavButtonSize" : SkinMetrics.NavButtonSize = Pair.Value
+                Case "NavButtonRadius" : SkinMetrics.NavButtonRadius = Pair.Value
+                Case "NavIconSize" : SkinMetrics.NavIconSize = Pair.Value
+                Case "NavFontSize" : SkinMetrics.NavFontSize = Pair.Value
+                Case "NavSpacing" : SkinMetrics.NavSpacing = Pair.Value
                     Case "TitlebarHeight" : SkinMetrics.TitlebarHeight = Pair.Value
                     Case "HideTitleLogo" : SkinMetrics.HideTitleLogo = Pair.Value > 0.5
                 End Select
@@ -220,10 +227,10 @@ Public Module SkinManager
             For Each Pair In Pack.StringMetrics
                 Select Case Pair.Key
                     Case "CardBorderBrushKey" : SkinMetrics.CardBorderBrushKey = Pair.Value
-                    Case "SidebarBrushKey" : SkinMetrics.SidebarBrushKey = Pair.Value
-                    Case "TitlebarColor" : SkinMetrics.TitlebarColor = Pair.Value
+                        Case "TitlebarColor" : SkinMetrics.TitlebarColor = Pair.Value
                     Case "ButtonFilledTextColor" : SkinMetrics.ButtonFilledTextColor = Pair.Value
-                    Case "NavPosition" : SkinMetrics.NavPosition = Pair.Value
+                    Case "NavVertical" : SkinMetrics.NavVertical = Pair.Value.Trim().ToLower() = "true" OrElse Pair.Value.Trim() = "1"
+                    Case "TitleText" : SkinMetrics.TitleText = Pair.Value
                 End Select
             Next
 
@@ -289,6 +296,56 @@ Public Module SkinManager
     End Sub'-----------------
     ' 导入 / 导出
     '-----------------
+
+    ''' <summary>
+    ''' 新建皮肤用的默认布局。
+    ''' <para>
+    ''' 刻意做成"和 PCL 原界面等价"的最小骨架：标题栏在上、内容区在下。
+    ''' 皮肤作者从这份开始改，改坏了也能一眼看出差在哪。
+    ''' </para>
+    ''' </summary>
+    Private ReadOnly Property TemplateLayout As String
+        Get
+            Return <![CDATA[<!--
+  皮肤布局：PCL 会把真实控件搬进这些插槽，所以你只需要安排它们的位置。
+  可用插槽：
+    Title     标题栏（Logo、页面切换、窗口按钮、版本号）
+    Nav       导航按钮组
+    Content   页面内容区（必需）
+    Extra     右下角扩展按钮
+    Hint      底部提示条
+    Progress  底部进度条
+  写法：在任意容器上加 PCL:Slot="插槽名"。
+  不要在文件里写 xmlns，PCL 会自动注入。
+-->
+<Grid>
+    <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="1*" />
+    </Grid.RowDefinitions>
+    <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="68" />
+        <ColumnDefinition Width="1*" />
+    </Grid.ColumnDefinitions>
+
+    <!-- 左栏：导航 -->
+    <Border Grid.RowSpan="2" Background="{DynamicResource ColorBrushRail}">
+        <Border PCL:Slot="Nav" VerticalAlignment="Top" />
+    </Border>
+
+    <!-- 标题栏 -->
+    <Border Grid.Column="1" Grid.Row="0" PCL:Slot="Title" />
+
+    <!-- 内容区 -->
+    <Grid Grid.Column="1" Grid.Row="1">
+        <Border PCL:Slot="Content" />
+        <ContentControl PCL:Slot="Hint" VerticalAlignment="Bottom" HorizontalAlignment="Left" />
+        <ContentControl PCL:Slot="Progress" VerticalAlignment="Bottom" HorizontalAlignment="Left" />
+        <ContentControl PCL:Slot="Extra" VerticalAlignment="Bottom" HorizontalAlignment="Right" />
+    </Grid>
+</Grid>]]>.Value
+        End Get
+    End Property
 
     ''' <summary>从 zip 或 skin.json 导入皮肤。失败返回 Nothing 并写 ErrorText。</summary>
     Public Function Import(FilePath As String) As SkinPack
@@ -469,6 +526,7 @@ Public Module SkinManager
                 {"version", "1.0"},
                 {"description", "在这里写皮肤说明"},
                 {"base", "auto"},
+                {"layout", "Layout.xaml"},
                 {"colors", New JObject From {
                     {"ColorBrush1", "#333D4A"},
                     {"ColorBrush2", "#0B5BCB"},
@@ -498,7 +556,14 @@ Public Module SkinManager
                     {"ButtonBorderThickness", 1},
                     {"ButtonFilledTextColor", ""},
                     {"TitlebarSolid", 0},
-                    {"TitlebarColor", ""}}},
+                    {"TitlebarColor", ""},
+                    {"TitlebarHeight", 48},
+                    {"NavVertical", "false"},
+                    {"NavButtonSize", 52},
+                    {"NavButtonRadius", 12},
+                    {"NavIconSize", 18},
+                    {"NavFontSize", 10.5},
+                    {"NavSpacing", 2}}},
                 {"icons", New JObject From {
                     {"Launch", ""},
                     {"Download", ""},
@@ -508,6 +573,9 @@ Public Module SkinManager
                     {"Extra", ""}}}
             }
             FileUtils.Write(IO.Path.Combine(Target, "skin.json"), Json.ToString(Formatting.Indented))
+            '配一份能直接跑的布局：皮肤只有声明了 Title 与 Content 两个必需插槽才会生效，
+            '模板按这个最小结构给出，作者改起来有参照，不会一开始就是空白
+            FileUtils.Write(IO.Path.Combine(Target, "Layout.xaml"), TemplateLayout)
             ListPacks(True)
             Return True
         Catch ex As Exception
