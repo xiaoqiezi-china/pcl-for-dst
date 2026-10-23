@@ -10,6 +10,7 @@ Public Class PageSetupUI
 
         AniControlEnabled += 1
         Refresh() '#4826
+        RefreshAppearanceDependentControls()
         CheckOfflineMode.Checked = DstBot.IsOffline
         CheckOfflineShowServers.Checked = Settings.Get(Of Boolean)("DstOfflineShowServers")
         RefreshOfflineServerToggle()
@@ -50,6 +51,30 @@ Public Class PageSetupUI
             Dim Radio = TryCast(Control, MyRadioBox)
             If Radio IsNot Nothing AndAlso Radio.IsEnabled Then Radio.Text = NewText
         Next
+    End Sub
+
+    ''' <summary>
+    ''' 外观切换：整套配色与窗口骨架立即刷新，无需重启。
+    ''' </summary>
+    Private Sub RadioAppearance_Changed(sender As Object, e As RouteEventArgs) Handles RadioAppearance0.Changed, RadioAppearance1.Changed
+        Dim Radio = TryCast(sender, MyRadioBox)
+        If Radio Is Nothing OrElse Not Radio.Checked Then Return
+        If AniControlEnabled > 0 Then Return
+        Dim Value As AppearanceStyle = If(RadioAppearance1.Checked, AppearanceStyle.Indra, AppearanceStyle.Pcl)
+        If Value = Appearance Then Return
+        SetAppearance(Value)
+        '换外观后，深浅与主题两组选项在 Indra 下不起作用，同步一下可用性
+        RefreshAppearanceDependentControls()
+    End Sub
+
+    ''' <summary>
+    ''' Indra 外观是整套写死的深色，深浅开关与主题色对它无效，
+    ''' 置灰可以避免用户以为改了没反应。
+    ''' </summary>
+    Private Sub RefreshAppearanceDependentControls()
+        Dim Enabled As Boolean = Appearance = AppearanceStyle.Pcl
+        If CheckDarkMode IsNot Nothing Then CheckDarkMode.IsEnabled = Enabled
+        If PanLauncherTheme IsNot Nothing Then PanLauncherTheme.IsEnabled = Enabled
     End Sub
 
     ''' <summary>深浅色切换：改设置后强制重算整套配色。</summary>

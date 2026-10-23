@@ -68,6 +68,26 @@ Public Class MyButton
         End Set
     End Property
 
+
+    ''' <summary>
+    ''' 按当前外观风格调整按钮几何。
+    ''' <para>
+    ''' 圆角与描边写死在模板里，换外观不会自动更新，需要由外部推一次。
+    ''' PCL 外观是 3px 细圆角配描边；PCL Inder 是 10px 圆角、无描边、中性填充。
+    ''' </para>
+    ''' </summary>
+    Public Sub ApplyAppearance()
+        If PanFore Is Nothing Then Return
+        If Appearance = AppearanceStyle.Indra Then
+            PanFore.CornerRadius = New CornerRadius(10)
+            PanFore.BorderThickness = New Thickness(0)
+        Else
+            PanFore.CornerRadius = New CornerRadius(3)
+            PanFore.BorderThickness = New Thickness(1)
+        End If
+        RefreshColor()
+    End Sub
+
     '自定义事件
     Private Const AnimationColorIn As Integer = 100
     Private Const AnimationColorOut As Integer = 200

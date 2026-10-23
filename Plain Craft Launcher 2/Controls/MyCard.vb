@@ -74,6 +74,27 @@ Public Class MyCard
         MainGrid = New Grid
         Children.Add(MainGrid)
     End Sub
+
+    ''' <summary>
+    ''' 按当前外观风格调整卡片几何。
+    ''' PCL 外观 5px 圆角；PCL Inder 14px 圆角 + 描边。
+    ''' </summary>
+    Public Sub ApplyAppearance()
+        If MainChrome Is Nothing OrElse MainBorder Is Nothing Then Return
+        Dim Radius As CornerRadius
+        If Appearance = AppearanceStyle.Indra Then
+            Radius = New CornerRadius(14)
+            MainBorder.BorderThickness = New Thickness(1)
+            MainChrome.Opacity = 0
+        Else
+            Radius = New CornerRadius(5)
+            MainBorder.BorderThickness = New Thickness(0)
+            MainChrome.Opacity = 0
+        End If
+        MainChrome.CornerRadius = Radius
+        MainBorder.CornerRadius = Radius
+    End Sub
+
     Private IsLoad As Boolean = False
     Private Sub Init() Handles Me.Loaded
         If IsLoad Then Return

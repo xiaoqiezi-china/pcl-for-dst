@@ -179,12 +179,52 @@ Friend Module ModSecret
         End Get
     End Property
 
-    ''' <summary>切换外观并立即重刷界面。</summary>
+    ''' <summary>
+    ''' 切换外观并立即刷新界面。
+    ''' <para>
+    ''' 三步缺一不可：
+    ''' 1) ThemeRefresh 重算整套配色（颜色资源是就地改的，所有引用同时生效）；
+    ''' 2) ApplyAppearance 换窗口骨架（导航位置、列宽、标题栏品牌）；
+    ''' 3) 控件模板里写死的几何量（圆角、描边）不是依赖属性，
+    '''    必须在换完之后遍历视觉树重推一遍，否则按钮还是旧外观。
+    ''' </para>
+    ''' </summary>
     Public Sub SetAppearance(Value As AppearanceStyle)
         Settings.Set("DstAppearance", CInt(Value))
         '换的是整套配色，主题编号没变也要强制重算
         ThemeRefresh(Force:=True)
-        If FrmMain IsNot Nothing Then FrmMain.ApplyAppearance()
+        If FrmMain Is Nothing Then Return
+        FrmMain.ApplyAppearance()
+        FrmMain.ApplyControlChrome()
+    End Sub
+
+    ''' <summary>
+    ''' 就地更新一个颜色资源。
+    ''' <para>
+    ''' 关键点：不替换资源对象，而是改已有 SolidColorBrush 的 Color。
+    ''' XAML 里用 StaticResource 引到的画刷是对象引用，一旦把资源换成新对象，
+    ''' 那些引用还指着旧的，只能靠重建界面（重启）才更新。
+    ''' 就地改色则所有引用同时生效，主题与外观才能真正热切换。
+    ''' </para>
+    ''' </summary>
+    Private Sub SetColorBrush(Key As String, Value As MyColor)
+        Try
+            Dim Existing = TryCast(Application.Current.Resources(Key), SolidColorBrush)
+            If Existing IsNot Nothing Then
+                '冻结的画刷不能改，只能退回到替换；内置画刷都没冻结，正常走这一支
+                If Existing.IsFrozen Then
+                    '换成一个新的：需要该键支持动态刷新，这里退化为替换
+                    Application.Current.Resources(Key) = New SolidColorBrush(CType(Value, Color))
+                Else
+                    Existing.Color = CType(Value, Color)
+                End If
+                Return
+            End If
+            Application.Current.Resources(Key) = New SolidColorBrush(CType(Value, Color))
+        Catch ex As Exception
+            '单个颜色失败不该中断整套外观刷新
+            Logger.Warn(ex, $"更新颜色资源失败：{Key}")
+        End Try
     End Sub
 
     ''' <summary>
@@ -222,25 +262,27 @@ Friend Module ModSecret
                 ColorBg0 = New MyColor(16, 19, 23)
                 ColorBg1 = New MyColor(247, New MyColor(11, 13, 16))
 
-                Application.Current.Resources("ColorBrushCard") = New SolidColorBrush(New MyColor(20, 23, 28))
-                Application.Current.Resources("ColorBrushCardHover") = New SolidColorBrush(New MyColor(26, 30, 36))
-                Application.Current.Resources("ColorBrushRail") = New SolidColorBrush(New MyColor(20, 23, 28))
-                Application.Current.Resources("ColorBrushBackgroundTransparentSidebar") = New SolidColorBrush(New MyColor(246, New MyColor(13, 16, 19)))
-                Application.Current.Resources("ColorBrushGray1") = New SolidColorBrush(New MyColor(237, 239, 243))
-                Application.Current.Resources("ColorBrushGray2") = New SolidColorBrush(New MyColor(170, 178, 188))
-                Application.Current.Resources("ColorBrushGray3") = New SolidColorBrush(New MyColor(122, 131, 142))
-                Application.Current.Resources("ColorBrushGray4") = New SolidColorBrush(New MyColor(92, 100, 110))
-                Application.Current.Resources("ColorBrushGray5") = New SolidColorBrush(New MyColor(66, 73, 83))
-                Application.Current.Resources("ColorBrushGray6") = New SolidColorBrush(New MyColor(46, 52, 60))
-                Application.Current.Resources("ColorBrushGray7") = New SolidColorBrush(New MyColor(28, 32, 38))
-                Application.Current.Resources("ColorBrushGray8") = New SolidColorBrush(New MyColor(20, 23, 28))
-                Application.Current.Resources("ColorBrushBorder") = New SolidColorBrush(New MyColor(32, 36, 43))
-                Application.Current.Resources("ColorBrushBorderLight") = New SolidColorBrush(New MyColor(45, 50, 58))
-                Application.Current.Resources("ColorBrushCardBorder") = New SolidColorBrush(New MyColor(28, 32, 39))
-                Application.Current.Resources("ColorBrushInput") = New SolidColorBrush(New MyColor(15, 18, 22))
-                Application.Current.Resources("ColorBrushTitleIcon") = New SolidColorBrush(Color.FromRgb(255, 255, 255))
-                Application.Current.Resources("ColorBrushHalfWhite") = New SolidColorBrush(Color.FromArgb(20, 255, 255, 255))
-                Application.Current.Resources("ColorBrushSemiTransparent") = New SolidColorBrush(New MyColor(1, Color8))
+                SetColorBrush("ColorBrushCard", New MyColor(20, 23, 28))
+                SetColorBrush("ColorBrushCardHover", New MyColor(26, 30, 36))
+                SetColorBrush("ColorBrushRail", New MyColor(20, 23, 28))
+                SetColorBrush("ColorBrushBackgroundTransparentSidebar", New MyColor(246, New MyColor(13, 16, 19)))
+                SetColorBrush("ColorBrushGray1", New MyColor(237, 239, 243))
+                SetColorBrush("ColorBrushGray2", New MyColor(170, 178, 188))
+                SetColorBrush("ColorBrushGray3", New MyColor(122, 131, 142))
+                SetColorBrush("ColorBrushGray4", New MyColor(92, 100, 110))
+                SetColorBrush("ColorBrushGray5", New MyColor(66, 73, 83))
+                SetColorBrush("ColorBrushGray6", New MyColor(46, 52, 60))
+                SetColorBrush("ColorBrushGray7", New MyColor(28, 32, 38))
+                SetColorBrush("ColorBrushGray8", New MyColor(20, 23, 28))
+                SetColorBrush("ColorBrushBorder", New MyColor(32, 36, 43))
+                SetColorBrush("ColorBrushBorderLight", New MyColor(45, 50, 58))
+                SetColorBrush("ColorBrushCardBorder", New MyColor(28, 32, 39))
+                SetColorBrush("ColorBrushInput", New MyColor(15, 18, 22))
+                SetColorBrush("ColorBrushTitleIcon", New MyColor(Color.FromRgb(255, 255, 255)))
+                '启动按钮是实心蓝底，副标题用半透明白才读得清
+                SetColorBrush("ColorBrushLaunchSub", New MyColor(Color.FromArgb(210, 255, 255, 255)))
+                SetColorBrush("ColorBrushHalfWhite", New MyColor(Color.FromArgb(20, 255, 255, 255)))
+                SetColorBrush("ColorBrushSemiTransparent", New MyColor(1, Color8))
                 BackColorMain = New MyColor(17, 20, 24)
                 BackColorSub = New MyColor(12, 14, 17)
                 TextColorMain = Color1
@@ -264,21 +306,22 @@ Friend Module ModSecret
                 ColorBg1 = New MyColor(190, Color8)
 
                 '卡片、弹窗、输入框用的深色面，跟着主题色相走
-                Application.Current.Resources("ColorBrushCard") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 22, 21))
-                Application.Current.Resources("ColorBrushCardHover") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 22, 27))
-                Application.Current.Resources("ColorBrushBackgroundTransparentSidebar") = New SolidColorBrush(New MyColor(240, Color8))
-                Application.Current.Resources("ColorBrushGray1") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 16, 92))
-                Application.Current.Resources("ColorBrushGray2") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 14, 76))
-                Application.Current.Resources("ColorBrushGray3") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 12, 62))
-                Application.Current.Resources("ColorBrushGray4") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 12, 48))
-                Application.Current.Resources("ColorBrushGray5") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 12, 34))
-                Application.Current.Resources("ColorBrushGray6") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 14, 26))
-                Application.Current.Resources("ColorBrushGray7") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 20, 22))
-                Application.Current.Resources("ColorBrushGray8") = New SolidColorBrush(New MyColor().FromHSL(ColorHue, 22, 16))
-                Application.Current.Resources("ColorBrushTitleIcon") = New SolidColorBrush(Color.FromRgb(255, 255, 255))
-                Application.Current.Resources("ColorBrushHalfWhite") = New SolidColorBrush(Color.FromArgb(26, 255, 255, 255))
+                SetColorBrush("ColorBrushCard", New MyColor().FromHSL(ColorHue, 22, 21))
+                SetColorBrush("ColorBrushCardHover", New MyColor().FromHSL(ColorHue, 22, 27))
+                SetColorBrush("ColorBrushBackgroundTransparentSidebar", New MyColor(240, Color8))
+                SetColorBrush("ColorBrushGray1", New MyColor().FromHSL(ColorHue, 16, 92))
+                SetColorBrush("ColorBrushGray2", New MyColor().FromHSL(ColorHue, 14, 76))
+                SetColorBrush("ColorBrushGray3", New MyColor().FromHSL(ColorHue, 12, 62))
+                SetColorBrush("ColorBrushGray4", New MyColor().FromHSL(ColorHue, 12, 48))
+                SetColorBrush("ColorBrushGray5", New MyColor().FromHSL(ColorHue, 12, 34))
+                SetColorBrush("ColorBrushGray6", New MyColor().FromHSL(ColorHue, 14, 26))
+                SetColorBrush("ColorBrushGray7", New MyColor().FromHSL(ColorHue, 20, 22))
+                SetColorBrush("ColorBrushGray8", New MyColor().FromHSL(ColorHue, 22, 16))
+                SetColorBrush("ColorBrushTitleIcon", New MyColor(Color.FromRgb(255, 255, 255)))
+                SetColorBrush("ColorBrushLaunchSub", New MyColor(140, 140, 140))
+                SetColorBrush("ColorBrushHalfWhite", New MyColor(Color.FromArgb(26, 255, 255, 255)))
                 '控件默认底/悬停底：极淡的主题色，深浅两套都要给，否则浅色模式下会沿用深色值
-                Application.Current.Resources("ColorBrushSemiTransparent") = New SolidColorBrush(New MyColor(1, Color8))
+                SetColorBrush("ColorBrushSemiTransparent", New MyColor(1, Color8))
                 BackColorMain = New MyColor().FromHSL(ColorHue, 18, 24)
                 BackColorSub = New MyColor().FromHSL(ColorHue, 16, 18)
                 TextColorMain = Color1
@@ -303,22 +346,23 @@ Friend Module ModSecret
                 ColorBg1 = New MyColor(190, Color7)
 
                 '浅色一律用原版的固定灰阶，不跟着主题色相走
-                Application.Current.Resources("ColorBrushCard") = New SolidColorBrush(New MyColor(255, 255, 255))
-                Application.Current.Resources("ColorBrushCardHover") = New SolidColorBrush(New MyColor(250, 250, 250))
-                Application.Current.Resources("ColorBrushBackgroundTransparentSidebar") = New SolidColorBrush(New MyColor(235, 245, 245, 245))
-                Application.Current.Resources("ColorBrushGray1") = New SolidColorBrush(New MyColor(64, 64, 64))
-                Application.Current.Resources("ColorBrushGray2") = New SolidColorBrush(New MyColor(115, 115, 115))
-                Application.Current.Resources("ColorBrushGray3") = New SolidColorBrush(New MyColor(140, 140, 140))
-                Application.Current.Resources("ColorBrushGray4") = New SolidColorBrush(New MyColor(166, 166, 166))
-                Application.Current.Resources("ColorBrushGray5") = New SolidColorBrush(New MyColor(204, 204, 204))
-                Application.Current.Resources("ColorBrushGray6") = New SolidColorBrush(New MyColor(235, 235, 235))
-                Application.Current.Resources("ColorBrushGray7") = New SolidColorBrush(New MyColor(240, 240, 240))
-                Application.Current.Resources("ColorBrushGray8") = New SolidColorBrush(New MyColor(245, 245, 245))
-                Application.Current.Resources("ColorBrushTitleIcon") = New SolidColorBrush(Color.FromRgb(255, 255, 255))
+                SetColorBrush("ColorBrushCard", New MyColor(255, 255, 255))
+                SetColorBrush("ColorBrushCardHover", New MyColor(250, 250, 250))
+                SetColorBrush("ColorBrushBackgroundTransparentSidebar", New MyColor(235, 245, 245, 245))
+                SetColorBrush("ColorBrushGray1", New MyColor(64, 64, 64))
+                SetColorBrush("ColorBrushGray2", New MyColor(115, 115, 115))
+                SetColorBrush("ColorBrushGray3", New MyColor(140, 140, 140))
+                SetColorBrush("ColorBrushGray4", New MyColor(166, 166, 166))
+                SetColorBrush("ColorBrushGray5", New MyColor(204, 204, 204))
+                SetColorBrush("ColorBrushGray6", New MyColor(235, 235, 235))
+                SetColorBrush("ColorBrushGray7", New MyColor(240, 240, 240))
+                SetColorBrush("ColorBrushGray8", New MyColor(245, 245, 245))
+                SetColorBrush("ColorBrushTitleIcon", New MyColor(Color.FromRgb(255, 255, 255)))
+                SetColorBrush("ColorBrushLaunchSub", New MyColor(140, 140, 140))
                 '原版恒为白色 10%：白色叠在白卡片上看不见，换成黑色就会变成灰块
-                Application.Current.Resources("ColorBrushHalfWhite") = New SolidColorBrush(Color.FromArgb(26, 255, 255, 255))
+                SetColorBrush("ColorBrushHalfWhite", New MyColor(Color.FromArgb(26, 255, 255, 255)))
                 '原版就是 1/255 的极淡蒙层，直接照搬
-                Application.Current.Resources("ColorBrushSemiTransparent") = New SolidColorBrush(New MyColor(1, Color8))
+                SetColorBrush("ColorBrushSemiTransparent", New MyColor(1, Color8))
                 BackColorMain = New MyColor(245, 245, 245)
                 BackColorSub = New MyColor(235, 235, 235)
                 TextColorMain = Color1
@@ -335,16 +379,16 @@ Friend Module ModSecret
 
             '原版就是 1/255 的极淡蒙层，深浅两套都用它，保持与官方一致
             ColorSemiTransparent = New MyColor(1, Color8)
-            Application.Current.Resources("ColorBrush1") = New SolidColorBrush(Color1)
-            Application.Current.Resources("ColorBrush2") = New SolidColorBrush(Color2)
-            Application.Current.Resources("ColorBrush3") = New SolidColorBrush(Color3)
-            Application.Current.Resources("ColorBrush4") = New SolidColorBrush(Color4)
-            Application.Current.Resources("ColorBrush5") = New SolidColorBrush(Color5)
-            Application.Current.Resources("ColorBrush6") = New SolidColorBrush(Color6)
-            Application.Current.Resources("ColorBrush7") = New SolidColorBrush(Color7)
-            Application.Current.Resources("ColorBrush8") = New SolidColorBrush(Color8)
-            Application.Current.Resources("ColorBrushBg0") = New SolidColorBrush(ColorBg0)
-            Application.Current.Resources("ColorBrushBg1") = New SolidColorBrush(ColorBg1)
+            SetColorBrush("ColorBrush1", Color1)
+            SetColorBrush("ColorBrush2", Color2)
+            SetColorBrush("ColorBrush3", Color3)
+            SetColorBrush("ColorBrush4", Color4)
+            SetColorBrush("ColorBrush5", Color5)
+            SetColorBrush("ColorBrush6", Color6)
+            SetColorBrush("ColorBrush7", Color7)
+            SetColorBrush("ColorBrush8", Color8)
+            SetColorBrush("ColorBrushBg0", ColorBg0)
+            SetColorBrush("ColorBrushBg1", ColorBg1)
             Application.Current.Resources("ColorObject1") = CType(Color1, Color)
             Application.Current.Resources("ColorObject2") = CType(Color2, Color)
             Application.Current.Resources("ColorObject3") = CType(Color3, Color)

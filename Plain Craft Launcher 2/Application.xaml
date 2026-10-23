@@ -46,6 +46,8 @@
             <SolidColorBrush x:Key="ColorBrushBorderLight">#2D323A</SolidColorBrush>
             <SolidColorBrush x:Key="ColorBrushCardBorder">#1C2027</SolidColorBrush>
             <SolidColorBrush x:Key="ColorBrushInput">#0F1216</SolidColorBrush>
+            <!-- 启动按钮下方那行副标题：按钮是实心蓝底时必须用可读的浅色 -->
+            <SolidColorBrush x:Key="ColorBrushLaunchSub" Color="#FF8C8C8C" />
             <SolidColorBrush x:Key="ColorBrushRail">#14171C</SolidColorBrush>
             <SolidColorBrush x:Key="ColorBrushGray1">#EDEFF3</SolidColorBrush>
             <SolidColorBrush x:Key="ColorBrushGray2">#AAB2BC</SolidColorBrush>

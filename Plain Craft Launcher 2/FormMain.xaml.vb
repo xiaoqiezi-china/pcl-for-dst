@@ -1486,6 +1486,45 @@ Public Class FormMain
     End Sub
 
     ''' <summary>
+    ''' 把外观相关的几何量重新推给界面上已有的控件。
+    ''' <para>
+    ''' 颜色靠资源键联动，换外观后立刻生效；但圆角、描边这些是控件模板里
+    ''' 写死的值，控件不会自己重读。页面实例又是缓存复用的（PageChange 到
+    ''' 当前页会直接 return），所以只能遍历视觉树主动推一遍。
+    ''' </para>
+    ''' </summary>
+    Public Sub ApplyControlChrome()
+        Try
+            WalkChrome(Me)
+        Catch ex As Exception
+            Logger.Warn(ex, "刷新控件外观失败")
+        End Try
+    End Sub
+
+    Private Sub WalkChrome(Node As DependencyObject)
+        If Node Is Nothing Then Return
+        Try
+            Select Case True
+                Case TypeOf Node Is MyButton
+                    CType(Node, MyButton).ApplyAppearance()
+                Case TypeOf Node Is MyCard
+                    CType(Node, MyCard).ApplyAppearance()
+            End Select
+        Catch ex As Exception
+            '单个控件失败不该中断整棵树
+            Logger.Warn(ex, "套用控件外观失败")
+        End Try
+        Try
+            Dim Count As Integer = VisualTreeHelper.GetChildrenCount(Node)
+            For i As Integer = 0 To Count - 1
+                WalkChrome(VisualTreeHelper.GetChild(Node, i))
+            Next
+        Catch
+            '不是 Visual 或已卸载，跳过
+        End Try
+    End Sub
+
+    ''' <summary>
     ''' 标题栏版本号：显示当前版本，点击检查更新。
     ''' 内容与 DstUpdate 的自动检查共用同一套逻辑，避免两处判断口径不一致。
     ''' </summary>
@@ -1504,8 +1543,37 @@ Public Class FormMain
     End Sub
 
     ''' <summary>
-    ''' 通过点击导航栏改变页面。
+    ''' 左栏竖排导航的点击处理。
+    ''' <para>
+    ''' 两套导航共用同一个页面切换入口，只是控件类型不同
+    ''' （顶栏是 MyRadioButton，左栏是 MyRailButton）。
+    ''' 选中态由 PageChange 反推回来，所以点左栏时要把顶栏对应按钮也勾上，
+    ''' 否则切回 PCL 外观会看到高亮停在旧页面。
+    ''' </para>
     ''' </summary>
+    Private Sub BtnRailSelect_Click(sender As Object, raiseByMouse As Boolean) Handles BtnRailSelect0.Check, BtnRailSelect1.Check, BtnRailSelect2.Check, BtnRailSelect3.Check, BtnRailSelect4.Check, BtnRailSelect5.Check
+        If IsChangingPage Then Return
+        Dim Rail = TryCast(sender, MyRailButton)
+        If Rail Is Nothing Then Return
+        Dim Index As Integer = Val(Rail.Tag)
+        '同步顶栏按钮的选中态
+        Dim TopButton As MyRadioButton = Nothing
+        Select Case Index
+            Case 0 : TopButton = BtnTitleSelect0
+            Case 1 : TopButton = BtnTitleSelect1
+            Case 2 : TopButton = BtnTitleSelect2
+            Case 3 : TopButton = BtnTitleSelect3
+            Case 4 : TopButton = BtnTitleSelect4
+            Case 5 : TopButton = BtnTitleSelect5
+        End Select
+        If TopButton IsNot Nothing AndAlso Not TopButton.Checked Then
+            '先设顶栏的勾选，让它走原本的 Check 逻辑把页面切过去
+            TopButton.SetChecked(True, raiseByMouse, True)
+        Else
+            PageChangeActual(Index)
+        End If
+    End Sub
+
     Private Sub BtnTitleSelect_Click(sender As MyRadioButton, raiseByMouse As Boolean) Handles BtnTitleSelect0.Check, BtnTitleSelect1.Check, BtnTitleSelect2.Check, BtnTitleSelect3.Check, BtnTitleSelect4.Check, BtnTitleSelect5.Check
         If IsChangingPage Then Return
         PageChangeActual(Val(sender.Tag))
