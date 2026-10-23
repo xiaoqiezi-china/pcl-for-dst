@@ -58,12 +58,9 @@ Public Class PageSetupUI
     ''' </summary>
     Private Sub RadioAppearance_Changed(sender As Object, e As RouteEventArgs) Handles RadioAppearance0.Changed, RadioAppearance1.Changed
         Dim Radio = TryCast(sender, MyRadioBox)
+        Logger.Info($"[外观点击] sender={If(Radio Is Nothing, "null", Radio.Name)} checked={If(Radio Is Nothing, "?", Radio.Checked.ToString())} ani={AniControlEnabled}")
         If Radio Is Nothing OrElse Not Radio.Checked Then Return
-        If AniControlEnabled > 0 Then Return
-        Dim Value As AppearanceStyle = If(RadioAppearance1.Checked, AppearanceStyle.Indra, AppearanceStyle.Pcl)
-        If Value = Appearance Then Return
-        SetAppearance(Value)
-        '换外观后，深浅与主题两组选项在 Indra 下不起作用，同步一下可用性
+        SetAppearance(If(RadioAppearance1.Checked, AppearanceStyle.Indra, AppearanceStyle.Pcl))
         RefreshAppearanceDependentControls()
     End Sub
 
@@ -77,14 +74,14 @@ Public Class PageSetupUI
         If PanLauncherTheme IsNot Nothing Then PanLauncherTheme.IsEnabled = Enabled
     End Sub
 
-    ''' <summary>深浅色切换：改设置后强制重算整套配色。</summary>
+    ''' <summary>深浅色切换：整套配色会变，按需要重启处理。</summary>
     Private Sub CheckDarkMode_Change(sender As Object, user As Boolean) Handles CheckDarkMode.Change
         If AniControlEnabled > 0 OrElse Not user Then Return
         Settings.Set("DstDarkMode", CheckDarkMode.Checked)
-        ThemeNow = -1
-        ThemeRefresh(-1)
-        ThemeRefreshMain()
-        FrmLaunchRight?.RefreshThemeColors()
+        ConfigUtils.SaveAll()
+        '与界面实际生效的值比较，选回原样就不必重启
+        If CheckDarkMode.Checked = AppliedDarkMode Then Return
+        ShowRestartHint("已切换为" & If(CheckDarkMode.Checked, "深色", "浅色") & "模式。")
     End Sub
 
     Public Sub Reset()

@@ -168,6 +168,12 @@ Friend Module ModSecret
         Indra = 1
     End Enum
 
+    ''' <summary>界面当前实际生效的深浅模式（不是设置项里的值）。</summary>
+    Public Property AppliedDarkMode As Boolean = False
+
+    ''' <summary>界面当前实际生效的主题编号（不是设置项里的值）。</summary>
+    Public Property AppliedTheme As Integer = -1
+
     ''' <summary>当前外观风格。</summary>
     Public ReadOnly Property Appearance As AppearanceStyle
         Get
@@ -180,22 +186,53 @@ Friend Module ModSecret
     End Property
 
     ''' <summary>
-    ''' 切换外观并立即刷新界面。
+    ''' 切换外观。
     ''' <para>
-    ''' 三步缺一不可：
-    ''' 1) ThemeRefresh 重算整套配色（颜色资源是就地改的，所有引用同时生效）；
-    ''' 2) ApplyAppearance 换窗口骨架（导航位置、列宽、标题栏品牌）；
-    ''' 3) 控件模板里写死的几何量（圆角、描边）不是依赖属性，
-    '''    必须在换完之后遍历视觉树重推一遍，否则按钮还是旧外观。
+    ''' 外观会改变窗口骨架与整套控件模板，运行中逐个控件补推样式既慢又不稳，
+    ''' 所以直接按"改设置 → 重启 → 新进程读取配置"的路径走。
+    ''' 重启本身只要一两秒，比让用户自己关掉再点开省事。
     ''' </para>
     ''' </summary>
     Public Sub SetAppearance(Value As AppearanceStyle)
+        '设置项是单选按钮自动写入的，点下去时 DstAppearance 已经是新值，
+        '所以不能拿 Appearance 判断"变没变"——它跟界面实际状态不是一回事。
+        '只有 AppliedAppearance 才代表屏幕上的真实外观。
         Settings.Set("DstAppearance", CInt(Value))
-        '换的是整套配色，主题编号没变也要强制重算
-        ThemeRefresh(Force:=True)
-        If FrmMain Is Nothing Then Return
-        FrmMain.ApplyAppearance()
-        FrmMain.ApplyControlChrome()
+        If FrmMain IsNot Nothing AndAlso Value = FrmMain.AppliedAppearance Then
+            '选回当前正在用的外观，什么都不用做
+            ConfigUtils.SaveAll()
+            Return
+        End If
+        ConfigUtils.SaveAll()
+        RunInUi(
+        Sub()
+            ShowRestartHint("外观已切换为 " & If(Value = AppearanceStyle.Indra, "PCL Inder", "PCL") & "，需要重启启动器才能完全生效。")
+        End Sub)
+    End Sub
+
+    ''' <summary>
+    ''' 主题编号改变时的回调。
+    ''' <para>
+    ''' 整套配色都要重算，运行中刷新容易出现半新半旧的状态，
+    ''' 统一走"改设置 → 重启"，反而更快也更稳。
+    ''' </para>
+    ''' </summary>
+    Public Sub ThemeChangedNeedsRestart()
+        ConfigUtils.SaveAll()
+        '与界面实际生效的主题编号比较，选回原样就不必重启
+        If Settings.Get(Of Integer)("UiLauncherTheme") = AppliedTheme Then Return
+        RunInUi(Sub() ShowRestartHint("已切换主题配色。"))
+    End Sub
+
+    ''' <summary>
+    ''' 弹出"需要重启"提示，用户确认后自动重启。
+    ''' </summary>
+    Public Sub ShowRestartHint(Message As String)
+        If MyMsgBox(Message & vbCrLf & vbCrLf & "现在重启吗？", "需要重启", "立即重启", "稍后", IsWarn:=True) = 1 Then
+            FormMain.RestartProgram()
+        Else
+            Hint("改动会在下次启动时生效", HintType.Blue, False)
+        End If
     End Sub
 
     ''' <summary>
@@ -242,12 +279,14 @@ Friend Module ModSecret
             If Not Force AndAlso ThemeNow = NewTheme AndAlso NewTheme >= 0 AndAlso ThemeDontClick <> 2 Then Return
             If NewTheme >= 0 Then
                 ThemeNow = NewTheme
+                AppliedTheme = NewTheme
                 ThemeApplyPalette(NewTheme)
             End If
 
             '深浅两套配色：1 = 主文字，2~4 = 强调色，5~8 = 由浅到深的面
             Dim Shift As Double = ColorLightAdjust * 0.4
             Dim Dark As Boolean = Settings.Get(Of Boolean)("DstDarkMode")
+            AppliedDarkMode = Dark
             '外观风格：PCL 用原本的深浅主题，Indra 用写死的现代简约深色配色。
             '两套是互斥的整套外观，不是颜色覆盖，所以在这里一次算清。
             If Appearance = AppearanceStyle.Indra Then
@@ -280,7 +319,7 @@ Friend Module ModSecret
                 SetColorBrush("ColorBrushInput", New MyColor(15, 18, 22))
                 SetColorBrush("ColorBrushTitleIcon", New MyColor(Color.FromRgb(255, 255, 255)))
                 '启动按钮是实心蓝底，副标题用半透明白才读得清
-                SetColorBrush("ColorBrushLaunchSub", New MyColor(Color.FromArgb(210, 255, 255, 255)))
+                SetColorBrush("ColorBrushLaunchSub", New MyColor(Color.FromArgb(215, 255, 255, 255)))
                 SetColorBrush("ColorBrushHalfWhite", New MyColor(Color.FromArgb(20, 255, 255, 255)))
                 SetColorBrush("ColorBrushSemiTransparent", New MyColor(1, Color8))
                 BackColorMain = New MyColor(17, 20, 24)
@@ -318,7 +357,7 @@ Friend Module ModSecret
                 SetColorBrush("ColorBrushGray7", New MyColor().FromHSL(ColorHue, 20, 22))
                 SetColorBrush("ColorBrushGray8", New MyColor().FromHSL(ColorHue, 22, 16))
                 SetColorBrush("ColorBrushTitleIcon", New MyColor(Color.FromRgb(255, 255, 255)))
-                SetColorBrush("ColorBrushLaunchSub", New MyColor(140, 140, 140))
+                SetColorBrush("ColorBrushLaunchSub", New MyColor(Color.FromArgb(215, 255, 255, 255)))
                 SetColorBrush("ColorBrushHalfWhite", New MyColor(Color.FromArgb(26, 255, 255, 255)))
                 '控件默认底/悬停底：极淡的主题色，深浅两套都要给，否则浅色模式下会沿用深色值
                 SetColorBrush("ColorBrushSemiTransparent", New MyColor(1, Color8))
@@ -358,7 +397,7 @@ Friend Module ModSecret
                 SetColorBrush("ColorBrushGray7", New MyColor(240, 240, 240))
                 SetColorBrush("ColorBrushGray8", New MyColor(245, 245, 245))
                 SetColorBrush("ColorBrushTitleIcon", New MyColor(Color.FromRgb(255, 255, 255)))
-                SetColorBrush("ColorBrushLaunchSub", New MyColor(140, 140, 140))
+                SetColorBrush("ColorBrushLaunchSub", New MyColor(Color.FromArgb(215, 255, 255, 255)))
                 '原版恒为白色 10%：白色叠在白卡片上看不见，换成黑色就会变成灰块
                 SetColorBrush("ColorBrushHalfWhite", New MyColor(Color.FromArgb(26, 255, 255, 255)))
                 '原版就是 1/255 的极淡蒙层，直接照搬

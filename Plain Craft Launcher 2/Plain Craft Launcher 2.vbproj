@@ -286,7 +286,8 @@
   <Compile Include="Pages\PageInstance\DstItemPanel.vb" />
   <Compile Include="Modules\DstDisclaimer.vb" />
   <Compile Include="Modules\DstCustomServer.vb" />
-  <Compile Include="Modules\DstAnnounce.vb" />
+  <Compile Include="Modules\DstAppearanceSetup.vb" />
+    <Compile Include="Modules\DstAnnounce.vb" />
         <Compile Include="Modules\ModFavorite.vb" />
     <Compile Include="Controls\WindowImagePreview.vb" />
     <Compile Include="Controls\WindowVideoPreview.vb" />

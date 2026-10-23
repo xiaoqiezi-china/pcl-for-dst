@@ -11,6 +11,14 @@ Public Class FormMain
         Dim FeatureList As New List(Of KeyValuePair(Of Integer, String))
         '统计更新日志条目
         If BuildType = BuildTypes.Release Then
+            If LastVersion < 430 Then 'Release 0.3.0
+                FeatureList.Add(New KeyValuePair(Of Integer, String)(5, "新增：两套界面外观「PCL」与「PCL Inder」，可在设置 → 个性化 → 外观中切换"))
+                FeatureList.Add(New KeyValuePair(Of Integer, String)(3, "优化：首次启动（含从旧版本升级）会提示选择外观"))
+                FeatureList.Add(New KeyValuePair(Of Integer, String)(3, "优化：更新公告改为从服务器拉取，不再使用本地写死的文案"))
+                FeatureList.Add(New KeyValuePair(Of Integer, String)(2, "优化：更换主题或外观后提示重启，不再出现半新半旧的界面"))
+                FeatureList.Add(New KeyValuePair(Of Integer, String)(2, "修复：启动页副标题在实心按钮上看不清"))
+                FeatureList.Add(New KeyValuePair(Of Integer, String)(1, "修复：左栏导航无法切换页面"))
+            End If
             If LastVersion < 413 Then 'Release 2.99.0.0
                 FeatureList.Add(New KeyValuePair(Of Integer, String)(5, "删除：为遵守相关法律法规，PCL 暂时不再提供 MC 下载功能，非常抱歉 qwq……"))
             End If
@@ -103,6 +111,14 @@ Public Class FormMain
             '3：BUG+ IMP* FEAT-
             '2：BUG* IMP-
             '1：BUG-
+            If LastVersion < 431 Then 'Snapshot 0.3.0
+                FeatureList.Add(New KeyValuePair(Of Integer, String)(5, "新增：两套界面外观「PCL」与「PCL Inder」，可在设置 → 个性化 → 外观中切换"))
+                FeatureList.Add(New KeyValuePair(Of Integer, String)(3, "优化：首次启动（含从旧版本升级）会提示选择外观"))
+                FeatureList.Add(New KeyValuePair(Of Integer, String)(3, "优化：更新公告改为从服务器拉取，不再使用本地写死的文案"))
+                FeatureList.Add(New KeyValuePair(Of Integer, String)(2, "优化：更换主题或外观后提示重启，不再出现半新半旧的界面"))
+                FeatureList.Add(New KeyValuePair(Of Integer, String)(2, "修复：启动页副标题在实心按钮上看不清"))
+                FeatureList.Add(New KeyValuePair(Of Integer, String)(1, "修复：左栏导航无法切换页面"))
+            End If
             If LastVersion < 414 Then 'Snapshot 2.99.0.0
                 FeatureList.Add(New KeyValuePair(Of Integer, String)(5, "删除：为遵守相关法律法规，PCL 暂时不再提供 MC 下载功能，非常抱歉 qwq……"))
             End If
@@ -459,8 +475,11 @@ Public Class FormMain
             Try
                 RunInUi(
                 Sub()
-                    '先免责声明，后版本公告
+                    '顺序：免责声明 → 首次外观选择 → 版本公告
+                    '外观选择要在公告之前，因为它会改 DstAppearance，
+                    '而公告只关心版本内容，两者互不影响
                     DstDisclaimer.ShowIfNeeded()
+                    DstAppearanceSetup.ShowIfNeeded()
                     DstAnnounce.ShowIfNeeded()
                 End Sub)
             Catch ex As Exception
@@ -663,6 +682,38 @@ Public Class FormMain
         If ReturnCode <> ProcessReturnValues.Success Then Environment.Exit(ReturnCode)
         Process.GetCurrentProcess.Kill()
     End Sub
+    ''' <summary>
+    ''' 重启启动器：先拉起一个新进程，再结束当前进程。
+    ''' <para>
+    ''' 用在新进程里读一遍配置就能呈现的改动（比如换外观）——
+    ''' 比在运行中逐控件重推样式可靠得多，也比让用户手动关掉再开省事。
+    ''' </para>
+    ''' </summary>
+    Public Shared Sub RestartProgram()
+        Try
+            Dim ExePath As String = PathExe
+            If String.IsNullOrWhiteSpace(ExePath) OrElse Not FileUtils.Exists(ExePath) Then
+                Logger.Warn("重启失败：找不到当前程序路径")
+                Return
+            End If
+            Logger.Info("正在重启启动器：" & ExePath)
+            '先保存配置，新进程才会读到刚改的设置
+            ConfigUtils.SaveAll()
+            '必须带 --wait：PCL 有单实例互斥锁，直接拉起新进程时旧进程还占着锁，
+            '新进程会判定"已有实例在运行"→ 鸣笛 → 自行退出，看起来就像没重启。
+            '带 --wait 后新进程会等锁释放（最多 10 秒）再继续启动。
+            StartProcess(New ProcessStartInfo With {
+                .FileName = ExePath,
+                .Arguments = "--wait",
+                .WorkingDirectory = IO.Path.GetDirectoryName(ExePath),
+                .UseShellExecute = True
+            })
+            EndProgramForce(ProcessReturnValues.Success)
+        Catch ex As Exception
+            Logger.Error(ex, "重启启动器失败", LogBehavior.Toast)
+        End Try
+    End Sub
+
     Private Sub BtnTitleClose_Click(sender As Object, e As RoutedEventArgs) Handles BtnTitleClose.Click
         EndProgram(True)
     End Sub
@@ -1455,6 +1506,9 @@ Public Class FormMain
     End Sub
 
 
+    ''' <summary>界面当前实际生效的外观（不是设置项里的值）。</summary>
+    Friend Property AppliedAppearance As AppearanceStyle = AppearanceStyle.Pcl
+
     ''' <summary>
     ''' 按当前外观风格切换窗口骨架。
     ''' <para>
@@ -1466,6 +1520,10 @@ Public Class FormMain
     Public Sub ApplyAppearance()
         If PanTitleSelect Is Nothing OrElse PanRailSelect Is Nothing Then Return
         Dim IsIndra As Boolean = Appearance = AppearanceStyle.Indra
+        '记下"界面当前实际用的是哪套外观"。
+        '设置项随时可能被单选按钮改掉，只有这个值才代表屏幕上的真实状态，
+        '判断要不要提示重启时必须以它为准。
+        AppliedAppearance = Appearance
 
         If ColRail IsNot Nothing Then ColRail.Width = New GridLength(If(IsIndra, 68, 0))
         If PanRail IsNot Nothing Then PanRail.Visibility = If(IsIndra, Visibility.Visible, Visibility.Collapsed)
@@ -1483,45 +1541,6 @@ Public Class FormMain
             If ShapeTitleLogo IsNot Nothing Then ShapeTitleLogo.Visibility = Visibility.Visible
             If LabTitleLogo IsNot Nothing Then LabTitleLogo.Visibility = Visibility.Collapsed
         End If
-    End Sub
-
-    ''' <summary>
-    ''' 把外观相关的几何量重新推给界面上已有的控件。
-    ''' <para>
-    ''' 颜色靠资源键联动，换外观后立刻生效；但圆角、描边这些是控件模板里
-    ''' 写死的值，控件不会自己重读。页面实例又是缓存复用的（PageChange 到
-    ''' 当前页会直接 return），所以只能遍历视觉树主动推一遍。
-    ''' </para>
-    ''' </summary>
-    Public Sub ApplyControlChrome()
-        Try
-            WalkChrome(Me)
-        Catch ex As Exception
-            Logger.Warn(ex, "刷新控件外观失败")
-        End Try
-    End Sub
-
-    Private Sub WalkChrome(Node As DependencyObject)
-        If Node Is Nothing Then Return
-        Try
-            Select Case True
-                Case TypeOf Node Is MyButton
-                    CType(Node, MyButton).ApplyAppearance()
-                Case TypeOf Node Is MyCard
-                    CType(Node, MyCard).ApplyAppearance()
-            End Select
-        Catch ex As Exception
-            '单个控件失败不该中断整棵树
-            Logger.Warn(ex, "套用控件外观失败")
-        End Try
-        Try
-            Dim Count As Integer = VisualTreeHelper.GetChildrenCount(Node)
-            For i As Integer = 0 To Count - 1
-                WalkChrome(VisualTreeHelper.GetChild(Node, i))
-            Next
-        Catch
-            '不是 Visual 或已卸载，跳过
-        End Try
     End Sub
 
     ''' <summary>
