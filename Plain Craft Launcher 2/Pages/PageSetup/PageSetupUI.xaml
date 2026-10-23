@@ -256,11 +256,11 @@
                 </StackPanel>
             </local:MyCard>
             <local:MyCard x:Name="CardOffline" Margin="0,0,0,15" Title="常规模式">
-                <StackPanel Margin="25,38,15,15">
-                    <local:MyCheckBox x:Name="CheckOfflineMode" Text="启用常规模式（离线，不连接远程服务）" />
-                    <TextBlock x:Name="LabOfflineHint" FontSize="12" Margin="0,8,0,0" Opacity="0.6" TextWrapping="Wrap"
-                               Text="开启后主页不显示服务器、公告与机器人卡片，也不显示「QQ」登录方式，顶部「额外」页面只保留收藏夹。随时取消勾选即可上线。" />
-                </StackPanel>
+                <Grid Margin="25,34,20,15">
+                    <local:MyCheckBox x:Name="CheckOfflineMode" Text="启用常规模式" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                    <local:MyCheckBox x:Name="CheckOfflineShowServers" Text="显示服务器列表" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                      Visibility="Collapsed" />
+                </Grid>
             </local:MyCard>
             <local:MyCard x:Name="CardSwitch" Margin="0,0,0,15" Title="功能隐藏">
                 <StackPanel Margin="25,38,15,15">

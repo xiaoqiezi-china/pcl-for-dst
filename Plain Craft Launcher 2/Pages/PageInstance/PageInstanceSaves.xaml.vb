@@ -24,10 +24,12 @@ Public Class PageInstanceSaves
     End Property
 
     Private Sub PageInstanceSaves_Loaded(sender As Object, e As RoutedEventArgs) Handles Me.Loaded
+        '多选条用 PCL 自带的图标，和模组管理保持一致
+        BtnSelectDelete.Logo = Logo.IconButtonDelete
+        BtnSelectCancel.Logo = Logo.IconButtonCross
         RefreshSaves()
     End Sub
 
-    ''' <summary>重新扫描存档目录。</summary>
     Public Sub RefreshSaves()
         If PanSaves Is Nothing Then Return
         Dim Root As String = SaveRoot
@@ -73,6 +75,10 @@ Public Class PageInstanceSaves
     '最近一次扫描到的存档列表，供搜索与筛选复用
     Private AllSaves As New List(Of String)
     Private CurrentRoot As String = ""
+    '当前显示出来的存档，全选只作用于它们
+    Private ShownSaves As New List(Of String)
+    '多选：保存被选中存档的完整路径
+    Private SelectedPaths As New HashSet(Of String)
 
     ''' <summary>按搜索框与筛选标签过滤后重新绘制列表。</summary>
     Private Sub ApplyFilter()
@@ -98,13 +104,81 @@ Public Class PageInstanceSaves
             Shown.Add(SaveDir)
         Next
 
+        ShownSaves = Shown
         If Shown.Count = 0 Then
             PanSaves.Children.Add(EmptyHint("没有符合条件的存档"))
+            RefreshSelectBar()
             Return
         End If
         For Each SaveDir In Shown
             PanSaves.Children.Add(BuildSaveRow(SaveDir))
         Next
+        RefreshSelectBar()
+    End Sub
+
+#Region "多选"
+
+    Private Sub ToggleSelect(SaveDir As String)
+        If Not SelectedPaths.Remove(SaveDir) Then SelectedPaths.Add(SaveDir)
+        ApplyFilter()
+    End Sub
+
+    Private Sub ChangeAllSelected(ShouldSelect As Boolean)
+        SelectedPaths.Clear()
+        If ShouldSelect Then
+            For Each S In ShownSaves
+                SelectedPaths.Add(S)
+            Next
+        End If
+        ApplyFilter()
+    End Sub
+
+    Private Sub RefreshSelectBar()
+        If CardSelect Is Nothing Then Return
+        SelectedPaths.RemoveWhere(Function(P) Not AllSaves.Any(Function(S) S = P))
+        Dim Count As Integer = SelectedPaths.Count
+        If Count = 0 Then
+            CardSelect.Visibility = Visibility.Collapsed
+            Return
+        End If
+        LabSelect.Text = $"已选择 {Count} 个存档"
+        If CardSelect.Visibility <> Visibility.Visible Then
+            CardSelect.Visibility = Visibility.Visible
+            CardSelect.Opacity = 1
+        End If
+    End Sub
+
+    Private Sub BatchDelete()
+        Dim Targets = AllSaves.Where(Function(S) SelectedPaths.Contains(S)).ToList()
+        If Targets.Count = 0 Then Return
+        If MyMsgBox($"确定删除这 {Targets.Count} 个存档吗？删除后无法恢复。", "删除存档", "删除", "取消", IsWarn:=True) <> 1 Then Return
+        Dim Done As Integer = 0
+        For Each SaveDir In Targets
+            Try
+                DirectoryUtils.Delete(SaveDir, True)
+                Done += 1
+            Catch ex As Exception
+                Logger.Warn(ex, "删除存档失败：" & SaveDir)
+            End Try
+        Next
+        Hint($"已删除 {Done} 个存档", HintType.Green)
+        SelectedPaths.Clear()
+        RefreshSaves()
+    End Sub
+
+#End Region
+
+    '多选操作条
+    Private Sub BtnSelectAll_Click(sender As Object, e As MouseButtonEventArgs) Handles BtnSelectAll.Click
+        ChangeAllSelected(SelectedPaths.Count < ShownSaves.Count)
+    End Sub
+
+    Private Sub BtnSelectDelete_Click(sender As Object, e As RouteEventArgs) Handles BtnSelectDelete.Click
+        BatchDelete()
+    End Sub
+
+    Private Sub BtnSelectCancel_Click(sender As Object, e As RouteEventArgs) Handles BtnSelectCancel.Click
+        ChangeAllSelected(False)
     End Sub
 
     '搜索与筛选：只重绘列表，不重新扫盘
@@ -136,49 +210,16 @@ Public Class PageInstanceSaves
     ''' <summary>一行存档：图标 + 名称 + 修改时间 / 大小。</summary>
     Private Function BuildSaveRow(SaveDir As String) As FrameworkElement
         Dim Name As String = PathUtils.GetLastPart(SaveDir)
-        Dim Row As New Border With {
-            .Height = 56, .CornerRadius = New CornerRadius(6),
-            .Margin = New Thickness(0, 0, 0, 6), .Padding = New Thickness(10, 0, 10, 0),
-            .Background = New SolidColorBrush(BackColorSub), .Cursor = Cursors.Hand, .Tag = SaveDir,
+        '直接复用模组管理的列表项控件：选中竖条、悬停与点击动画全部继承
+        Dim Item As New MyLocalModItem With {
+            .Title = Name,
+            .Description = "正在读取……",
+            .ItemIsEnabled = True,
+            .Checked = SelectedPaths.Contains(SaveDir),
+            .LogoSource = If(FileUtils.Exists(SaveDir & "\icon.png"), SaveDir & "\icon.png", ""),
             .ToolTip = SaveDir
         }
-        Dim G As New Grid
-        G.ColumnDefinitions.Add(New ColumnDefinition With {.Width = GridLength.Auto})
-        G.ColumnDefinitions.Add(New ColumnDefinition With {.Width = New GridLength(1, GridUnitType.Star)})
-        G.ColumnDefinitions.Add(New ColumnDefinition With {.Width = GridLength.Auto})
-
-        '图标：有 icon.png 就用，没有给个默认方块
-        Dim Icon As New Border With {
-            .Width = 40, .Height = 40, .CornerRadius = New CornerRadius(4),
-            .Margin = New Thickness(0, 0, 10, 0), .VerticalAlignment = VerticalAlignment.Center,
-            .Background = New SolidColorBrush(BackColorMain)
-        }
-        Dim IconPath As String = SaveDir & "\icon.png"
-        Dim Img As New MyImage With {.Stretch = Stretch.UniformToFill}
-        If FileUtils.Exists(IconPath) Then
-            Img.Source = IconPath
-        Else
-            Img.Source = PathImage & "Icons/NoIcon.png"
-        End If
-        Icon.Child = Img
-        G.Children.Add(Icon)
-
-        Dim Info As New StackPanel With {.VerticalAlignment = VerticalAlignment.Center}
-        Info.Children.Add(New TextBlock With {
-            .Text = Name, .FontSize = 13, .FontWeight = FontWeights.Bold,
-            .TextTrimming = TextTrimming.CharacterEllipsis
-        })
-        Dim Sub1 As New TextBlock With {
-            .Text = "正在读取……", .FontSize = 11, .Opacity = 0.5, .Margin = New Thickness(0, 2, 0, 0)
-        }
-        Info.Children.Add(Sub1)
-        Grid.SetColumn(Info, 1)
-        G.Children.Add(Info)
-
-        '右侧操作：跟 Mod 管理一样的图标按钮组
-        Dim BtnBox As New StackPanel With {
-            .Orientation = Orientation.Horizontal, .VerticalAlignment = VerticalAlignment.Center
-        }
+        Dim IconButtons As New List(Of MyIconButton)
         Dim BtnDetail As New MyIconButton With {
             .Logo = PCL.Logo.IconButtonInfo, .Width = 26, .Height = 26, .LogoScale = 0.8, .ToolTip = "存档信息"
         }
@@ -188,12 +229,10 @@ Public Class PageInstanceSaves
         Dim BtnDelete As New MyIconButton With {
             .Logo = PCL.Logo.IconButtonDelete, .Width = 26, .Height = 26, .LogoScale = 0.8, .ToolTip = "删除存档"
         }
-        BtnBox.Children.Add(BtnDetail)
-        BtnBox.Children.Add(BtnOpen)
-        BtnBox.Children.Add(BtnDelete)
-        Grid.SetColumn(BtnBox, 2)
-        G.Children.Add(BtnBox)
-        Row.Child = G
+        IconButtons.Add(BtnDetail)
+        IconButtons.Add(BtnOpen)
+        IconButtons.Add(BtnDelete)
+        Item.Buttons = IconButtons
 
         '大小与文件数放后台算，别卡界面
         RunInThread(
@@ -211,14 +250,14 @@ Public Class PageInstanceSaves
             Catch
             End Try
             Dim Text As String = $"{FormatSize(Size)} · {Files} 个文件"
-            RunInUi(Sub() Sub1.Text = Text)
+            RunInUi(Sub() Item.Description = Text)
         End Sub)
 
         AddHandler BtnOpen.Click, Sub() OpenExplorer(SaveDir)
         AddHandler BtnDetail.Click, Sub() ShowSaveInfo(SaveDir)
         AddHandler BtnDelete.Click,
             Sub()
-                If MyMsgBox("确定要删除存档「" & PathUtils.GetLastPart(SaveDir) & "」吗？" & vbCrLf &
+                If MyMsgBox("确定要删除存档「" & Name & "」吗？" & vbCrLf &
                             "此操作不可撤销。", "删除存档", "删除", "取消", IsWarn:=True) <> 1 Then Return
                 Try
                     DirectoryUtils.Delete(SaveDir, True)
@@ -228,15 +267,11 @@ Public Class PageInstanceSaves
                     Logger.Error(ex, "删除存档失败", LogBehavior.Alert)
                 End Try
             End Sub
-        AddHandler Row.MouseLeftButtonUp, Sub() OpenDetail(SaveDir)
-        AddHandler Row.MouseRightButtonUp,
-            Sub(sender As Object, e As MouseButtonEventArgs)
-                e.Handled = True
-                ShowSaveMenu(Row, SaveDir)
-            End Sub
-        AddHandler Row.MouseEnter, Sub() Row.Background = New SolidColorBrush(BackColorMain)
-        AddHandler Row.MouseLeave, Sub() Row.Background = New SolidColorBrush(BackColorSub)
-        Return Row
+        '左键只负责勾选，与模组管理、收藏夹一致，避免点一下就被详情页抢走
+        AddHandler Item.Click, Sub() ToggleSelect(SaveDir)
+        '右键进详情
+        AddHandler Item.MouseRightButtonUp, Sub() OpenDetail(SaveDir)
+        Return Item
     End Function
 
     Private Shared Function FormatSize(Bytes As Long) As String

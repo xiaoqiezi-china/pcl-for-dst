@@ -11,6 +11,8 @@ Public Class PageSetupUI
         AniControlEnabled += 1
         Refresh() '#4826
         CheckOfflineMode.Checked = DstBot.IsOffline
+        CheckOfflineShowServers.Checked = Settings.Get(Of Boolean)("DstOfflineShowServers")
+        RefreshOfflineServerToggle()
         AniControlEnabled -= 1
 
         '非重复加载部分
@@ -496,12 +498,27 @@ Refresh:
     End Sub
 
     '常规模式
+    ''' <summary>只显示给常规模式用：勾选框仅在启用常规模式时出现。</summary>
+    Private Sub RefreshOfflineServerToggle()
+        If CheckOfflineShowServers Is Nothing Then Return
+        CheckOfflineShowServers.Visibility = If(CheckOfflineMode.Checked, Visibility.Visible, Visibility.Collapsed)
+    End Sub
+
+    ''' <summary>常规模式下是否仍展示服务器列表卡片（默认开启）。</summary>
+    Private Sub CheckOfflineShowServers_Change(sender As Object, user As Boolean) Handles CheckOfflineShowServers.Change
+        If Not user Then Return
+        Settings.Set("DstOfflineShowServers", CheckOfflineShowServers.Checked)
+        '卡片要不要出现、显示哪份数据都变了，走整段重排
+        If FrmLaunchRight IsNot Nothing Then FrmLaunchRight.ReloadForOfflineSettingChange()
+    End Sub
+
     ''' <summary>切换常规（离线）模式：写配置后立刻刷新主页、登录方式与「额外」页。</summary>
     Private Sub CheckOfflineMode_Change(sender As Object, user As Boolean) Handles CheckOfflineMode.Change
         If Not user Then Return
         Settings.Set("DstOfflineMode", CheckOfflineMode.Checked)
+        RefreshOfflineServerToggle()
         If CheckOfflineMode.Checked Then
-            Hint("已切换到常规模式（离线）", HintType.Blue, False)
+            Hint("已切换到常规模式", HintType.Blue, False)
             If FrmLaunchLeft IsNot Nothing Then FrmLaunchLeft.RefreshDependentViewsAfterModeChange()
         Else
             '取消离线：先探测一次，连不上就自动退回离线

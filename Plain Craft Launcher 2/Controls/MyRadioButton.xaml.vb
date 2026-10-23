@@ -128,6 +128,51 @@ Public Class MyRadioButton
         Highlight
     End Enum
     Private _ColorType As ColorState = ColorState.White
+    ''' <summary>
+    ''' 是否使用竖排布局（图标在上、文字在下）。
+    ''' <para>
+    ''' 顶部导航条默认横排；皮肤可以要求竖排，以便把导航整体挪到侧边栏。
+    ''' 只改排列方式，不碰选中逻辑与颜色动画。
+    ''' </para>
+    ''' </summary>
+    Public Property VerticalLayout As Boolean
+        Get
+            Return _VerticalLayout
+        End Get
+        Set(value As Boolean)
+            If _VerticalLayout = value Then Return
+            _VerticalLayout = value
+            ApplyLayout()
+        End Set
+    End Property
+    Private _VerticalLayout As Boolean = False
+
+    ''' <summary>按当前布局模式重排图标与文字。</summary>
+    Public Sub ApplyLayout()
+        If PanInner Is Nothing OrElse LabText Is Nothing Then Return
+        If _VerticalLayout Then
+            PanInner.Orientation = Orientation.Vertical
+            PanInner.HorizontalAlignment = HorizontalAlignment.Center
+            LabText.Margin = New Thickness(0, 2, 0, 6)
+            LabText.FontSize = 10
+            LabText.TextAlignment = TextAlignment.Center
+            '竖排需要更高的行高：图标 16 + 间距 + 文字 10 左右，27px 会被压扁并溢出
+            PanBack.MaxHeight = Double.PositiveInfinity
+            PanBack.MinHeight = 44
+            PanBack.CornerRadius = New CornerRadius(10)
+        Else
+            PanInner.Orientation = Orientation.Horizontal
+            PanInner.HorizontalAlignment = HorizontalAlignment.Center
+            LabText.Margin = New Thickness(8, 0, 12, 0)
+            LabText.FontSize = 13
+            LabText.TextAlignment = TextAlignment.Left
+            '恢复 XAML 原本的横排高度约束
+            PanBack.MaxHeight = 27
+            PanBack.MinHeight = 27
+            PanBack.CornerRadius = New CornerRadius(13.5)
+        End If
+    End Sub
+
     Public Property ColorType As ColorState
         Get
             Return _ColorType

@@ -13,6 +13,8 @@ Public Class DstServer
     Public Property Source As String = ""
     '非空表示该实例可以通过 /v2/api/download 拉到整合包
     Public Property DownloadIndex As String = ""
+    ''' <summary>是否为用户自己添加的服务器（来自 DstCustomServer，不随机器人列表刷新）。</summary>
+    Public Property IsCustom As Boolean = False
 
     '==== 服务器列表探测状态（面板只探测一部分，其余由客户端用 SLPing 本地补全）====
     ''' <summary>面板是否返回了人数。false = 需要本地探测。</summary>

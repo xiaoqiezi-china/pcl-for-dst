@@ -210,11 +210,18 @@
 
 
 
+    <Compile Include="Controls\FavoriteListView.vb" />
     <Compile Include="Controls\MyVirtualizingElement.vb" />
     <Compile Include="Modules\Base\PclLogger.vb" />
+    <Compile Include="Modules\Base\ModProgressHint.vb" />
     <Compile Include="Modules\Resource\LocalResourceFile.vb" />
     <Compile Include="Modules\Resource\ResourceProject.vb" />
     <Compile Include="Modules\Resource\ResourceVersion.vb" />
+    <Compile Include="Modules\Resource\ModFavoriteShare.vb" />
+    <Compile Include="Modules\Resource\ModFileIdentity.vb" />
+    <Compile Include="Modules\Resource\ModInstallPlanner.vb" />
+    <Compile Include="Modules\Resource\ModInstallRunner.vb" />
+    <Compile Include="Modules\Resource\ModInstallDialog.vb" />
     <Compile Include="Modules\Resource\ResourceSearcher.vb" />
     <Compile Include="Modules\Minecraft\ModJava.vb" />
     <Compile Include="Modules\Resource\LocalResourceLoaders.vb" />
@@ -278,6 +285,13 @@
   <Compile Include="Pages\PageInstance\DstNbtViewer.vb" />
   <Compile Include="Pages\PageInstance\DstItemPanel.vb" />
   <Compile Include="Modules\DstDisclaimer.vb" />
+  <Compile Include="Modules\DstCustomServer.vb" />
+  <Compile Include="Modules\Skin\SkinMetrics.vb" />
+  <Compile Include="Modules\Skin\SkinPack.vb" />
+  <Compile Include="Modules\Skin\SkinManager.vb" />
+  <Compile Include="Modules\Skin\SkinAction.vb" />
+  <Compile Include="Modules\Skin\SkinEvents.vb" />
+  <Compile Include="Modules\Skin\SkinControls.vb" />
   <Compile Include="Modules\DstAnnounce.vb" />
         <Compile Include="Modules\ModFavorite.vb" />
     <Compile Include="Controls\WindowImagePreview.vb" />
@@ -358,6 +372,9 @@
     <Compile Include="Pages\PageInstance\PageInstanceShaderPack.xaml.vb">
       <DependentUpon>PageInstanceShaderPack.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Pages\PageInstance\PageInstanceFavorites.xaml.vb">
+      <DependentUpon>PageInstanceFavorites.xaml</DependentUpon>
+    </Compile>
   <Compile Include="Pages\PageInstance\PageInstanceExport.xaml.vb">
       <DependentUpon>PageInstanceExport.xaml</DependentUpon>
     </Compile>
@@ -434,6 +451,9 @@
     </Compile>
     <Compile Include="Pages\PageSetup\PageSetupDst.xaml.vb">
       <DependentUpon>PageSetupDst.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Pages\PageSetup\PageSetupSkin.xaml.vb">
+      <DependentUpon>PageSetupSkin.xaml</DependentUpon>
     </Compile>
     <Compile Include="Pages\PageGroup\PageGroupLeft.xaml.vb">
       <DependentUpon>PageGroupLeft.xaml</DependentUpon>
@@ -666,6 +686,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Pages\PageInstance\PageInstanceFavorites.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   <Page Include="Pages\PageInstance\PageInstanceExport.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -735,6 +759,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Pages\PageSetup\PageSetupDst.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Pages\PageSetup\PageSetupSkin.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

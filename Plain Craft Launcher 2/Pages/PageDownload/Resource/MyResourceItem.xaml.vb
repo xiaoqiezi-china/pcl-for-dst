@@ -134,15 +134,19 @@ Public Class MyResourceItem
     ''' <summary>刷新星星外观；WithAnimation 为 True 时做一个“变黄 + 弹一下”的动画。</summary>
     Public Sub RefreshStar(Optional WithAnimation As Boolean = False)
         If PathStar Is Nothing Then Return
-        Dim Yellow As New MyColor("#FFCB2B")
+        '收藏色分深浅两套：纯金 #FFCB2B 在白卡片上对比度只有 1.5，实心星几乎看不见，浅色下换成深琥珀
+        Dim Yellow As MyColor = If(DstDarkMode, New MyColor("#FFCB2B"), New MyColor("#C97E00"))
         '每次都把缩放复位，否则动画增量会一轮轮累加，星星越点越大
         PathStar.RenderTransformOrigin = New Point(0.5, 0.5)
         PathStar.RenderTransform = New ScaleTransform(1, 1)
         AniStop("Star " & Uuid)
         If _IsFavorite Then
             If WithAnimation AndAlso AniControlEnabled = 0 Then
+                'AaColor 的 MyColor 重载收的是「增量」而不是目标色：直接传目标色会在当前灰上叠加，
+                '溢出截断成 (255,255,209) 这种近乎白色的淡黄，必须传 目标色 - 当前色
+                Dim Delta As MyColor = Yellow - New MyColor(PathStar.Fill)
                 AniStart({
-                    AaColor(PathStar, Shapes.Shape.FillProperty, Yellow, 220),
+                    AaColor(PathStar, Shapes.Shape.FillProperty, Delta, 220),
                     AaScaleTransform(PathStar, 0.25, 130,, New AniEaseOutFluent(AniEasePower.Strong)),
                     AaScaleTransform(PathStar, -0.25, 300,, New AniEaseOutFluent)
                 }, "Star " & Uuid)
@@ -151,10 +155,12 @@ Public Class MyResourceItem
             End If
             ToolTip = "已收藏"
         Else
+            '未收藏的灰星同理：#A6A6A6 在白底上对比度只有 2.4，浅色下深一档才看得清轮廓
+            Dim GrayName As String = If(DstDarkMode, "ColorBrushGray4", "ColorBrushGray3")
             If WithAnimation AndAlso AniControlEnabled = 0 Then
-                AniStart(AaColor(PathStar, Shapes.Shape.FillProperty, "ColorBrushGray4", 160), "Star " & Uuid)
+                AniStart(AaColor(PathStar, Shapes.Shape.FillProperty, GrayName, 160), "Star " & Uuid)
             Else
-                PathStar.SetResourceReference(Shapes.Shape.FillProperty, "ColorBrushGray4")
+                PathStar.SetResourceReference(Shapes.Shape.FillProperty, GrayName)
             End If
             ToolTip = "收藏"
         End If

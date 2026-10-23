@@ -38,6 +38,8 @@
                           Logo="M512 64 L960 320 L960 704 L512 960 L64 704 L64 320 Z M512 176 L184 361 L512 546 L840 361 Z M160 432 L160 660 L480 838 L480 610 Z M544 838 L864 660 L864 432 L544 610 Z" />
         <local:MyListItem x:Name="ItemShaderPack" IsScaleAnimationEnabled="False" Type="RadioBox" Tag="8" MinPaddingRight="35" Height="36" VerticalAlignment="Top" Title="光影包管理" LogoScale="0.95"
                           Logo="M512 48 A464 464 0 1 1 512 976 A464 464 0 1 1 512 48 Z M512 144 A368 368 0 1 0 512 880 A368 368 0 1 0 512 144 Z M512 288 L620 470 L512 652 L404 470 Z M288 470 L400 470 L344 566 Z M624 470 L736 470 L680 566 Z" />
+    <local:MyListItem x:Name="ItemFavorites" IsScaleAnimationEnabled="False" Type="RadioBox" Tag="9" MinPaddingRight="35" Height="36" VerticalAlignment="Top" Title="收藏夹" LogoScale="0.9"
+                          Logo="F1 M 12,2 L 14.94,8.06 L 21.6,9.03 L 16.8,13.72 L 17.93,20.34 L 12,17.22 L 6.07,20.34 L 7.2,13.72 L 2.4,9.03 L 9.06,8.06 Z" />
     <local:MyListItem x:Name="ItemExport" IsScaleAnimationEnabled="False" Type="RadioBox" Tag="5" MinPaddingRight="35" Height="36" VerticalAlignment="Top" Title="导出"
                           Logo="M511 995a128 128 0 0 1-57-13L70 791a126 126 0 0 1-70-113V311a126 126 0 0 1 15-60V248c1-2 3-5 5-8a127 127 0 0 1 49-42L454 13a128 128 0 0 1 112 0l383 190a126 126 0 0 1 72 113v360a126 126 0 0 1-70 115L568 984c-17 7-37 11-57 11z m42-470v370l360-178c14-7 23-21 23-38v-335L554 524zM85 330v347a42 42 0 0 0 23 38l360 178V523L85 330zM135 260l375 189 137-65L286 188 135 260z m245-118l363 197 150-71-365-180a42 42 0 0 0-37 0l-111 53z">
             <local:MyListItem.Buttons>

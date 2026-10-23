@@ -14,8 +14,17 @@ Public Class PageInstanceShaderPack
     '最近一次扫描到的完整列表，供搜索与筛选复用，避免每次输入都重新扫盘
     Private AllItems As New List(Of ShaderPackItem)
     Private CurrentFolder As String = ""
+    '当前显示出来的条目（已筛选），全选只作用于它们
+    Private ShownItems As New List(Of ShaderPackItem)
+    '多选：保存被选中条目的完整路径
+    Private SelectedPaths As New HashSet(Of String)
 
     Private Sub PageInstanceShaderPack_Loaded(sender As Object, e As RoutedEventArgs) Handles Me.Loaded
+        '多选条用 PCL 自带的图标，和模组管理保持一致
+        BtnSelectEnable.Logo = Logo.IconButtonCheck
+        BtnSelectDisable.Logo = Logo.IconButtonStop
+        BtnSelectDelete.Logo = Logo.IconButtonDelete
+        BtnSelectCancel.Logo = Logo.IconButtonCross
         RefreshList()
     End Sub
 
@@ -214,8 +223,10 @@ Public Class PageInstanceShaderPack
             Shown.Add(Item)
         Next
 
+        ShownItems = Shown
         If Shown.Count = 0 Then
             PanList.Children.Add(EmptyHint("没有符合条件的光影包"))
+            RefreshSelectBar()
             Return
         End If
         For Each Item In Shown
@@ -232,7 +243,90 @@ Public Class PageInstanceShaderPack
             .FontSize = 11, .Opacity = 0.45, .TextWrapping = TextWrapping.Wrap,
             .Margin = New Thickness(2, 6, 0, 0)
         })
+        RefreshSelectBar()
     End Sub
+
+#Region "多选"
+
+    Private Sub ToggleSelect(Entry As ShaderPackItem)
+        If Not SelectedPaths.Remove(Entry.PackPath) Then SelectedPaths.Add(Entry.PackPath)
+        ApplyFilter()
+    End Sub
+
+    Private Sub ChangeAllSelected(ShouldSelect As Boolean)
+        SelectedPaths.Clear()
+        If ShouldSelect Then
+            For Each Item In ShownItems
+                SelectedPaths.Add(Item.PackPath)
+            Next
+        End If
+        ApplyFilter()
+    End Sub
+
+    Private Sub RefreshSelectBar()
+        If CardSelect Is Nothing Then Return
+        SelectedPaths.RemoveWhere(Function(P) Not AllItems.Any(Function(I) I.PackPath = P))
+        Dim Count As Integer = SelectedPaths.Count
+        If Count = 0 Then
+            CardSelect.Visibility = Visibility.Collapsed
+            Return
+        End If
+        LabSelect.Text = $"已选择 {Count} 个文件"
+        Dim CanToggle As Boolean = SelectedPaths.All(
+            Function(P) AllItems.Any(Function(I) I.PackPath = P AndAlso Not I.IsFolder))
+        BtnSelectEnable.IsEnabled = CanToggle
+        BtnSelectDisable.IsEnabled = CanToggle
+        If CardSelect.Visibility <> Visibility.Visible Then
+            CardSelect.Visibility = Visibility.Visible
+            CardSelect.Opacity = 1
+        End If
+    End Sub
+
+    Private Sub BatchToggle(TargetEnabled As Boolean)
+        Dim Targets = AllItems.Where(Function(I) SelectedPaths.Contains(I.PackPath) AndAlso Not I.IsFolder).ToList()
+        If Targets.Count = 0 Then Return
+        Dim Done As Integer = 0
+        For Each Entry In Targets
+            If Entry.IsEnabled = TargetEnabled Then Continue For
+            Try
+                Dim NewPath As String = If(TargetEnabled,
+                                           Entry.PackPath.Substring(0, Entry.PackPath.Length - ".disabled".Length),
+                                           Entry.PackPath & ".disabled")
+                If FileUtils.Exists(NewPath) Then Continue For
+                FileUtils.Move(Entry.PackPath, NewPath)
+                Done += 1
+            Catch ex As Exception
+                Logger.Warn(ex, "批量切换光影包状态失败：" & Entry.DisplayName)
+            End Try
+        Next
+        Hint($"已{If(TargetEnabled, "启用", "停用")} {Done} 个光影包", HintType.Green)
+        SelectedPaths.Clear()
+        RefreshList()
+    End Sub
+
+    Private Sub BatchDelete()
+        Dim Targets = AllItems.Where(Function(I) SelectedPaths.Contains(I.PackPath)).ToList()
+        If Targets.Count = 0 Then Return
+        If MyMsgBox($"确定删除这 {Targets.Count} 个光影包吗？此操作不可撤销。", "删除光影包", "删除", "取消", IsWarn:=True) <> 1 Then Return
+        Dim Done As Integer = 0
+        For Each Entry In Targets
+            Try
+                If Entry.IsFolder Then
+                    DirectoryUtils.Delete(Entry.PackPath, True)
+                Else
+                    FileUtils.Delete(Entry.PackPath)
+                End If
+                Done += 1
+            Catch ex As Exception
+                Logger.Warn(ex, "删除光影包失败：" & Entry.DisplayName)
+            End Try
+        Next
+        Hint($"已删除 {Done} 个光影包", HintType.Green)
+        SelectedPaths.Clear()
+        RefreshList()
+    End Sub
+
+#End Region
 
 #End Region
 
@@ -273,11 +367,22 @@ Public Class PageInstanceShaderPack
             .Margin = New Thickness(6, 0, 0, 0), .ToolTip = "删除"}
         AddHandler BtnDelete.Click, Sub() DeletePack(Entry)
         Buttons.Add(BtnDelete)
-        '停用的整行压暗，一眼能分出来
-        Dim Row As FrameworkElement = BuildRowWith(MakePackIcon(Entry), Entry.DisplayName, String.Join(" · ", Parts), Buttons)
-        If Entry.IsDisabled Then Row.Opacity = 0.6
-        Entry.Row = Row
-        Return Row
+        '直接复用模组管理的列表项控件
+        Dim Item As New MyLocalModItem With {
+            .Title = Entry.DisplayName,
+            .Description = String.Join(" · ", Parts),
+            .ItemIsEnabled = Entry.IsEnabled,
+            .Checked = SelectedPaths.Contains(Entry.PackPath),
+            .LogoSource = IconCachePath(Entry)
+        }
+        Dim IconButtons As New List(Of MyIconButton)
+        For Each Btn In Buttons
+            Dim IconBtn = TryCast(Btn, MyIconButton)
+            If IconBtn IsNot Nothing Then IconButtons.Add(IconBtn)
+        Next
+        Item.Buttons = IconButtons
+        AddHandler Item.Click, Sub() ToggleSelect(Entry)
+        Return Item
     End Function
 
     ''' <summary>
@@ -772,6 +877,11 @@ Public Class PageInstanceShaderPack
         Return Box
     End Function
 
+    ''' <summary>光影包图标路径。图标在内存里，需要先写入缓存目录再交给列表项。</summary>
+    Private Function IconCachePath(Entry As ShaderPackItem) As String
+        Return MyLocalModItem.CacheIcon(Entry.PackPath, Entry.IconBytes)
+    End Function
+
     ''' <summary>把图标的字节解码成位图。读不到就是 Nothing。</summary>
     Private Function MakeIcon(Data As Byte()) As ImageSource
         If Data Is Nothing OrElse Data.Length = 0 Then Return Nothing
@@ -863,6 +973,27 @@ Public Class PageInstanceShaderPack
     End Function
 
     '搜索与筛选：只重绘列表，不重新扫盘
+    '多选操作条
+    Private Sub BtnSelectAll_Click(sender As Object, e As MouseButtonEventArgs) Handles BtnSelectAll.Click
+        ChangeAllSelected(SelectedPaths.Count < ShownItems.Count)
+    End Sub
+
+    Private Sub BtnSelectEnable_Click(sender As Object, e As RouteEventArgs) Handles BtnSelectEnable.Click
+        BatchToggle(True)
+    End Sub
+
+    Private Sub BtnSelectDisable_Click(sender As Object, e As RouteEventArgs) Handles BtnSelectDisable.Click
+        BatchToggle(False)
+    End Sub
+
+    Private Sub BtnSelectDelete_Click(sender As Object, e As RouteEventArgs) Handles BtnSelectDelete.Click
+        BatchDelete()
+    End Sub
+
+    Private Sub BtnSelectCancel_Click(sender As Object, e As RouteEventArgs) Handles BtnSelectCancel.Click
+        ChangeAllSelected(False)
+    End Sub
+
     Private Sub SearchBox_TextChanged(sender As Object, e As EventArgs) Handles SearchBox.TextChanged
         ApplyFilter()
     End Sub

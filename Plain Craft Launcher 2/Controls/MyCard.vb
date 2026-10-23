@@ -63,23 +63,59 @@ Public Class MyCard
 
     'UI 建立
     Public Sub New()
+        '圆角、描边、阴影都从 SkinMetrics 取，皮肤包可以整体改掉卡片的外观
+        Dim Radius As New CornerRadius(SkinMetrics.RadiusCard)
         MainChrome = New MyDropShadow With {
-            .Margin = New Thickness(-3, -3, -3, -3 - GetWPFSize(1)), .ShadowRadius = 3, .Opacity = DropShadowIdleOpacity, .CornerRadius = New CornerRadius(5)}
+            .Margin = New Thickness(-3, -3, -3, -3 - GetWPFSize(1)),
+            .ShadowRadius = 3,
+            .Opacity = SkinMetrics.CardShadowOpacity.GetValueOrDefault(DropShadowIdleOpacity),
+            .CornerRadius = Radius}
         MainChrome.SetResourceReference(MyDropShadow.ColorProperty, "ColorObject1")
         Children.Insert(0, MainChrome)
-        MainBorder = New Border With {.CornerRadius = New CornerRadius(5), .IsHitTestVisible = False}
+        MainBorder = New Border With {
+            .CornerRadius = Radius,
+            .IsHitTestVisible = False,
+            .BorderThickness = New Thickness(SkinMetrics.CardBorderThickness)}
         MainBorder.SetResourceReference(Border.BackgroundProperty, "ColorBrushCard")
+        If SkinMetrics.CardBorderBrushKey <> "" Then
+            MainBorder.SetResourceReference(Border.BorderBrushProperty, SkinMetrics.CardBorderBrushKey)
+        Else
+            MainBorder.SetResourceReference(Border.BorderBrushProperty, "ColorBrushGray6")
+        End If
         Children.Insert(1, MainBorder)
         MainGrid = New Grid
         Children.Add(MainGrid)
     End Sub
+    ''' <summary>
+    ''' 重新套用皮肤度量（圆角、描边、阴影）。
+    ''' <para>
+    ''' 页面实例在 PCL 里是被缓存复用的，切皮肤时不会重建，
+    ''' 因此已有控件必须能被主动推一次，而不是等下次构造。
+    ''' </para>
+    ''' </summary>
+    Public Sub ApplySkinMetrics()
+        If MainChrome Is Nothing OrElse MainBorder Is Nothing Then Return
+        Dim Radius As New CornerRadius(SkinMetrics.RadiusCard)
+        MainChrome.CornerRadius = Radius
+        MainBorder.CornerRadius = Radius
+        MainBorder.BorderThickness = New Thickness(SkinMetrics.CardBorderThickness)
+        If SkinMetrics.CardBorderBrushKey <> "" Then
+            MainBorder.SetResourceReference(Border.BorderBrushProperty, SkinMetrics.CardBorderBrushKey)
+        Else
+            MainBorder.SetResourceReference(Border.BorderBrushProperty, "ColorBrushGray6")
+        End If
+        If SkinMetrics.CardShadowOpacity.HasValue Then
+            MainChrome.Opacity = SkinMetrics.CardShadowOpacity.Value
+        End If
+    End Sub
+
     Private IsLoad As Boolean = False
     Private Sub Init() Handles Me.Loaded
         If IsLoad Then Return
         IsLoad = True
         '初次加载限定
         If MainTextBlock Is Nothing Then
-            MainTextBlock = New TextBlock With {.HorizontalAlignment = HorizontalAlignment.Left, .VerticalAlignment = VerticalAlignment.Top, .Margin = New Thickness(15, 12, 0, 0), .FontWeight = FontWeights.Bold, .FontSize = 13, .IsHitTestVisible = False}
+            MainTextBlock = New TextBlock With {.HorizontalAlignment = HorizontalAlignment.Left, .VerticalAlignment = VerticalAlignment.Top, .Margin = New Thickness(SkinMetrics.CardPaddingLeft - 10, 12, 0, 0), .FontWeight = FontWeights.Bold, .FontSize = SkinMetrics.CardTitleFontSize, .IsHitTestVisible = False}
             MainTextBlock.SetResourceReference(TextBlock.ForegroundProperty, "ColorBrush1")
             MainTextBlock.SetBinding(TextBlock.TextProperty, New Binding("Title") With {.Source = Me, .Mode = BindingMode.OneWay})
             MainGrid.Children.Add(MainTextBlock)

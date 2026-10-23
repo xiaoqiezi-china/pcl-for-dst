@@ -392,6 +392,7 @@ EndHint:
     Public FrmSetupSystem As PageSetupSystem
     Public FrmSetupLink As PageSetupLink
     Public FrmSetupDst As PageSetupDst
+    Public FrmSetupSkin As PageSetupSkin
     Public FrmGroupLeft As PageGroupLeft
     Public FrmGroupInfo As PageGroupInfo
     Public FrmGroupReport As PageGroupReport
@@ -427,6 +428,7 @@ EndHint:
     Public FrmInstanceSaveMap As PageInstanceSaveMap
     Public FrmInstanceResourcePack As PageInstanceResourcePack
     Public FrmInstanceShaderPack As PageInstanceShaderPack
+    Public FrmInstanceFavorites As PageInstanceFavorites
     Public FrmDownloadModify As PageDownloadModify
 
     '资源信息分页声明

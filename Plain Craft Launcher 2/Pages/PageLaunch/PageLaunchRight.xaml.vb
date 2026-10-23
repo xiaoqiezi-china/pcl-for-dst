@@ -11,11 +11,18 @@ Public Class PageLaunchRight
         PanHint.Visibility =
             (BuildType <> BuildTypes.Release AndAlso VersionBranchMain = "Official" AndAlso
              CurrentRank < DonationRank.Rank23 AndAlso Not Settings.Get(Of Boolean)("HintSnapshot")).ToVisibility
+        '「+」用主题强调色，跟随深浅色主题
+        If BtnDstAddServer IsNot Nothing Then
+            BtnDstAddServer.Theme = MyIconButton.Themes.Custom
+            BtnDstAddServer.Foreground = New SolidColorBrush(Color3)
+        End If
         '帝释天机器人卡片与服务器列表
         ApplyHomeLayout()
         ApplyOfflineUi()
         RefreshBotCard()
         RefreshReport()
+        '常规模式下没有任何远程数据可拉，只画本地自定义服务器
+        If DstBot.IsOffline Then Return
         RefreshServerList(IsLoading:=True) '先画加载动画，别写"暂无服务器"
         '群号来自 /v2/api/list_qqgroups，先拉群列表再拉服务器
         DstBot.FetchGroups(OnDone:=AddressOf OnGroupsReady)
@@ -50,11 +57,25 @@ Public Class PageLaunchRight
         RefreshReport()
         DstBot.RefreshServers(Force:=True, OnDone:=AddressOf OnServersLoaded, SkipRateWait:=True)
     End Sub
-    ''' <summary>离线模式下把三张帝释天卡片全部隐藏，只剩普通的启动页。公开给外部在切换模式后调用。</summary>
+    ''' <summary>
+    ''' 常规模式设置变更后调用：卡片是否出现、显示哪一份数据都要重排。
+    ''' </summary>
+    Public Sub ReloadForOfflineSettingChange()
+        ApplyHomeLayout()
+        ApplyOfflineUi()
+    End Sub
+
+    ''' <summary>
+    ''' 离线模式下把公告与机器人卡片隐藏。服务器卡片取决于设置：
+    ''' 默认仍然显示，因为用户自己添加的服务器在离线时也能探测。
+    ''' 公开给外部在切换模式后调用。
+    ''' </summary>
     Public Sub ApplyOfflineUi()
         Dim Offline As Boolean = DstBot.IsOffline
         Dim Vis As Visibility = If(Offline, Visibility.Collapsed, Visibility.Visible)
-        If CardDstServers IsNot Nothing Then CardDstServers.Visibility = Vis
+        If CardDstServers IsNot Nothing Then
+            CardDstServers.Visibility = If(Offline AndAlso Not ShowServersInOffline, Visibility.Collapsed, Visibility.Visible)
+        End If
         If CardDstReport IsNot Nothing Then CardDstReport.Visibility = Vis
         If CardDstBot IsNot Nothing Then CardDstBot.Visibility = Vis
         If Not Offline Then
@@ -62,11 +83,23 @@ Public Class PageLaunchRight
             RefreshBotCard()
             RefreshReport()
             RefreshServerList()
+        Else
+            '离线时只画自定义服务器
+            RefreshServerList()
         End If
     End Sub
+
+    ''' <summary>离线模式下是否仍然展示服务器列表卡片（只显示用户自己添加的服务器）。</summary>
+    Public ReadOnly Property ShowServersInOffline As Boolean
+        Get
+            Return Settings.Get(Of Boolean)("DstOfflineShowServers")
+        End Get
+    End Property
     ''' <summary>深浅色切换后重建卡片，让代码生成的控件用上新配色。</summary>
     Public Sub RefreshThemeColors()
         Try
+            '自定义主题的图标按钮不跟随资源刷新，要重新传一次前景色
+            If BtnDstAddServer IsNot Nothing Then BtnDstAddServer.Foreground = New SolidColorBrush(Color3)
             RefreshServerList()
             RefreshReport()
             RefreshBotCard()
@@ -74,14 +107,19 @@ Public Class PageLaunchRight
             Logger.Warn(ex, "重建主页配色失败")
         End Try
     End Sub
-    ''' <summary>按设置里的顺序与开关重排三张帝释天卡片。</summary>
+    ''' <summary>
+    ''' 按设置里的顺序与开关重排三张帝释天卡片。
+    ''' 服务器卡片在离线模式下由「显示服务器列表」开关单独控制，
+    ''' 因此即使主页卡片设置里关掉了它，常规模式下勾选该开关也应当出现。
+    ''' </summary>
     Private Sub ApplyHomeLayout()
         If PanDstCards Is Nothing Then Return
         PanDstCards.Children.Clear()
+        Dim ShowServerCard As Boolean = DstBot.HomeShow("servers") OrElse (DstBot.IsOffline AndAlso ShowServersInOffline)
         For Each Key In DstBot.HomeOrder()
             Select Case Key
                 Case "servers"
-                    If DstBot.HomeShow("servers") Then PanDstCards.Children.Add(CardDstServers)
+                    If ShowServerCard Then PanDstCards.Children.Add(CardDstServers)
                 Case "report"
                     If DstBot.HomeShow("report") Then PanDstCards.Children.Add(CardDstReport)
                 Case "bot"
@@ -139,8 +177,28 @@ Public Class PageLaunchRight
         FrmMain.PageChange(FormMain.PageType.Setup, FormMain.PageSubType.SetupDst)
     End Sub
 
-    Private Sub BtnDstJoin_Click(sender As Object, e As EventArgs) Handles BtnDstJoin.Click
-        DstBot.JoinGroup()
+    ''' <summary>
+    ''' 添加自定义服务器：先填地址，再填显示名（可留空，留空则用默认名）。
+    ''' </summary>
+    Private Sub BtnDstAddServer_Click(sender As Object, e As EventArgs) Handles BtnDstAddServer.Click
+        Dim Ip As String = MyMsgBoxInput("添加服务器", "请填写服务器地址，例如 127.0.0.1 或 play.example.com:25565。", "",
+                                         HintText:="主机名 或 主机名:端口")
+        If String.IsNullOrWhiteSpace(Ip) Then Return
+        Dim ErrText As String = DstCustomServer.ValidateAddress(Ip)
+        If ErrText IsNot Nothing Then
+            Hint(ErrText, HintType.Red)
+            Return
+        End If
+        Dim Name As String = MyMsgBoxInput("添加服务器", "请填写显示名称（可留空）。", DstCustomServer.DefaultName,
+                                            HintText:="显示名称")
+        If Name Is Nothing Then Return '点了取消
+        Dim Added As DstCustomServer.Entry = DstCustomServer.Add(Ip, Name)
+        If Added Is Nothing Then
+            Hint(If(DstCustomServer.ErrorText, "添加失败"), HintType.Red)
+            Return
+        End If
+        RefreshServerList()
+        Hint($"已添加服务器 {Added.Name}", HintType.Green)
     End Sub
 
     ''' <summary>点刷新：绕过缓存、跳过本地限流等待，立刻把请求发出去。</summary>
@@ -149,6 +207,17 @@ Public Class PageLaunchRight
         BtnDstRefresh.IsEnabled = False
         BtnDstRefresh.Text = "刷新中……"
         LabDstUpdate.Text = "正在刷新……"
+        If DstBot.IsOffline Then
+            '离线时没有远程列表可拉，只重新探测自定义服务器
+            For Each One In DstCustomServer.All()
+                StartProbeShared(GetCustomServer(One))
+            Next
+            RefreshServerList()
+            BtnDstRefresh.Text = "刷新"
+            BtnDstRefresh.IsEnabled = True
+            LabDstUpdate.Text = ""
+            Return
+        End If
         '只刷服务器列表：群列表不常变，多打一次就多占一份额度
         DstBot.RefreshServers(Force:=True, OnDone:=AddressOf OnServersRefreshed, SkipRateWait:=True)
     End Sub
@@ -176,23 +245,73 @@ Public Class PageLaunchRight
 
 #Region "服务器列表"
 
+    ''' <summary>
+    ''' 自定义服务器的运行时对象缓存，Key 为 DstCustomServer.Entry.Id。
+    ''' 必须缓存：探测结果（延迟、人数）属于运行时状态，不写进本地文件，
+    ''' 但每次刷新都新建对象的话，刚探测到的结果就会丢，于是每次重画都重新探测一遍。
+    ''' </summary>
+    Private ReadOnly CustomRuntime As New Dictionary(Of String, DstServer)
+    Private ReadOnly CustomRuntimeLock As New Object
+
+    ''' <summary>
+    ''' 取自定义服务器的运行时对象；没有就新建并登记。
+    ''' 列表刷新时复用同一个对象，探测结果才能留住。
+    ''' 自动重测计时器会在后台线程调用这里，所以必须加锁。
+    ''' </summary>
+    Private Function GetCustomServer(One As DstCustomServer.Entry) As DstServer
+        SyncLock CustomRuntimeLock
+            Dim Cached As DstServer = Nothing
+            If CustomRuntime.TryGetValue(One.Id, Cached) Then
+                '名称与地址可能被用户改过，每次都同步回来
+                Cached.Nickname = One.Name
+                Cached.Ip = One.Ip
+                Return Cached
+            End If
+            Dim Created As DstServer = DstCustomServer.ToServer(One)
+            CustomRuntime(One.Id) = Created
+            Return Created
+        End SyncLock
+    End Function
+
+    ''' <summary>
+    ''' 重画服务器列表。两个来源在这里合并显示，但各自独立：
+    ''' 机器人下发的列表（<see cref="DstBot.ServerList"/>）会随切群、切服务整批清空；
+    ''' 自定义列表（<see cref="DstCustomServer"/>）是本地数据，任何刷新都不动它。
+    ''' </summary>
     Private Sub RefreshServerList(Optional IsLoading As Boolean = False)
         If PanDstServers Is Nothing Then Return
-        Dim List As List(Of DstServer)
-        SyncLock DstBot.ServerList
-            List = DstBot.ServerList.ToList()
-        End SyncLock
-        '在线优先，人数多的在前
-        List = List.OrderByDescending(Function(S) S.IsOnline).ThenByDescending(Function(S) S.PlayerCount).ToList()
 
-        Dim OnlineCount As Integer = List.Where(Function(S) IsAlive(S)).Count()
+        '来源一：机器人下发的服务器。取快照，避免刷新过程中被别的线程改掉。
+        '离线模式下不显示远程列表——那批数据本来就拉不到，留着只会显示上一份的陈旧内容
+        Dim RemoteList As New List(Of DstServer)
+        If Not DstBot.IsOffline Then
+            SyncLock DstBot.ServerList
+                RemoteList = DstBot.ServerList.ToList()
+            End SyncLock
+        End If
+        '来源二：用户自己添加的。每次新建对象，探测状态不落盘
+        Dim CustomEntries As List(Of DstCustomServer.Entry) = DstCustomServer.All()
+        '清掉已经被用户删掉的运行时对象，避免缓存无限增长
+        Dim ValidIds = New HashSet(Of String)(CustomEntries.Select(Function(One) One.Id))
+        SyncLock CustomRuntimeLock
+            For Each Stale As String In CustomRuntime.Keys.Where(Function(K) Not ValidIds.Contains(K)).ToList()
+                CustomRuntime.Remove(Stale)
+            Next
+        End SyncLock
+        Dim CustomList As List(Of DstServer) = CustomEntries.Select(Function(One) GetCustomServer(One)).ToList()
+
+        '在线优先，人数多的在前；自定义的排在机器人列表之后，方便区分
+        RemoteList = RemoteList.OrderByDescending(Function(S) IsAlive(S)).ThenByDescending(Function(S) S.PlayerCount).ToList()
+        CustomList = CustomList.OrderByDescending(Function(S) IsAlive(S)).ThenByDescending(Function(S) S.PlayerCount).ToList()
+
         PanDstServers.Children.Clear()
         SyncLock ChipBindLock
             ChipBinders.Clear() '旧芯片全部作废
         End SyncLock
 
-        If IsLoading AndAlso List.Count = 0 Then
-            '正在请求且还没有数据：直接用 PCL 自己的加载控件，不手写动画
+        '远程列表还在加载、且没有任何可显示内容时，才显示加载动画。
+        '已经有自定义服务器就先画出来，不必让用户干等远程接口
+        If IsLoading AndAlso RemoteList.Count = 0 AndAlso CustomList.Count = 0 Then
             LabDstSummary.Text = "正在获取服务器列表……"
             LabDstUpdate.Text = ""
             PanDstServers.Children.Add(New MyLoading With {
@@ -201,14 +320,27 @@ Public Class PageLaunchRight
             Return
         End If
 
-        If List.Count = 0 Then
-            LabDstSummary.Text = If(DstBot.ErrLast = "", "暂未获取到服务器", "获取失败：" & DstBot.ErrLast)
+        Dim TotalCount As Integer = RemoteList.Count + CustomList.Count
+        Dim OnlineCount As Integer = RemoteList.Where(Function(S) IsAlive(S)).Count() +
+                                     CustomList.Where(Function(S) IsAlive(S)).Count()
+
+        If TotalCount = 0 Then
+            '离线时远程列表本来就是空的，别把「获取失败」这种话甩给用户
+            LabDstSummary.Text = If(DstBot.IsOffline,
+                "还没有添加自定义服务器，点右边的 + 添加",
+                If(DstBot.ErrLast = "", "暂未获取到服务器", "获取失败：" & DstBot.ErrLast))
+        ElseIf CustomList.Any() Then
+            LabDstSummary.Text = $"共 {TotalCount} 个服务器（{CustomList.Count} 个自定义） · {OnlineCount} 个在线"
         Else
-            LabDstSummary.Text = $"共 {List.Count} 个服务器 · {OnlineCount} 个在线"
+            LabDstSummary.Text = $"共 {TotalCount} 个服务器 · {OnlineCount} 个在线"
         End If
+        '只有远程列表成功刷新过才有“更新于”；自定义列表不参与这个时间
         LabDstUpdate.Text = If(DstBot.UpdatedAt = Date.MinValue, "", "更新于 " & DstBot.UpdatedAt.ToString("HH:mm:ss"))
 
-        For Each Server In List
+        For Each Server In RemoteList
+            PanDstServers.Children.Add(BuildServerRow(Server))
+        Next
+        For Each Server In CustomList
             PanDstServers.Children.Add(BuildServerRow(Server))
         Next
     End Sub
@@ -236,7 +368,7 @@ Public Class PageLaunchRight
         '在线状态点
         Dim Dot As New Ellipse With {
             .Width = 8, .Height = 8, .Margin = New Thickness(0, 0, 10, 0), .VerticalAlignment = VerticalAlignment.Center,
-            .Fill = New SolidColorBrush(If(Server.IsOnline OrElse Server.PingMs >= 0, New MyColor(52, 211, 153), New MyColor(120, 133, 150)))
+            .Fill = New SolidColorBrush(If(IsAlive(Server), New MyColor(52, 211, 153), New MyColor(120, 133, 150)))
         }
         Grid.Children.Add(Dot)
 
@@ -273,15 +405,7 @@ Public Class PageLaunchRight
 
         'IP 与在线玩家
         '第二行只放玩家信息（IP 已经挪到名字右边）
-        Dim PlayerText As String = ""
-        If Server.Players.Count > 0 Then
-            PlayerText = String.Join("、", Server.Players.Take(5))
-            If Server.Players.Count > 5 Then PlayerText &= $" 等 {Server.Players.Count} 人"
-        ElseIf Server.IsOnline Then
-            PlayerText = "暂无玩家"
-        Else
-            PlayerText = "未启动"
-        End If
+        Dim PlayerText As String = GetPlayerText(Server)
         Dim Detail As New TextBlock With {
             .Text = PlayerText, .FontSize = 11.5,
             .Margin = New Thickness(0, 2, 0, 0), .TextTrimming = TextTrimming.CharacterEllipsis,
@@ -372,11 +496,19 @@ Public Class PageLaunchRight
             ProbeTimer = New System.Threading.Timer(
             Sub(state)
                 Try
+                    '两个来源都要重测：机器人下发的按面板在线状态筛选；自定义的没有面板信息，只要没在探测就测
+                    Dim Targets As New List(Of DstServer)
                     SyncLock DstBot.ServerList
-                        For Each S In DstBot.ServerList.ToList()
-                            If S.IsOnline AndAlso Not S.Probing Then StartProbeShared(S)
-                        Next
+                        '不能只挑 IsOnline：外部服务器的这个字段恒为 false，永远进不了重测队列。
+                        '本地 SLPing 是自己发 UDP 包，不占用接口额度，整批重测没有代价
+                        Targets.AddRange(DstBot.ServerList.ToList())
                     End SyncLock
+                    For Each One In DstCustomServer.All()
+                        Targets.Add(GetCustomServer(One))
+                    Next
+                    For Each S In Targets
+                        If Not S.Probing Then StartProbeShared(S)
+                    Next
                 Catch ex As Exception
                     Logger.Warn(ex, "自动重测服务器延迟失败")
                 End Try
@@ -478,16 +610,45 @@ Public Class PageLaunchRight
         Return S.IsOnline OrElse S.PingMs >= 0
     End Function
 
-    ''' <summary>按当前探测结果重算“共 N 个服务器 · M 个在线”。</summary>
+    ''' <summary>
+    ''' 卡片第二行的玩家/状态文本。
+    ''' <para>
+    ''' 是否“开着”必须用 <see cref="IsAlive"/> 判定，不能只看 <see cref="DstServer.IsOnline"/>：
+    ''' 对于外部服务器（例如 Hypixel、各类第三方服），面板接口只统计在线人数，
+    ''' 并不返回服务器是否启动，isOnline 恒为 false。只看这个字段会把明明 54ms 能连上的
+    ''' 服务器标成“未启动”。本地 SLPing 通了，就说明它是开着的。
+    ''' </para>
+    ''' </summary>
+    Private Function GetPlayerText(S As DstServer) As String
+        If S.Players.Count > 0 Then
+            Dim Text As String = String.Join("、", S.Players.Take(5))
+            If S.Players.Count > 5 Then Text &= $" 等 {S.Players.Count} 人"
+            Return Text
+        End If
+        'ping 不通时不要额外造一个“无法连接”状态：服务器真没开时也一样连不上，
+        '芯片那边已经区分了「不可达」与「未探测」，这里保持原来的“未启动”即可
+        If IsAlive(S) Then Return "暂无玩家"
+        Return "未启动"
+    End Function
+
+    ''' <summary>
+    ''' 按当前探测结果重算汇总行。两个来源都算进去，否则自定义服务器探测完不会更新台数。
+    ''' </summary>
     Private Sub RefreshServerSummary()
         If LabDstSummary Is Nothing Then Return
-        Dim List As List(Of DstServer)
+        Dim RemoteList As New List(Of DstServer)
         SyncLock DstBot.ServerList
-            List = DstBot.ServerList.ToList()
+            RemoteList = DstBot.ServerList.ToList()
         End SyncLock
-        If List.Count = 0 Then Return
-        Dim OnlineCount As Integer = List.Where(Function(S) IsAlive(S)).Count()
-        LabDstSummary.Text = $"共 {List.Count} 个服务器 · {OnlineCount} 个在线"
+        Dim CustomList As List(Of DstServer) = DstCustomServer.All().
+            Select(Function(One) GetCustomServer(One)).ToList()
+        Dim Total As Integer = RemoteList.Count + CustomList.Count
+        If Total = 0 Then Return
+        Dim OnlineCount As Integer = RemoteList.Where(Function(S) IsAlive(S)).Count() +
+                                     CustomList.Where(Function(S) IsAlive(S)).Count()
+        LabDstSummary.Text = If(CustomList.Any(),
+            $"共 {Total} 个服务器（{CustomList.Count} 个自定义） · {OnlineCount} 个在线",
+            $"共 {Total} 个服务器 · {OnlineCount} 个在线")
     End Sub
     ''' <summary>把探测到的人数与玩家列表写进卡片的两行文本。</summary>
     Private Sub UpdateServerTexts(S As DstServer, Count As TextBlock, Detail As TextBlock, Dot As Ellipse, Card As Border)
@@ -500,18 +661,9 @@ Public Class PageLaunchRight
             Count.Text = "--/--"
         End If
         'IP 与玩家
-        Dim PlayerText As String = ""
-        If S.Players.Count > 0 Then
-            PlayerText = String.Join("、", S.Players.Take(5))
-            If S.Players.Count > 5 Then PlayerText &= $" 等 {S.Players.Count} 人"
-        ElseIf S.IsOnline Then
-            PlayerText = "暂无玩家"
-        Else
-            PlayerText = "未启动"
-        End If
-        Detail.Text = PlayerText
+        Detail.Text = GetPlayerText(S)
         '在线状态点：面板没探测到也可能本地 ping 得通（面板只试一次就放弃）
-        Dim Alive As Boolean = S.IsOnline OrElse S.PingMs >= 0
+        Dim Alive As Boolean = IsAlive(S)
         Dot.Fill = New SolidColorBrush(If(Alive, New MyColor(52, 211, 153), New MyColor(120, 133, 150)))
         '卡片背景跟着活/停切换（若当前不是悬停态才动它，避免盖掉悬停色）
         If Not Card.IsMouseOver Then Card.Background = New SolidColorBrush(ServerBack(S))
@@ -536,8 +688,28 @@ Public Class PageLaunchRight
         Menu.Items.Add(MSaveAs)
         Menu.Items.Add(MCopyIp)
         Menu.Items.Add(MRefresh)
+        '自定义服务器多一个「删除」，机器人下发的服务器不能删
+        If Server.IsCustom Then
+            Menu.Items.Add(New Separator)
+            Dim MRemove As New MyMenuItem With {.Header = "删除这个服务器"}
+            AddHandler MRemove.Click, Sub() RemoveCustomServer(Server)
+            Menu.Items.Add(MRemove)
+        End If
         Return Menu
     End Function
+
+    ''' <summary>删除一台自定义服务器。只影响本地列表，不动机器人下发的数据。</summary>
+    Private Sub RemoveCustomServer(Server As DstServer)
+        If Not Server.IsCustom Then Return
+        If MyMsgBox($"确定要删除自定义服务器「{Server.Nickname}」吗？", "删除服务器", "删除", "取消", IsWarn:=True) <> 1 Then Return
+        DstCustomServer.Remove(Server.InstanceId)
+        '运行时缓存也要一起清掉，否则列表里还留着这一项的探测结果
+        SyncLock CustomRuntimeLock
+            CustomRuntime.Remove(Server.InstanceId)
+        End SyncLock
+        RefreshServerList()
+        Hint("已删除该服务器", HintType.Green)
+    End Sub
 
     ''' <summary>另存为：选中路径后把整合包直接存到那儿，不安装。</summary>
     Private Sub SaveInstancePackAs(Server As DstServer)
@@ -581,7 +753,7 @@ Public Class PageLaunchRight
     ''' 必须每次实时算——建卡时还没探测，面板也可能误报"未启动"。
     ''' </summary>
     Private Function ServerBack(S As DstServer) As MyColor
-        If S.IsOnline OrElse S.PingMs >= 0 Then Return BackColorMain
+        If IsAlive(S) Then Return BackColorMain
         Return BackColorSub
     End Function
     ''' <summary>延迟配色：低于 100ms 为绿，100~199ms 为黄，200~399ms 为橙，400ms 及以上为红。</summary>
@@ -644,8 +816,12 @@ Public Class PageLaunchRight
         Return {Parts(0), Port}
     End Function
 
-    ''' <summary>通知某台服务器的芯片重画。</summary>
+    ''' <summary>
+    ''' 通知某台服务器的芯片重画。
+    ''' 服务器可能已经被用户删掉、卡片也已经销毁，此时登记表里没有它，直接忽略。
+    ''' </summary>
     Private Sub NotifyChip(S As DstServer)
+        If S Is Nothing Then Return
         Dim Updater As Action = Nothing
         SyncLock ChipBindLock
             ChipBinders.TryGetValue(S.InstanceId, Updater)

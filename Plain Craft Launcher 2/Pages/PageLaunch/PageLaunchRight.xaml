@@ -21,10 +21,12 @@
                                    FontSize="12" Opacity="0.55" Text="" />
                     </Grid>
                     <StackPanel x:Name="PanDstServers" Margin="0,10,0,0" />
-                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                        <local:MyButton x:Name="BtnDstRefresh" Text="刷新" Height="32" MinWidth="104" Margin="0,0,10,0" />
-                        <local:MyButton x:Name="BtnDstJoin" Text="加入群" Height="32" MinWidth="104" ColorType="Highlight" />
-                    </StackPanel>
+                    <Grid Margin="0,12,0,0">
+                        <local:MyButton x:Name="BtnDstRefresh" Text="刷新" Height="32" MinWidth="104" HorizontalAlignment="Left" />
+                        <local:MyIconButton x:Name="BtnDstAddServer" Width="32" Height="32" LogoScale="0.72" ToolTip="添加自定义服务器"
+                                           HorizontalAlignment="Right"
+                                           Logo="F1 M11,3 L13,3 13,11 21,11 21,13 13,13 13,21 11,21 11,13 3,13 3,11 11,11 Z" />
+                    </Grid>
                 </StackPanel>
             </local:MyCard>
             <local:MyCard Margin="0,0,0,15" Title="群公告" x:Name="CardDstReport">

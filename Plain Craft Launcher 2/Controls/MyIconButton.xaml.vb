@@ -38,6 +38,9 @@ Public Class MyIconButton
     Public Property Theme As Themes = Themes.Color
 
     Private _Foreground As New SolidColorBrush(Color.FromRgb(128, 128, 128))
+    ''' <summary>
+    ''' 自定义主题（Themes.Custom）下的前景色，按原样渲染，不再强制叠加透明度。
+    ''' </summary>
     Public Property Foreground As SolidColorBrush
         Get
             Return _Foreground
@@ -49,6 +52,15 @@ Public Class MyIconButton
             AniControlEnabled -= 1
         End Set
     End Property
+
+    ''' <summary>
+    ''' 自定义主题下的悬停色：以传入色为基准，浅色主题向黑色压暗、深色主题向白色提亮。
+    ''' </summary>
+    Private Function GetCustomHoverColor() As MyColor
+        Dim Base As New MyColor(Foreground)
+        Dim Target As Double = If(DstDarkMode, 255, 0)
+        Return MyColor.Lerp(Base, New MyColor(Base.A, Target, Target, Target), 0.2)
+    End Function
 
     '鼠标点击判定（务必放在点击事件之后，以使得 Button_MouseUp 先于 Button_MouseLeave 执行）
     Private IsMouseDown As Boolean = False
@@ -103,7 +115,7 @@ Public Class MyIconButton
                         Case Themes.Black
                             Path.Fill = New MyColor(160, 0, 0, 0)
                         Case Themes.Custom
-                            Path.Fill = New MyColor(160, Foreground)
+                            Path.Fill = New MyColor(Foreground)
                     End Select
                 End If
                 Dim AnimList As New List(Of AniData)
@@ -120,7 +132,7 @@ Public Class MyIconButton
                         Case Themes.Black
                             AnimList.Add(AaColor(Path, Shape.FillProperty, New MyColor(230, 0, 0, 0) - Path.Fill, AnimationColorIn))
                         Case Themes.Custom
-                            AnimList.Add(AaColor(Path, Shape.FillProperty, New MyColor(255, Foreground) - Path.Fill, AnimationColorIn))
+                            AnimList.Add(AaColor(Path, Shape.FillProperty, GetCustomHoverColor() - Path.Fill, AnimationColorIn))
                     End Select
                 Else '普通
                     Select Case Theme
@@ -137,7 +149,7 @@ Public Class MyIconButton
                             AnimList.Add(AaColor(Path, Shape.FillProperty, New MyColor(160, 0, 0, 0) - Path.Fill, AnimationColorOut))
                             PanBack.Background = New MyColor(0, 255, 255, 255)
                         Case Themes.Custom
-                            AnimList.Add(AaColor(Path, Shape.FillProperty, New MyColor(160, Foreground) - Path.Fill, AnimationColorOut))
+                            AnimList.Add(AaColor(Path, Shape.FillProperty, New MyColor(Foreground) - Path.Fill, AnimationColorOut))
                             PanBack.Background = New MyColor(0, 255, 255, 255)
                     End Select
                 End If
@@ -155,7 +167,7 @@ Public Class MyIconButton
                         Case Themes.Black
                             Path.Fill = New MyColor(160, 0, 0, 0)
                         Case Themes.Custom
-                            Path.Fill = New MyColor(160, Foreground)
+                            Path.Fill = New MyColor(Foreground)
                     End Select
                 Else
                     Path.SetResourceReference(Shape.FillProperty, "ColorBrushGray5")

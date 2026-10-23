@@ -68,11 +68,64 @@ Public Class MyButton
         End Set
     End Property
 
+    ''' <summary>
+    ''' 按皮肤度量设置圆角与描边粗细。
+    ''' 在构造时调用一次；切换皮肤后页面会重建，因此不需要监听变化。
+    ''' </summary>
+    Private SkinApplied As Boolean = False
+
+    ''' <summary>
+    ''' 按皮肤度量设置圆角、描边粗细，并套用实心/描边外观。
+    ''' 控件载入时调用一次；切换皮肤后由 SkinManager 遍历视觉树再推一次。
+    ''' </summary>
+    Public Sub ApplySkinMetrics()
+        PanFore.CornerRadius = New CornerRadius(SkinMetrics.RadiusButton)
+        PanFore.BorderThickness = New Thickness(SkinMetrics.ButtonBorderThickness)
+        ApplyFilledStyle()
+    End Sub
+
+    ''' <summary>
+    ''' 按皮肤设置决定按钮是实心填充还是描边。
+    ''' 每次 RefreshColor 都要重算：ColorType 可能在控件载入之后才被赋值，
+    ''' 而实心模式下不同 ColorType 的填充色并不相同。
+    ''' </summary>
+    Private Sub ApplyFilledStyle()
+        '可空：Nothing 表示皮肤没设置，此时保持内置的描边观感
+        If SkinMetrics.ButtonFilled.GetValueOrDefault(False) = False Then
+            '描边模式：恢复 XAML 里的默认底色。文字颜色绑定在 BorderBrush 上，无需处理。
+            PanFore.Background = New SolidColorBrush(Color.FromArgb(26, 255, 255, 255))
+            BindingOperations.ClearBinding(LabText, TextBlock.ForegroundProperty)
+            LabText.SetBinding(TextBlock.ForegroundProperty,
+                New Data.Binding("BorderBrush") With {.Source = PanFore, .Mode = Data.BindingMode.OneWay})
+            Return
+        End If
+        '实心模式：用填充色承载状态，文字一律反白（或跟随主题前景）
+        BindingOperations.ClearBinding(LabText, TextBlock.ForegroundProperty)
+        Select Case ColorType
+            Case ColorState.Highlight
+                PanFore.Background = New SolidColorBrush(Color2)
+                LabText.Foreground = New SolidColorBrush(Color.FromRgb(255, 255, 255))
+            Case ColorState.Red
+                PanFore.Background = New SolidColorBrush(Color.FromRgb(229, 72, 77))
+                LabText.Foreground = New SolidColorBrush(Color.FromRgb(255, 255, 255))
+            Case Else
+                PanFore.Background = New SolidColorBrush(If(DstDarkMode,
+                    Color.FromRgb(42, 42, 50), Color.FromRgb(245, 245, 245)))
+                LabText.Foreground = New SolidColorBrush(Color1)
+        End Select
+    End Sub
+
     '自定义事件
     Private Const AnimationColorIn As Integer = 100
     Private Const AnimationColorOut As Integer = 200
     Private Sub RefreshColor(Optional obj = Nothing, Optional e = Nothing) Handles Me.MouseEnter, Me.MouseLeave, Me.Loaded, Me.IsEnabledChanged
+        '载入时套用一次皮肤度量（圆角/描边）。之后页面重建才会再读，符合“切皮肤后整页刷新”的约定
+        If Not SkinApplied Then
+            SkinApplied = True
+            ApplySkinMetrics()
+        End If
         Try
+            ApplyFilledStyle()
             If IsLoaded AndAlso AniControlEnabled = 0 Then '防止默认属性变更触发动画
 
                 If IsEnabled Then

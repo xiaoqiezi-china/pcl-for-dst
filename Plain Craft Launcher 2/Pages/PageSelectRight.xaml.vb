@@ -121,14 +121,17 @@ Public Class PageSelectRight
         '注册点击事件
         AddHandler sender.Click, AddressOf Item_Click
         '图标按钮
-        Dim BtnStar As New MyIconButton
+        '收藏星标固定用主题强调色（Color2）：默认配色用的是 ColorBrush4，浅色主题下太淡，实心图标会糊成一片
+        Dim BtnStar As New MyIconButton With {
+            .LogoScale = 1.1,
+            .Theme = MyIconButton.Themes.Custom,
+            .Foreground = New SolidColorBrush(Color2)
+        }
         If Instance.IsStar Then
             BtnStar.ToolTip = "取消收藏"
-            BtnStar.LogoScale = 1.1
             BtnStar.Logo = Logo.IconButtonLikeFill
         Else
             BtnStar.ToolTip = "收藏"
-            BtnStar.LogoScale = 1.1
             BtnStar.Logo = Logo.IconButtonLikeLine
         End If
         AddHandler BtnStar.Click,

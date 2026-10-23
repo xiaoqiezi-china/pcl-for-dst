@@ -13,7 +13,7 @@ Public Class MyLocalModItem
         End Get
         Set(value As String)
             Dim RawValue = value
-            LabTitle.TextDecorations = If(Entry.IsEnabled, Nothing, TextDecorations.Strikethrough)
+            LabTitle.TextDecorations = If(ItemEnabled, Nothing, TextDecorations.Strikethrough)
             If LabTitle.Text = value Then Return
             LabTitle.Text = value
             _Title = RawValue
@@ -60,15 +60,80 @@ Public Class MyLocalModItem
         End Set
     End Property
 
-    '相关联的 Mod
+    '相关联的 Mod。为空时本控件退化成通用列表项，由 Title / SubTitle / Enabled 驱动。
     Public Property Entry As LocalResourceFile
         Get
-            Return Tag
+            Return TryCast(Tag, LocalResourceFile)
         End Get
         Set(value As LocalResourceFile)
             Tag = value
         End Set
     End Property
+
+    Private _ItemIsEnabled As Boolean = True
+
+    ''' <summary>是否启用。仅在 Entry 为空（通用模式）时使用。</summary>
+    Public Property ItemIsEnabled As Boolean
+        Get
+            Return _ItemIsEnabled
+        End Get
+        Set(value As Boolean)
+            _ItemIsEnabled = value
+            If Entry IsNot Nothing Then Return
+            RefreshGeneric()
+        End Set
+    End Property
+
+    ''' <summary>当前项是否处于启用态。Entry 为空时读 ItemIsEnabled，否则读 Entry。</summary>
+    Public ReadOnly Property ItemEnabled As Boolean
+        Get
+            If Entry IsNot Nothing Then Return Entry.IsEnabled
+            Return _ItemIsEnabled
+        End Get
+    End Property
+
+    Private _LogoSource As String = ""
+
+    ''' <summary>
+    ''' 通用模式下的图标路径。Entry 为空时生效。
+    ''' 注意 MyImage.Source 是字符串类型，所以这里必须给路径，不能给 ImageSource。
+    ''' </summary>
+    Public Property LogoSource As String
+        Get
+            Return _LogoSource
+        End Get
+        Set(value As String)
+            _LogoSource = If(value, "")
+            If Entry IsNot Nothing Then Return
+            PathLogo.Source = If(_LogoSource = "", PathImage & "Icons/NoIcon.png", _LogoSource)
+        End Set
+    End Property
+
+    ''' <summary>
+    ''' 把内存里的图片写进缓存目录，返回可交给 MyImage.Source 的路径。
+    ''' MyImage.Source 只接受字符串，压缩包里的图标必须先落盘。
+    ''' </summary>
+    Public Shared Function CacheIcon(Key As String, Bytes As Byte()) As String
+        If Bytes Is Nothing OrElse Bytes.Length = 0 Then Return ""
+        Try
+            Dim Dir As String = PathTemp & "Icons\"
+            DirectoryUtils.Create(Dir)
+            Dim Name As String = Key.GetStableHashCode().ConvertRadix(36) & ".png"
+            Dim Path As String = Dir & Name
+            If FileUtils.Exists(Path) AndAlso FileUtils.GetInfo(Path).Length = Bytes.Length Then Return Path
+            FileUtils.Write(Path, Bytes)
+            Return Path
+        Catch ex As Exception
+            Logger.Warn(ex, "缓存图标失败")
+            Return ""
+        End Try
+    End Function
+
+    ''' <summary>通用模式下的刷新：只处理与启用态相关的视觉。</summary>
+    Public Sub RefreshGeneric()
+        LabTitle.TextDecorations = If(ItemEnabled, Nothing, TextDecorations.Strikethrough)
+        LabTitle.SetResourceReference(TextBlock.ForegroundProperty, If(ItemEnabled, "ColorBrush1", "ColorBrushGray4"))
+    End Sub
 
 #End Region
 
@@ -111,6 +176,9 @@ Public Class MyLocalModItem
     Private Shared SwipToState As Boolean '被滑动到的目标应将 Checked 改为此值
     Private Sub Button_MouseSwipeStart(sender As Object, e As Object) Handles Me.MouseLeftButtonDown
         If Parent Is Nothing Then Return 'Mod 可能已被删除（#3824）
+        '通用模式（Entry 为空）下不参与滑动多选，避免依赖模组页的初始化状态
+        If Entry Is Nothing Then Return
+        If TypeOf Parent IsNot StackPanel Then Return
         '开始滑动
         Dim Index = CType(Parent, StackPanel).Children.IndexOf(Me)
         SwipeStart = Index
@@ -120,6 +188,9 @@ Public Class MyLocalModItem
     End Sub
     Private Sub Button_MouseSwipe(sender As Object, e As Object) Handles Me.MouseEnter, Me.MouseLeave, Me.MouseLeftButtonUp
         If Parent Is Nothing Then Return 'Mod 可能已被删除（#3824）
+        '通用模式不参与滑动多选
+        If Entry Is Nothing Then Return
+        If TypeOf Parent IsNot StackPanel Then Return
         '结束滑动
         If Mouse.LeftButton <> MouseButtonState.Pressed OrElse
            TypeOf Mouse.DirectlyOver IsNot MyLocalModItem Then '#5771
@@ -134,7 +205,9 @@ Public Class MyLocalModItem
         '勾选所有范围中的项
         If SwipeStart = SwipeEnd Then Return
         For i = SwipeStart To SwipeEnd
-            Dim Item As MyLocalModItem = Elements(i)
+            '列表里可能混有说明文字等非列表项，不能直接强转
+            Dim Item = TryCast(Elements(i), MyLocalModItem)
+            If Item Is Nothing Then Continue For
             Item.InitLate(Item, e)
             Item.Checked = SwipToState
         Next
@@ -178,7 +251,7 @@ Public Class MyLocalModItem
                         Anim.Add(AaOpacity(RectCheck, 1 - RectCheck.Opacity, 30))
                         RectCheck.VerticalAlignment = VerticalAlignment.Center
                         RectCheck.Margin = New Thickness(-3, 0, 0, 0)
-                        Anim.Add(AaColor(LabTitle, TextBlock.ForegroundProperty, If(Entry.IsEnabled, "ColorBrush2", "ColorBrush5"), 200))
+                        Anim.Add(AaColor(LabTitle, TextBlock.ForegroundProperty, If(ItemEnabled, "ColorBrush2", "ColorBrush5"), 200))
                     Else
                         '由有变无
                         Anim.Add(AaHeight(RectCheck, -RectCheck.ActualHeight, 120,, New AniEaseInFluent(AniEasePower.Weak)))
@@ -194,11 +267,11 @@ Public Class MyLocalModItem
                     If Checked Then
                         RectCheck.Height = 32
                         RectCheck.Opacity = 1
-                        LabTitle.SetResourceReference(TextBlock.ForegroundProperty, If(Entry.IsEnabled, "ColorBrush2", "ColorBrush5"))
+                        LabTitle.SetResourceReference(TextBlock.ForegroundProperty, If(ItemEnabled, "ColorBrush2", "ColorBrush5"))
                     Else
                         RectCheck.Height = 0
                         RectCheck.Opacity = 0
-                        LabTitle.SetResourceReference(TextBlock.ForegroundProperty, If(Entry.IsEnabled, "ColorBrush1", "ColorBrushGray4"))
+                        LabTitle.SetResourceReference(TextBlock.ForegroundProperty, If(ItemEnabled, "ColorBrush1", "ColorBrushGray4"))
                     End If
                     AniStop("MyLocalModItem Checked " & Uuid)
                 End If
@@ -326,6 +399,10 @@ Public Class MyLocalModItem
         Refresh()
     End Sub
     Public Sub Refresh()
+        If Entry Is Nothing Then
+            RefreshGeneric()
+            Return
+        End If
         If Not HasEnteredViewport Then Return '避免在未显示时因为资源更新而加载内容
         '更新
         If Entry.HasUpdate Then
@@ -372,9 +449,9 @@ Public Class MyLocalModItem
         End If
         Description = NewDescription
         If Checked Then
-            LabTitle.SetResourceReference(TextBlock.ForegroundProperty, If(Entry.IsEnabled, "ColorBrush2", "ColorBrush5"))
+            LabTitle.SetResourceReference(TextBlock.ForegroundProperty, If(ItemEnabled, "ColorBrush2", "ColorBrush5"))
         Else
-            LabTitle.SetResourceReference(TextBlock.ForegroundProperty, If(Entry.IsEnabled, "ColorBrush1", "ColorBrushGray4"))
+            LabTitle.SetResourceReference(TextBlock.ForegroundProperty, If(ItemEnabled, "ColorBrush1", "ColorBrushGray4"))
         End If
         '主 Logo
         If Entry.Project IsNot Nothing Then
@@ -383,7 +460,7 @@ Public Class MyLocalModItem
             PathLogo.Source = PathImage & "Icons/NoIcon.png"
         End If
         '图标右下角的 Logo
-        If Entry.IsEnabled Then
+        If ItemEnabled Then
             If ImgState IsNot Nothing Then
                 Children.Remove(ImgState)
                 ImgState = Nothing

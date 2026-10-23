@@ -181,6 +181,33 @@ Friend Module ModFavorite
         Return NowFav
     End Function
 
+    ''' <summary>
+    ''' 加入收藏。已经收藏过则保持不变，不会像 Toggle 那样把它取消掉。
+    ''' 返回是否为新加入。
+    ''' </summary>
+    Public Function Add(Project As ResourceProject, Category As ResourceTypes,
+                       Optional LogoOverride As String = "") As Boolean
+        Dim K As String = KeyOf(Project)
+        If K = "" Then Return False
+        EnsureLoaded()
+        SyncLock Lock
+            If Items.Any(Function(E) E.Key = K) Then Return False
+            Dim Titles = Project.GetControlTitle(True)
+            Items.Add(New FavoriteEntry With {
+                .Key = K,
+                .ResourceType = CInt(Category),
+                .Title = Titles.Title,
+                .SubTitle = Titles.SubTitle,
+                .Description = If(Project.Description, "").ReplaceLineEndings(" "),
+                .Logo = If(LogoOverride <> "", LogoOverride, If(Project.LogoUrl, "")),
+                .ProjectJson = Project.ToJson().ToString(Newtonsoft.Json.Formatting.None),
+                .TimeTicks = Date.Now.Ticks
+            })
+        End SyncLock
+        Save()
+        Return True
+    End Function
+
     Public Sub Remove(Entry As FavoriteEntry)
         If Entry Is Nothing Then Return
         EnsureLoaded()

@@ -156,11 +156,19 @@ Friend Module ModSecret
     Public ColorHue As Integer = 210, ColorSat As Integer = 85, ColorLightAdjust As Integer = 0, ColorHueTopbarDelta As OneOf(Of Integer, Integer()) = 0
     Public ThemeDontClick As Integer = 0
 
-    Public Sub ThemeRefresh(Optional NewTheme As Integer = -1)
+    ''' <summary>
+    ''' 刷新主题配色与界面外观。
+    ''' <param name="Force">
+    ''' 强制重算。默认会按主题编号做短接（同一套主题不重复计算），
+    ''' 但换皮肤这类“主题编号没变、覆盖层却变了”的场景必须强制走一遍，
+    ''' 否则会被上面的短接直接拦掉，表现为“点了皮肤但界面没反应”。
+    ''' </param>
+    ''' </summary>
+    Public Sub ThemeRefresh(Optional NewTheme As Integer = -1, Optional Force As Boolean = False)
         Try
             If NewTheme < 0 Then NewTheme = Settings.Get(Of Integer)("UiLauncherTheme")
             '滑稽彩每 50ms 由主时钟重新调用，需要每次都重算随机色，不做短接
-            If ThemeNow = NewTheme AndAlso NewTheme >= 0 AndAlso ThemeDontClick <> 2 Then Return
+            If Not Force AndAlso ThemeNow = NewTheme AndAlso NewTheme >= 0 AndAlso ThemeDontClick <> 2 Then Return
             If NewTheme >= 0 Then
                 ThemeNow = NewTheme
                 ThemeApplyPalette(NewTheme)
@@ -273,19 +281,53 @@ Friend Module ModSecret
             Application.Current.Resources("ColorObject8") = CType(Color8, Color)
             Application.Current.Resources("ColorObjectBg0") = CType(ColorBg0, Color)
             Application.Current.Resources("ColorObjectBg1") = CType(ColorBg1, Color)
+
+            '皮肤覆盖层：必须在基础配色全部写完后再叠加，否则会被上面的赋值冲掉。
+            '未在皮肤里声明的键保持上面的主题色，两者是叠加关系而不是替换关系。
+            '单独 try：皮肤包出错不该连累下面的界面刷新，否则会出现“顶栏没换、内容换了”的半截状态。
+            Try
+                SkinManager.ApplyOverlay()
+            Catch ex As Exception
+                Logger.Warn(ex, "应用皮肤覆盖层失败")
+                SkinMetrics.Reset()
+            End Try
+
             ThemeRefreshMain()
         Catch ex As Exception
             Logger.Error(ex, "刷新主题颜色失败", LogBehavior.Toast)
         End Try
     End Sub
+    ''' <summary>
+    ''' 把 "#RRGGBB" / "#AARRGGBB" 解析成颜色。失败返回 False，不抛异常。
+    ''' 皮肤文件里的颜色是用户手写的，必须容忍错字。
+    ''' </summary>
+    Public Function TryParseColorString(Value As String, ByRef Result As Color) As Boolean
+        If String.IsNullOrWhiteSpace(Value) Then Return False
+        Try
+            Result = CType(ColorConverter.ConvertFromString(Value.Trim()), Color)
+            Return True
+        Catch
+            Return False
+        End Try
+    End Function
+
     Public Sub ThemeRefreshMain()
         RunInUi(
         Sub()
             If Not FrmMain.IsLoaded Then Return
-            '顶部条背景
+            '这两个变量后面“主页面背景”也要用，必须声明在 If 之外
             Dim Brush = New LinearGradientBrush With {.EndPoint = New Point(1, 0), .StartPoint = New Point(0, 0)}
             Dim Deltas = ColorHueTopbarDelta.Switch(Function(d) New Integer() {-d, 0, d}, Function(d) d)
             Dim IsDarkMode As Boolean = Settings.Get(Of Boolean)("DstDarkMode")
+
+            '顶部条背景。皮肤可以要求纯色，这时直接跳过内置渐变计算。
+            If SkinMetrics.TitlebarSolid AndAlso SkinMetrics.TitlebarColor <> "" Then
+                Dim SolidColor As Color
+                If TryParseColorString(SkinMetrics.TitlebarColor, SolidColor) Then
+                    FrmMain.PanTitle.Background = New SolidColorBrush(SolidColor)
+                    FrmMain.PanTitle.Background.Freeze()
+                End If
+            Else
             '顶栏始终深色：里面的导航按钮、图标都按白字设计
             Dim TitleLight As Integer = If(IsDarkMode, 20, 26)
             Dim TitleSat As Double = ColorSat * 0.5
@@ -294,6 +336,7 @@ Friend Module ModSecret
             Brush.GradientStops.Add(New GradientStop With {.Offset = 1, .Color = New MyColor().FromHSL(ColorHue + Deltas(2), TitleSat, TitleLight + ColorLightAdjust)})
             FrmMain.PanTitle.Background = Brush
             FrmMain.PanTitle.Background.Freeze()
+            End If
             '主页面背景
             If Settings.Get(Of Boolean)("UiBackgroundColorful") Then
                 Brush = New LinearGradientBrush With {.EndPoint = New Point(0.1, 1), .StartPoint = New Point(0.9, 0)}
@@ -318,6 +361,12 @@ Friend Module ModSecret
                 End If
             End If
             FrmMain.PanForm.Background.Freeze()
+            '图标与布局都不是依赖属性，颜色刷新管不到它们，必须在这里主动推一次
+            '顺序有讲究：先建自定义控件，再排布局——
+            '布局要靠“有没有自定义控件”来决定侧栏宽度，反过来就会量不到
+            FrmMain.ApplySkinCustomUi()
+            FrmMain.ApplySkinIcons()
+            FrmMain.ApplySkinLayout()
         End Sub)
     End Sub
     ''' <summary>

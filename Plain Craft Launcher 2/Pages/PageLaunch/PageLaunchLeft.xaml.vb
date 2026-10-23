@@ -405,23 +405,37 @@ UnknownType:
         If Type = PageType.Qq Then DstBot.FetchGroups(OnDone:=AddressOf ApplyQqModeUi)
     End Sub
 
-    ''' <summary>QQ 形态下改写底部按钮：绑定/解绑、选择群聊。</summary>
+    ''' <summary>
+    ''' 底部三个按钮的职责：
+    ''' <list type="bullet">
+    ''' <item>普通形态：BtnLaunch = 启动游戏，BtnVersion = 版本选择，BtnMore = 版本设置。</item>
+    ''' <item>QQ 形态（在线）：BtnLaunch = 绑定/解绑，BtnVersion = 选择群聊，BtnMore 隐藏。</item>
+    ''' <item>QQ 形态（常规模式）：降级成普通形态，只把 BtnLaunch 改成“上线”。</item>
+    ''' </list>
+    ''' <para>
+    ''' 关键约定：**是否离线只影响“能不能连远程服务”，绝不改变按钮的职责**。
+    ''' 之前把离线形态下的 BtnVersion 改成“启动游戏”、BtnMore 改成“版本选择”，
+    ''' 结果“版本设置”这个功能被直接顶掉，切回普通模式后 BtnMore 还残留着“版本选择”，
+    ''' 界面上就出现了两个“版本选择”。
+    ''' </para>
+    ''' </summary>
     Private Sub ApplyQqModeUi()
         If Not IsQqMode Then
+            '普通形态：三个按钮恢复各自的本职
             BtnVersion.Text = "版本选择"
+            BtnMore.Text = "版本设置"
             RefreshButtonsUI()
             Return
         End If
         If DstBot.IsOffline Then
-            '离线模式：降级成普通 PCL，启动/版本功能都在，只是群相关操作没了
+            'QQ 形态 + 常规模式：降级成普通 PCL。版本选择与版本设置都保留，
+            '只是把主按钮改成“上线”，让用户能在这里回到在线形态
+            ApplyNormalButtonRoles()
+            RefreshButtonsUI()
             BtnLaunch.Text = "上线"
             BtnLaunch.IsEnabled = True
             BtnLaunch.ColorType = MyButton.ColorState.Highlight
-            BtnVersion.Text = "启动游戏"
-            BtnVersion.IsEnabled = True
-            BtnVersion.Visibility = Visibility.Visible
-            BtnMore.Text = "版本选择"
-            BtnMore.Visibility = Visibility.Visible
+            '刷新按钮状态会把 LabVersion 覆盖成版本号，这里改回模式说明
             LabVersion.Text = If(DstBot.IsAutoOffline, "远程服务不可用", "常规模式（离线）")
             Return
         End If
@@ -441,6 +455,28 @@ UnknownType:
             LabVersion.Text = If(G IsNot Nothing AndAlso G.GroupName <> "", G.GroupName, DstBot.GroupNameCached)
         End If
     End Sub
+
+    ''' <summary>
+    ''' 把版本相关的两个按钮恢复成普通形态的职责。
+    ''' 单独抽出来，是因为“常规模式”和“普通形态”都需要同一套恢复逻辑，
+    ''' 分散在两处写迟早会再次漏掉某一个。
+    ''' </summary>
+    Private Sub ApplyNormalButtonRoles()
+        BtnVersion.Text = "版本选择"
+        BtnVersion.IsEnabled = True
+        BtnVersion.Visibility = ButtonVisibilityBySettings()
+        BtnMore.Text = "版本设置"
+        BtnMore.Visibility = ButtonVisibilityBySettings()
+        '不在这里调 RefreshButtonsUI：调用方紧接着就要按自己的需要改写 BtnLaunch，
+        '由它统一刷新，免得刷两遍、还互相覆盖。
+        '（RefreshButtonsUI 在“QQ 形态 + 常规模式”下不会再回到 ApplyQqModeUi，所以不会递归）
+    End Sub
+
+    ''' <summary>按“功能隐藏”设置决定版本按钮是否可见。</summary>
+    Private Function ButtonVisibilityBySettings() As Visibility
+        Return If(Not PageSetupUI.HiddenForceShow AndAlso Settings.Get(Of Boolean)("UiHiddenFunctionSelect"),
+                  Visibility.Collapsed, Visibility.Visible)
+    End Function
 
     ''' <summary>当前是否处于 QQ 绑定形态。以设置为准，避免单选按钮事件时序问题。</summary>
     Private ReadOnly Property IsQqMode As Boolean
@@ -701,10 +737,12 @@ Finish:
 #End Region
 
     '版本选择按钮
-    Private Sub BtnVersion_Click() Handles BtnVersion.Click
+    ''' <summary>版本按钮：按当前形态决定进版本选择还是启动。皮肤动作复用它。</summary>
+    Public Sub BtnVersion_Click() Handles BtnVersion.Click
         If IsQqMode AndAlso DstBot.IsOffline Then
-            '离线模式下这个位置是「启动游戏」，走正常启动流程
-            LaunchGame()
+            'QQ 形态 + 常规模式：这个按钮恢复成「版本选择」的本职
+            If McLaunchLoader.State = LoadState.Loading Then Return
+            FrmMain.PageChange(FormMain.PageType.InstanceSelect)
             Return
         End If
         If IsQqMode Then
@@ -796,8 +834,8 @@ Finish:
         If McLaunchLoader.State = LoadState.Loading Then Return
         McLaunchStart()
     End Sub
-    ''' <summary>QQ 形态下的“选择群聊”：列出机器人所在的群，选一个作为当前群。</summary>
-    Private Sub ShowGroupSelector()
+    ''' <summary>QQ 形态下的“选择群聊”：列出机器人所在的群，选一个作为当前群。皮肤动作 SwitchGroup 走这里。</summary>
+    Public Sub ShowGroupSelector()
         DstBot.FetchGroups(Force:=True,
             OnDone:=Sub()
                         Dim List_ As List(Of DstGroup)
@@ -864,7 +902,10 @@ Finish:
     Private BtnLaunchInstance As McInstance = Nothing
     Public Sub RefreshButtonsUI() Handles BtnLaunch.Loaded
         If Not BtnLaunch.IsLoaded Then Return
-        If IsQqMode Then
+        '只有“QQ 形态且在线”才需要那套群相关按钮。
+        '常规模式下的 QQ 形态等同于普通 PCL，交给下面的通用逻辑处理，
+        '否则 ApplyQqModeUi ↔ RefreshButtonsUI 会互相调用。
+        If IsQqMode AndAlso Not DstBot.IsOffline Then
             ApplyQqModeUi()
             Return
         End If
@@ -920,7 +961,7 @@ Finish:
         End Select
 ExitRefresh:
         '功能隐藏
-        FrmLaunchLeft.BtnVersion.Visibility = If(Not PageSetupUI.HiddenForceShow AndAlso Settings.Get(Of Boolean)("UiHiddenFunctionSelect"), Visibility.Collapsed, Visibility.Visible)
+        FrmLaunchLeft.BtnVersion.Visibility = ButtonVisibilityBySettings()
         If CurrentState = 3 Then
             FrmLaunchLeft.BtnMore.Visibility = FrmLaunchLeft.BtnVersion.Visibility
         End If
@@ -943,12 +984,9 @@ ExitRefresh:
     End Sub
     '版本设置按钮
     Private Sub BtnMore_Click() Handles BtnMore.Click
-        If DstBot.IsOffline Then
-            '离线模式下这个位置是「版本选择」
-            If McLaunchLoader.State = LoadState.Loading Then Return
-            FrmMain.PageChange(FormMain.PageType.InstanceSelect)
-            Return
-        End If
+        '这个按钮永远只做一件事：进版本设置。
+        '之前在这里按 IsOffline 改成了“版本选择”，导致常规模式下根本进不去版本设置
+        If McLaunchLoader.State = LoadState.Loading Then Return
         If McLaunchLoader.State = LoadState.Loading Then Return
         If McInstanceLock.IsLocked(McInstanceSelected) Then
             Hint("该版本正在被修改，暂时无法进入版本设置！", HintType.Red)

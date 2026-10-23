@@ -30,7 +30,7 @@ Public Class PageInstanceLeft
     ''' <summary>
     ''' 勾选事件改变页面。
     ''' </summary>
-    Private Sub PageCheck(sender As FrameworkElement, e As RouteEventArgs) Handles ItemOverall.Check, ItemMod.Check, ItemSaves.Check, ItemModDisabled.Check, ItemSetup.Check, ItemModify.Check, ItemExport.Check, ItemResourcePack.Check, ItemShaderPack.Check
+    Private Sub PageCheck(sender As FrameworkElement, e As RouteEventArgs) Handles ItemOverall.Check, ItemMod.Check, ItemSaves.Check, ItemModDisabled.Check, ItemSetup.Check, ItemModify.Check, ItemExport.Check, ItemResourcePack.Check, ItemShaderPack.Check, ItemFavorites.Check
         '尚未初始化控件属性时，sender.Tag 为 Nothing，会导致切换到页面 0
         '若使用 IsLoaded，则会导致模拟点击不被执行（模拟点击切换页面时，控件的 IsLoaded 为 False）
         If sender.Tag IsNot Nothing Then PageChange(Val(sender.Tag))
@@ -66,6 +66,9 @@ Public Class PageInstanceLeft
             Case FormMain.PageSubType.InstanceShaderPack
                 If FrmInstanceShaderPack Is Nothing Then FrmInstanceShaderPack = New PageInstanceShaderPack
                 Return FrmInstanceShaderPack
+            Case FormMain.PageSubType.InstanceFavorites
+                If FrmInstanceFavorites Is Nothing Then FrmInstanceFavorites = New PageInstanceFavorites
+                Return FrmInstanceFavorites
             Case Else
                 Throw New Exception("未知的版本设置子页面种类：" & ID)
         End Select
@@ -141,6 +144,9 @@ Public Class PageInstanceLeft
             Case FormMain.PageSubType.InstanceShaderPack
                 FrmInstanceShaderPack?.Refresh()
                 ItemShaderPack.Checked = True
+            Case FormMain.PageSubType.InstanceFavorites
+                FrmInstanceFavorites?.Refresh()
+                ItemFavorites.Checked = True
         End Select
     End Sub
 

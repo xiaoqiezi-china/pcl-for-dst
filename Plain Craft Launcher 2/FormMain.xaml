@@ -95,9 +95,14 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition />
                 </Grid.RowDefinitions>
-                <Canvas x:Name="ImgBack" IsHitTestVisible="False" Grid.Row="1" RenderOptions.BitmapScalingMode="LowQuality"
+                <Grid.ColumnDefinitions>
+                    <!-- 第 0 列专供左侧竖排导航，默认宽度 0；皮肤启用左侧导航时由代码撑开 -->
+                    <ColumnDefinition x:Name="ColNav" Width="0" />
+                    <ColumnDefinition Width="1*" />
+                </Grid.ColumnDefinitions>
+                <Canvas x:Name="ImgBack" IsHitTestVisible="False" Grid.Row="1" Grid.Column="1" RenderOptions.BitmapScalingMode="LowQuality"
                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
-                <Grid x:Name="PanTitle" Height="48">
+                <Grid x:Name="PanTitle" Height="48" Grid.Column="1">
                     <Grid.Background>
                         <LinearGradientBrush EndPoint="1,0" StartPoint="0,0">
                             <GradientStop Color="{StaticResource ColorObject4}" Offset="0"/>
@@ -138,7 +143,23 @@
                         <TextBlock SnapsToDevicePixels="False" IsHitTestVisible="False" Name="LabTitleInner" VerticalAlignment="Center" Margin="47,1,60,0" HorizontalAlignment="Left" Foreground="{DynamicResource ColorBrushTitleIcon}" FontSize="15" />
                     </Grid>
                 </Grid>
-                <Grid x:Name="PanLeft" Grid.Row="1" HorizontalAlignment="Left" SnapsToDevicePixels="True">
+                <!-- 竖排导航宿主：跨标题栏与内容区两行，靠左。
+                     默认宽 0、不可见；皮肤要求左侧导航时，代码把 PanTitleSelect 整体搬进来，
+                     不重建按钮，因此选中状态与事件绑定全部保留。 -->
+                <Border x:Name="PanNavHost" Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" Visibility="Collapsed"
+                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                        Background="{DynamicResource ColorBrushBackgroundTransparentSidebar}">
+                    <!-- 导航与皮肤自定义控件共用一个滚动区：
+                         窗口矮时两者一起滚，不会出现“导航被压扁、自定义区却占着高度”的死锁 -->
+                    <ScrollViewer x:Name="PanNavScroll" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                        <StackPanel Orientation="Vertical">
+                            <StackPanel x:Name="PanNavItems" Orientation="Vertical" Margin="0,14,0,0" />
+                            <StackPanel x:Name="PanSkinNavExtra" Orientation="Vertical" Margin="0,10,0,10" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+                <Grid x:Name="PanLeft" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left" SnapsToDevicePixels="True">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="1*"/>
@@ -153,7 +174,7 @@
                         </Rectangle.Fill>
                     </Rectangle>
                 </Grid>
-                <Grid x:Name="PanMain" Grid.Row="1" HorizontalAlignment="Left" VerticalAlignment="Top">
+                <Grid x:Name="PanMain" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left" VerticalAlignment="Top">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="1*"/>
@@ -168,6 +189,9 @@
                     </Border>
                 </Grid>
                 <StackPanel x:Name="PanHint" IsHitTestVisible="False" UseLayoutRounding="True" SnapsToDevicePixels="True" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="0,0,0,20" Grid.RowSpan="2" />
+                <!-- 常驻进度条：分析、安装等需要长时间等待且没有任务卡片的流程用它显示进度 -->
+                <local:MyHint x:Name="HintProgress" Visibility="Collapsed" IsHitTestVisible="False" HasBorder="True" Theme="Blue" MaxWidth="420"
+                              HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="0,0,20,20" Grid.RowSpan="2" />
                 <StackPanel HorizontalAlignment="Right" VerticalAlignment="Bottom" Grid.Row="1" Margin="15">
                     <local:MyExtraButton x:Name="BtnExtraBack" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTip="返回顶部" Visibility="Collapsed"
                                        Logo="M858.496 188.9024 173.1072 188.9024c-30.2848 0-54.8352-24.5504-54.8352-54.8352L118.272 106.6496c0-30.2848 24.5504-54.8352 54.8352-54.8352l685.3888 0c30.2848 0 54.8352 24.5504 54.8352 54.8352l0 27.4176C913.3312 164.352 888.7808 188.9024 858.496 188.9024L858.496 188.9024zM150.6048 550.8608c0 0 300.0064-240.3584 303.0272-243.328 13.9776-13.5936 31.1808-21.8624 48.8192-24.7552 1.7152-0.3072 3.4304-0.5888 5.1456-0.768 2.7392-0.3072 5.4528-0.3584 8.192-0.3328 2.7392-0.0256 5.4272 0.0256 8.1664 0.3328 1.7408 0.1792 3.4304 0.4864 5.1456 0.768 17.664 2.8928 34.8672 11.1616 48.8192 24.7552 3.0464 2.944 303.0016 243.328 303.0016 243.328 32.384 31.5136 29.6192 63.9744-2.7392 95.5136-32.3328 31.5392-75.648 2.9696-108.0064-28.544l-185.8816-147.1232 0 485.8368c0 30.3104-24.5248 54.8608-54.8352 54.8608l-27.392 0c-30.2848 0-54.8352-24.5504-54.8352-54.8608L447.232 470.7072l-185.8304 147.0976c-32.3584 31.5392-75.6992 60.1344-108.032 28.5696C121.0368 614.8352 118.272 582.3744 150.6048 550.8608L150.6048 550.8608zM150.6048 550.8608" />

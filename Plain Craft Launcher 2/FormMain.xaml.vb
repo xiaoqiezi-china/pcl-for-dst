@@ -684,7 +684,9 @@ Public Class FormMain
         RectForm.Rect = New Rect(0, 0, BorderForm.ActualWidth, BorderForm.ActualHeight)
         PanForm.Width = BorderForm.ActualWidth + 0.001
         PanForm.Height = BorderForm.ActualHeight + 0.001
-        PanMain.Width = PanForm.Width
+        '导航栏占位由 PanForm 的第 0 列负责，这里只按列宽扣减，保持与窗口一致
+        Dim NavWidth As Double = If(ColNav IsNot Nothing, ColNav.Width.Value, 0)
+        PanMain.Width = Math.Max(0, PanForm.Width - NavWidth)
         PanMain.Height = Math.Max(0, PanForm.Height - PanTitle.ActualHeight)
         If WindowState = WindowState.Maximized Then WindowState = WindowState.Normal '修复 #1938
     End Sub
@@ -1277,6 +1279,7 @@ Public Class FormMain
         SetupUI = 2
         SetupSystem = 3
         SetupDst = 4
+        SetupSkin = 5
         GroupInfo = 0
         GroupReport = 1
         GroupStar = 2
@@ -1293,6 +1296,7 @@ Public Class FormMain
         InstanceSaves = 6
         InstanceResourcePack = 7
         InstanceShaderPack = 8
+        InstanceFavorites = 9
     End Enum
     ''' <summary>
     ''' 获取次级页面的名称。若并非次级页面则返回空字符串，故可以以此判断是否为次级页面。
@@ -1447,6 +1451,127 @@ Public Class FormMain
             PageChangeActual(Stack, SubType)
         End If
     End Sub
+    ''' <summary>
+    ''' 按皮肤要求重排导航栏：顶部横排（内置）或左侧竖排。
+    ''' <para>
+    ''' 只移动同一个 PanTitleSelect 容器，不重建按钮、不复制控件，
+    ''' 因此选中状态、事件绑定、以及功能隐藏的可见性判断全部照旧。
+    ''' </para>
+    ''' </summary>
+    Public Sub ApplySkinLayout()
+        If PanTitle Is Nothing OrElse PanTitleSelect Is Nothing OrElse PanTitleMain Is Nothing Then Return
+        If PanNavItems Is Nothing Then Return
+        Dim LeftMode As Boolean = String.Equals(SkinMetrics.NavPosition, "left", StringComparison.OrdinalIgnoreCase)
+        '有没有自定义控件，决定侧栏要留多宽（按钮里是中文，窄了会截断）
+        Dim HasCustomUi As Boolean = PanSkinNavExtra IsNot Nothing AndAlso PanSkinNavExtra.Children.Count > 0
+        If LeftMode Then
+            '竖排：导航条整体搬进左侧栏，标题栏只留窗口按钮
+            PanTitleSelect.Orientation = Orientation.Vertical
+            PanTitleSelect.HorizontalAlignment = HorizontalAlignment.Stretch
+            PanTitleSelect.VerticalAlignment = VerticalAlignment.Top
+            PanTitleSelect.Height = Double.NaN
+            PanTitleSelect.Margin = New Thickness(0)
+            If Not PanNavItems.Children.Contains(PanTitleSelect) Then
+                PanTitleMain.Children.Remove(PanTitleSelect)
+                PanNavItems.Children.Add(PanTitleSelect)
+            End If
+            For Each Child In PanTitleSelect.Children
+                Dim Btn = TryCast(Child, MyRadioButton)
+                If Btn Is Nothing Then Continue For
+                Btn.VerticalLayout = True
+                Btn.MinWidth = If(HasCustomUi, 134, SkinMetrics.NavWidth)
+                Btn.HorizontalAlignment = HorizontalAlignment.Stretch
+                '左右各留 8：MyRadioButton 内部还有 12 的左内边距，
+                '不预留的话图标会被裁在容器外面
+                Btn.Margin = New Thickness(8, 4, 8, 4)
+            Next
+            PanNavItems.Margin = New Thickness(0, 10, 0, 0)
+            '用列宽把导航栏真正“占位”下来：内容区自动排到第 1 列，
+            '不需要再手工算 Margin 和 PanMain.Width，窗口缩放也不会错位
+            '有自定义控件时侧栏要更宽：按钮里是中文，76px 放不下会被截断
+            Dim NavTotal As Double = If(HasCustomUi, Math.Max(SkinMetrics.NavWidth, 150) + 8, SkinMetrics.NavWidth + 8)
+            ColNav.Width = New GridLength(NavTotal)
+            PanNavHost.Visibility = Visibility.Visible
+            PanHint.Margin = New Thickness(NavTotal + 20, 0, 0, 20)
+        Else
+            '横排：恢复内置位置与尺寸
+            PanTitleSelect.Orientation = Orientation.Horizontal
+            PanTitleSelect.HorizontalAlignment = HorizontalAlignment.Left
+            PanTitleSelect.VerticalAlignment = VerticalAlignment.Center
+            PanTitleSelect.Height = 27
+            PanTitleSelect.Margin = New Thickness(13, 0, 0, 0)
+            If Not PanTitleMain.Children.Contains(PanTitleSelect) Then
+                PanNavItems.Children.Remove(PanTitleSelect)
+                PanTitleMain.Children.Add(PanTitleSelect)
+            End If
+            For Each Child In PanTitleSelect.Children
+                Dim Btn = TryCast(Child, MyRadioButton)
+                If Btn Is Nothing Then Continue For
+                Btn.VerticalLayout = False
+                Btn.MinWidth = 0
+                Btn.HorizontalAlignment = HorizontalAlignment.Center
+                Btn.Margin = New Thickness(5, 0, 5, 0)
+            Next
+            PanNavHost.Visibility = Visibility.Collapsed
+            ColNav.Width = New GridLength(0)
+            PanHint.Margin = New Thickness(0, 0, 0, 20)
+        End If
+        '标题栏高度：竖排时导航已经搬走，标题栏只剩窗口按钮，
+        '用皮肤给的高度会把顶栏撑得很空；横排时高度必须够放下导航。
+        PanTitle.Height = If(LeftMode, Math.Max(40, SkinMetrics.TitlebarHeight), SkinMetrics.TitlebarHeight)
+        ShapeTitleLogo.Visibility = If(SkinMetrics.HideTitleLogo, Visibility.Collapsed, Visibility.Visible)
+        LabTitleLogo.Visibility = Visibility.Collapsed
+    End Sub
+
+    ''' <summary>
+    ''' 构建并插入皮肤自定义的界面控件。
+    ''' <para>
+    ''' 只重建自己那一个容器，不碰 PCL 原有控件；皮肤没写 customUi 时就清空。
+    ''' 这样换皮肤、关皮肤都不会残留上一次的控件。
+    ''' </para>
+    ''' </summary>
+    Public Sub ApplySkinCustomUi()
+        If PanSkinNavExtra Is Nothing Then Return
+        PanSkinNavExtra.Children.Clear()
+        Dim Pack = SkinManager.CurrentPack
+        If Pack Is Nothing Then Return
+
+        If Pack.CustomUi Is Nothing OrElse Pack.CustomUi.Count = 0 Then Return
+        Dim Built = SkinControls.Build(Pack.CustomUi)
+        For Each Element In Built
+            PanSkinNavExtra.Children.Add(Element)
+        Next
+        If SkinControls.ErrorText IsNot Nothing Then
+            Logger.Warn("皮肤自定义界面有错误：" & SkinControls.ErrorText)
+        End If
+    End Sub
+
+    ''' <summary>
+    ''' 把皮肤里的图标覆盖套用到标题栏导航。
+    ''' <para>
+    ''' Logo 是普通 CLR 属性，不能像颜色那样用 DynamicResource 自动联动，
+    ''' 只能在每次主题刷新后主动推一次。这里用“控件 → 语义名”的显式映射，
+    ''' 而不是给控件加自定义附加属性：映射集中在一处，皮肤作者只需要记语义名，
+    ''' 也不必为了支持换图标去改动 XAML 的控件类型。
+    ''' </para>
+    ''' </summary>
+    Public Sub ApplySkinIcons()
+        If FrmMain Is Nothing Then Return
+        Dim Nav As New Dictionary(Of MyRadioButton, String) From {
+            {BtnTitleSelect0, "Launch"},
+            {BtnTitleSelect1, "Download"},
+            {BtnTitleSelect2, "Link"},
+            {BtnTitleSelect3, "Setup"},
+            {BtnTitleSelect4, "More"},
+            {BtnTitleSelect5, "Extra"}
+        }
+        For Each Pair In Nav
+            Dim Override = SkinMetrics.GetIcon(Pair.Value)
+            '没有覆盖就保持 XAML 里原本的图标，不要动它
+            If Override IsNot Nothing Then Pair.Key.Logo = Override
+        Next
+    End Sub
+
     ''' <summary>
     ''' 通过点击导航栏改变页面。
     ''' </summary>

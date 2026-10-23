@@ -28,6 +28,11 @@ Public Module DstAnnounce
     ''' <summary>取某个版本的本地文案；没有就返回空串。</summary>
     Private Function ContentOf(Version As String) As String
         Select Case Version
+            Case "0.2.2"
+                Return "1. 大大增强了收藏夹功能" & vbCrLf &
+                       "2. 增强了服务器列表功能" & vbCrLf &
+                       "3. 优化了部分 UI，浅色主题现在是默认项" & vbCrLf &
+                       "4. 移除了 Trop"
             Case "0.2.0"
                 Return "1. 对启动器的性能进行了优化。" & vbCrLf &
                        "2. 增强了光影管理" & vbCrLf &

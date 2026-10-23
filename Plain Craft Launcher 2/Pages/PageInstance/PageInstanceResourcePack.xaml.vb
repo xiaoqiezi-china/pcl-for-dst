@@ -9,6 +9,11 @@ Public Class PageInstanceResourcePack
 #Region "初始化"
 
     Private Sub PageInstanceResourcePack_Loaded(sender As Object, e As RoutedEventArgs) Handles Me.Loaded
+        '多选条用 PCL 自带的图标，和模组管理保持一致
+        BtnSelectEnable.Logo = Logo.IconButtonCheck
+        BtnSelectDisable.Logo = Logo.IconButtonStop
+        BtnSelectDelete.Logo = Logo.IconButtonDelete
+        BtnSelectCancel.Logo = Logo.IconButtonCross
         RefreshList()
     End Sub
 
@@ -54,6 +59,10 @@ Public Class PageInstanceResourcePack
     '最近一次扫描到的完整列表，供搜索与筛选复用，避免每次输入都重新扫盘
     Private AllItems As New List(Of PackItem)
     Private CurrentFolder As String = ""
+    '当前显示出来的条目（已筛选），全选只作用于它们
+    Private ShownItems As New List(Of PackItem)
+    '多选：保存被选中条目的完整路径
+    Private SelectedPaths As New HashSet(Of String)
 
     ''' <summary>重新扫描资源包文件夹，并刷新界面。</summary>
     Private Sub RefreshList()
@@ -147,8 +156,10 @@ Public Class PageInstanceResourcePack
             Shown.Add(Item)
         Next
 
+        ShownItems = Shown
         If Shown.Count = 0 Then
             PanList.Children.Add(EmptyHint("没有符合条件的资源包"))
+            RefreshSelectBar()
             Return
         End If
         For Each Item In Shown
@@ -160,7 +171,101 @@ Public Class PageInstanceResourcePack
             .FontSize = 11, .Opacity = 0.45, .TextWrapping = TextWrapping.Wrap,
             .Margin = New Thickness(2, 6, 0, 0)
         })
+        RefreshSelectBar()
     End Sub
+
+#Region "多选"
+
+    ''' <summary>切换某条目的选中状态。</summary>
+    Private Sub ToggleSelect(Entry As PackItem)
+        If Not SelectedPaths.Remove(Entry.PackPath) Then SelectedPaths.Add(Entry.PackPath)
+        ApplyFilter()
+    End Sub
+
+    ''' <summary>全选 / 取消全选当前显示出来的条目。</summary>
+    Private Sub ChangeAllSelected(ShouldSelect As Boolean)
+        SelectedPaths.Clear()
+        If ShouldSelect Then
+            For Each Item In ShownItems
+                SelectedPaths.Add(Item.PackPath)
+            Next
+        End If
+        ApplyFilter()
+    End Sub
+
+    ''' <summary>按选中数量刷新底部操作条。</summary>
+    Private Sub RefreshSelectBar()
+        If CardSelect Is Nothing Then Return
+        '清掉已经不在列表里的选中项
+        SelectedPaths.RemoveWhere(Function(P) Not AllItems.Any(Function(I) I.PackPath = P))
+        Dim Count As Integer = SelectedPaths.Count
+        If Count = 0 Then
+            CardSelect.Visibility = Visibility.Collapsed
+            Return
+        End If
+        LabSelect.Text = $"已选择 {Count} 个文件"
+        '文件夹形态不能改启用状态，只有全部是可切换的 zip 时才亮
+        Dim CanToggle As Boolean = SelectedPaths.All(
+            Function(P) AllItems.Any(Function(I) I.PackPath = P AndAlso Not I.IsFolder))
+        BtnSelectEnable.IsEnabled = CanToggle
+        BtnSelectDisable.IsEnabled = CanToggle
+        If CardSelect.Visibility <> Visibility.Visible Then
+            CardSelect.Visibility = Visibility.Visible
+            CardSelect.Opacity = 0
+            AniStart(AaOpacity(CardSelect, 1 - CardSelect.Opacity, 90), "SelectBar")
+        End If
+    End Sub
+
+    ''' <summary>批量启用 / 停用选中的资源包。</summary>
+    Private Sub BatchToggle(TargetEnabled As Boolean)
+        Dim Targets = AllItems.Where(Function(I) SelectedPaths.Contains(I.PackPath) AndAlso Not I.IsFolder).ToList()
+        If Targets.Count = 0 Then Return
+        Dim Done As Integer = 0
+        For Each Entry In Targets
+            If Entry.IsEnabled = TargetEnabled Then Continue For
+            Try
+                Dim NewPath As String = If(TargetEnabled,
+                                           Entry.PackPath.Substring(0, Entry.PackPath.Length - ".disabled".Length),
+                                           Entry.PackPath & ".disabled")
+                If FileUtils.Exists(NewPath) AndAlso Not String.Equals(NewPath, Entry.PackPath, StringComparison.OrdinalIgnoreCase) Then
+                    Logger.Warn("批量切换跳过（目标已存在）：" & NewPath)
+                    Continue For
+                End If
+                FileUtils.Move(Entry.PackPath, NewPath)
+                Done += 1
+            Catch ex As Exception
+                Logger.Warn(ex, "批量切换资源包状态失败：" & Entry.DisplayName)
+            End Try
+        Next
+        Hint($"已{(If(TargetEnabled, "启用", "停用"))} {Done} 个资源包", HintType.Green)
+        SelectedPaths.Clear()
+        RefreshList()
+    End Sub
+
+    ''' <summary>批量删除选中的资源包。</summary>
+    Private Sub BatchDelete()
+        Dim Targets = AllItems.Where(Function(I) SelectedPaths.Contains(I.PackPath)).ToList()
+        If Targets.Count = 0 Then Return
+        If MyMsgBox($"确定删除这 {Targets.Count} 个资源包吗？此操作不可撤销。", "删除资源包", "删除", "取消", IsWarn:=True) <> 1 Then Return
+        Dim Done As Integer = 0
+        For Each Entry In Targets
+            Try
+                If Entry.IsFolder Then
+                    DirectoryUtils.Delete(Entry.PackPath, True)
+                Else
+                    FileUtils.Delete(Entry.PackPath)
+                End If
+                Done += 1
+            Catch ex As Exception
+                Logger.Warn(ex, "删除资源包失败：" & Entry.DisplayName)
+            End Try
+        Next
+        Hint($"已删除 {Done} 个资源包", HintType.Green)
+        SelectedPaths.Clear()
+        RefreshList()
+    End Sub
+
+#End Region
 
     Private Function FileSizeOf(FilePath As String) As Long
         Try
@@ -216,10 +321,22 @@ Public Class PageInstanceResourcePack
             .Margin = New Thickness(6, 0, 0, 0), .ToolTip = "删除"}
         AddHandler BtnDelete.Click, Sub() DeletePack(Entry)
         Buttons.Add(BtnDelete)
-        '停用的整行压暗，一眼能分出来
-        Dim Row As FrameworkElement = BuildRow(PackIcon(Entry), Entry.DisplayName, SubText, "", Buttons)
-        If Entry.IsDisabled Then Row.Opacity = 0.6
-        Return Row
+        '直接复用模组管理的列表项控件：选中竖条、悬停与点击动画全部继承
+        Dim Item As New MyLocalModItem With {
+            .Title = Entry.DisplayName,
+            .Description = SubText,
+            .ItemIsEnabled = Entry.IsEnabled,
+            .Checked = SelectedPaths.Contains(Entry.PackPath),
+            .LogoSource = PackIconPath(Entry)
+        }
+        Dim IconButtons As New List(Of MyIconButton)
+        For Each Btn In Buttons
+            Dim IconBtn = TryCast(Btn, MyIconButton)
+            If IconBtn IsNot Nothing Then IconButtons.Add(IconBtn)
+        Next
+        Item.Buttons = IconButtons
+        AddHandler Item.Click, Sub() ToggleSelect(Entry)
+        Return Item
     End Function
 
     ''' <summary>
@@ -383,9 +500,33 @@ Public Class PageInstanceResourcePack
         Return Row
     End Function
 
+    ''' <summary>资源包图标路径。图标在 zip 内，需要先导出到缓存目录再交给列表项。</summary>
+    Private Function PackIconPath(Entry As PackItem) As String
+        Try
+            If Entry.IsFolder Then
+                Dim IconFile As String = PathUtils.AddSlashSuffix(Entry.PackPath) & "pack.png"
+                If FileUtils.Exists(IconFile) Then Return IconFile
+                Return ""
+            End If
+            Using Zip As ZipArchive = ZipFile.OpenRead(Entry.PackPath)
+                For Each ZipEntry In Zip.Entries
+                    If ZipEntry.FullName.Equals("pack.png", StringComparison.OrdinalIgnoreCase) Then
+                        Using Ms As New MemoryStream
+                            ZipEntry.Open().CopyTo(Ms)
+                            Return MyLocalModItem.CacheIcon(Entry.PackPath, Ms.ToArray)
+                        End Using
+                    End If
+                Next
+            End Using
+        Catch ex As Exception
+            Logger.Warn(ex, "读取资源包图标失败：" & Entry.PackPath)
+        End Try
+        Return ""
+    End Function
+
     ''' <summary>
     ''' 资源包图标：zip 里读根目录的 pack.png，文件夹读 pack.png。
-    ''' 读不到返回 Nothing，由 BuildRow 换成 NoIcon。
+    ''' 读不到返回 Nothing，由列表项换成 NoIcon。
     ''' </summary>
     Private Function PackIcon(Entry As PackItem) As ImageSource
         Try
@@ -436,6 +577,27 @@ Public Class PageInstanceResourcePack
             End Using
         End Using
     End Function
+
+    '多选操作条
+    Private Sub BtnSelectAll_Click(sender As Object, e As MouseButtonEventArgs) Handles BtnSelectAll.Click
+        ChangeAllSelected(SelectedPaths.Count < ShownItems.Count)
+    End Sub
+
+    Private Sub BtnSelectEnable_Click(sender As Object, e As RouteEventArgs) Handles BtnSelectEnable.Click
+        BatchToggle(True)
+    End Sub
+
+    Private Sub BtnSelectDisable_Click(sender As Object, e As RouteEventArgs) Handles BtnSelectDisable.Click
+        BatchToggle(False)
+    End Sub
+
+    Private Sub BtnSelectDelete_Click(sender As Object, e As RouteEventArgs) Handles BtnSelectDelete.Click
+        BatchDelete()
+    End Sub
+
+    Private Sub BtnSelectCancel_Click(sender As Object, e As RouteEventArgs) Handles BtnSelectCancel.Click
+        ChangeAllSelected(False)
+    End Sub
 
     '搜索与筛选：只重绘列表，不重新扫盘
     Private Sub SearchBox_TextChanged(sender As Object, e As EventArgs) Handles SearchBox.TextChanged
