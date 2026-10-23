@@ -18,7 +18,7 @@ Public Class MyListItem
             If _RectBack Is Nothing Then
                 Dim Rect As New Border With {
                     .Name = "RectBack",
-                    .CornerRadius = New CornerRadius(If(IsScaleAnimationEnabled OrElse Height > 40, SkinMetrics.RadiusItem, 0)),
+                    .CornerRadius = New CornerRadius(If(IsScaleAnimationEnabled OrElse Height > 40, 8, 0)),
                     .RenderTransform = If(IsScaleAnimationEnabled, New ScaleTransform(0.8, 0.8), Nothing),
                     .RenderTransformOrigin = New Point(0.5, 0.5),
                     .BorderThickness = New Thickness(GetWPFSize(1)),
@@ -93,7 +93,7 @@ Public Class MyListItem
         End Get
         Set
             _IsScaleAnimationEnabled = Value
-            If _RectBack IsNot Nothing Then RectBack.CornerRadius = New CornerRadius(If(Value, 6, 0))
+            If _RectBack IsNot Nothing Then RectBack.CornerRadius = New CornerRadius(If(Value, 8, 0))
         End Set
     End Property
     Private _IsScaleAnimationEnabled As Boolean = True

@@ -128,51 +128,6 @@ Public Class MyRadioButton
         Highlight
     End Enum
     Private _ColorType As ColorState = ColorState.White
-    ''' <summary>
-    ''' 是否使用竖排布局（图标在上、文字在下）。
-    ''' <para>
-    ''' 顶部导航条默认横排；皮肤可以要求竖排，以便把导航整体挪到侧边栏。
-    ''' 只改排列方式，不碰选中逻辑与颜色动画。
-    ''' </para>
-    ''' </summary>
-    Public Property VerticalLayout As Boolean
-        Get
-            Return _VerticalLayout
-        End Get
-        Set(value As Boolean)
-            If _VerticalLayout = value Then Return
-            _VerticalLayout = value
-            ApplyLayout()
-        End Set
-    End Property
-    Private _VerticalLayout As Boolean = False
-
-    ''' <summary>按当前布局模式重排图标与文字。</summary>
-    Public Sub ApplyLayout()
-        If PanInner Is Nothing OrElse LabText Is Nothing Then Return
-        If _VerticalLayout Then
-            PanInner.Orientation = Orientation.Vertical
-            PanInner.HorizontalAlignment = HorizontalAlignment.Center
-            LabText.Margin = New Thickness(0, 2, 0, 6)
-            LabText.FontSize = 10
-            LabText.TextAlignment = TextAlignment.Center
-            '竖排需要更高的行高：图标 16 + 间距 + 文字 10 左右，27px 会被压扁并溢出
-            PanBack.MaxHeight = Double.PositiveInfinity
-            PanBack.MinHeight = 44
-            PanBack.CornerRadius = New CornerRadius(10)
-        Else
-            PanInner.Orientation = Orientation.Horizontal
-            PanInner.HorizontalAlignment = HorizontalAlignment.Center
-            LabText.Margin = New Thickness(8, 0, 12, 0)
-            LabText.FontSize = 13
-            LabText.TextAlignment = TextAlignment.Left
-            '恢复 XAML 原本的横排高度约束
-            PanBack.MaxHeight = 27
-            PanBack.MinHeight = 27
-            PanBack.CornerRadius = New CornerRadius(13.5)
-        End If
-    End Sub
-
     Public Property ColorType As ColorState
         Get
             Return _ColorType
@@ -219,21 +174,11 @@ Public Class MyRadioButton
                     Case ColorState.White
                         If Checked Then
                             '勾选
-                            If _VerticalLayout Then
-                                '竖排导航：选中态用主题色半透明块。
-                                '原来用的是 TitleTextColor（深色主题下是纯白），铺满一整块非常刺眼。
-                                AniStart({
-                                             AaColor(ShapeLogo, Shapes.Path.FillProperty, "ColorBrush3", AnimationTimeOfCheck),
-                                             AaColor(LabText, TextBlock.ForegroundProperty, "ColorBrush3", AnimationTimeOfCheck)
-                                        }, "MyRadioButton Checked " & Uuid)
-                                AniStart(AaColor(Me, BackgroundProperty, New MyColor(46, Color3) - Background, AnimationTimeOfCheck), "MyRadioButton Color " & Uuid)
-                            Else
-                                AniStart({
-                                             AaColor(ShapeLogo, Shapes.Path.FillProperty, "ColorBrush3", AnimationTimeOfCheck),
-                                             AaColor(LabText, TextBlock.ForegroundProperty, "ColorBrush3", AnimationTimeOfCheck)
-                                        }, "MyRadioButton Checked " & Uuid)
-                                AniStart(AaColor(Me, BackgroundProperty, TitleTextColor - Background, AnimationTimeOfCheck), "MyRadioButton Color " & Uuid)
-                            End If
+                            AniStart({
+                                         AaColor(ShapeLogo, Shapes.Path.FillProperty, "ColorBrush3", AnimationTimeOfCheck),
+                                         AaColor(LabText, TextBlock.ForegroundProperty, "ColorBrush3", AnimationTimeOfCheck)
+                                    }, "MyRadioButton Checked " & Uuid)
+                            AniStart(AaColor(Me, BackgroundProperty, TabSelectedBack - Background, AnimationTimeOfCheck), "MyRadioButton Color " & Uuid)
                         ElseIf IsMouseDown Then
                             '按下
                             AniStart(AaColor(Me, BackgroundProperty, New MyColor(120, Color8) - Background, 60), "MyRadioButton Color " & Uuid)
@@ -247,8 +192,8 @@ Public Class MyRadioButton
                         Else
                             '正常
                             AniStart({
-                                 AaColor(ShapeLogo, Shapes.Path.FillProperty, TitleTextColor - ShapeLogo.Fill, AnimationTimeOfMouseOut),
-                                 AaColor(LabText, TextBlock.ForegroundProperty, TitleTextColor - LabText.Foreground, AnimationTimeOfMouseOut)
+                                 AaColor(ShapeLogo, Shapes.Path.FillProperty, TabTextIdle - ShapeLogo.Fill, AnimationTimeOfMouseOut),
+                                 AaColor(LabText, TextBlock.ForegroundProperty, TabTextIdle - LabText.Foreground, AnimationTimeOfMouseOut)
                             }, "MyRadioButton Checked " & Uuid)
                             AniStart(AaColor(Me, BackgroundProperty, ColorSemiTransparent - Background, AnimationTimeOfMouseOut), "MyRadioButton Color " & Uuid)
                         End If
@@ -288,13 +233,13 @@ Public Class MyRadioButton
                 Select Case ColorType
                     Case ColorState.White
                         If Checked Then
-                            Background = TitleTextColor
+                            Background = TabSelectedBack
                             ShapeLogo.SetResourceReference(Shapes.Path.FillProperty, "ColorBrush3")
                             LabText.SetResourceReference(TextBlock.ForegroundProperty, "ColorBrush3")
                         Else
                             Background = ColorSemiTransparent
-                            ShapeLogo.Fill = TitleTextColor
-                            LabText.Foreground = TitleTextColor
+                            ShapeLogo.Fill = TabTextIdle
+                            LabText.Foreground = TabTextIdle
                         End If
                     Case ColorState.Highlight
                         If Checked Then

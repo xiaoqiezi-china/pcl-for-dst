@@ -156,6 +156,37 @@ Friend Module ModSecret
     Public ColorHue As Integer = 210, ColorSat As Integer = 85, ColorLightAdjust As Integer = 0, ColorHueTopbarDelta As OneOf(Of Integer, Integer()) = 0
     Public ThemeDontClick As Integer = 0
 
+    '标题栏标签页（深色标题栏下的选中/未选中状态）
+    Public TabSelectedBack As New MyColor(255, 35, 43, 54)
+    Public TabTextIdle As New MyColor(255, 147, 160, 174)
+
+    ''' <summary>界面外观风格。两套是完整的整套外观，不是颜色覆盖。</summary>
+    Public Enum AppearanceStyle
+        ''' <summary>PCL 原版：跟随「浅色/深色」设置，顶部横排导航。</summary>
+        Pcl = 0
+        ''' <summary>PCL Indra：写死的现代简约深色，左侧竖排导航。</summary>
+        Indra = 1
+    End Enum
+
+    ''' <summary>当前外观风格。</summary>
+    Public ReadOnly Property Appearance As AppearanceStyle
+        Get
+            Try
+                Return If(Settings.Get(Of Integer)("DstAppearance") = 1, AppearanceStyle.Indra, AppearanceStyle.Pcl)
+            Catch ex As Exception
+                Return AppearanceStyle.Pcl
+            End Try
+        End Get
+    End Property
+
+    ''' <summary>切换外观并立即重刷界面。</summary>
+    Public Sub SetAppearance(Value As AppearanceStyle)
+        Settings.Set("DstAppearance", CInt(Value))
+        '换的是整套配色，主题编号没变也要强制重算
+        ThemeRefresh(Force:=True)
+        If FrmMain IsNot Nothing Then FrmMain.ApplyAppearance()
+    End Sub
+
     ''' <summary>
     ''' 刷新主题配色与界面外观。
     ''' <param name="Force">
@@ -177,7 +208,50 @@ Friend Module ModSecret
             '深浅两套配色：1 = 主文字，2~4 = 强调色，5~8 = 由浅到深的面
             Dim Shift As Double = ColorLightAdjust * 0.4
             Dim Dark As Boolean = Settings.Get(Of Boolean)("DstDarkMode")
-            If Dark Then
+            '外观风格：PCL 用原本的深浅主题，Indra 用写死的现代简约深色配色。
+            '两套是互斥的整套外观，不是颜色覆盖，所以在这里一次算清。
+            If Appearance = AppearanceStyle.Indra Then
+                Color1 = New MyColor(237, 239, 243)
+                Color2 = New MyColor(76, 141, 255)
+                Color3 = New MyColor(108, 163, 255)
+                Color4 = New MyColor(150, 190, 255)
+                Color5 = New MyColor(28, 33, 39)
+                Color6 = New MyColor(22, 26, 31)
+                Color7 = New MyColor(17, 20, 24)
+                Color8 = New MyColor(11, 13, 16)
+                ColorBg0 = New MyColor(16, 19, 23)
+                ColorBg1 = New MyColor(247, New MyColor(11, 13, 16))
+
+                Application.Current.Resources("ColorBrushCard") = New SolidColorBrush(New MyColor(20, 23, 28))
+                Application.Current.Resources("ColorBrushCardHover") = New SolidColorBrush(New MyColor(26, 30, 36))
+                Application.Current.Resources("ColorBrushRail") = New SolidColorBrush(New MyColor(20, 23, 28))
+                Application.Current.Resources("ColorBrushBackgroundTransparentSidebar") = New SolidColorBrush(New MyColor(246, New MyColor(13, 16, 19)))
+                Application.Current.Resources("ColorBrushGray1") = New SolidColorBrush(New MyColor(237, 239, 243))
+                Application.Current.Resources("ColorBrushGray2") = New SolidColorBrush(New MyColor(170, 178, 188))
+                Application.Current.Resources("ColorBrushGray3") = New SolidColorBrush(New MyColor(122, 131, 142))
+                Application.Current.Resources("ColorBrushGray4") = New SolidColorBrush(New MyColor(92, 100, 110))
+                Application.Current.Resources("ColorBrushGray5") = New SolidColorBrush(New MyColor(66, 73, 83))
+                Application.Current.Resources("ColorBrushGray6") = New SolidColorBrush(New MyColor(46, 52, 60))
+                Application.Current.Resources("ColorBrushGray7") = New SolidColorBrush(New MyColor(28, 32, 38))
+                Application.Current.Resources("ColorBrushGray8") = New SolidColorBrush(New MyColor(20, 23, 28))
+                Application.Current.Resources("ColorBrushBorder") = New SolidColorBrush(New MyColor(32, 36, 43))
+                Application.Current.Resources("ColorBrushBorderLight") = New SolidColorBrush(New MyColor(45, 50, 58))
+                Application.Current.Resources("ColorBrushCardBorder") = New SolidColorBrush(New MyColor(28, 32, 39))
+                Application.Current.Resources("ColorBrushInput") = New SolidColorBrush(New MyColor(15, 18, 22))
+                Application.Current.Resources("ColorBrushTitleIcon") = New SolidColorBrush(Color.FromRgb(255, 255, 255))
+                Application.Current.Resources("ColorBrushHalfWhite") = New SolidColorBrush(Color.FromArgb(20, 255, 255, 255))
+                Application.Current.Resources("ColorBrushSemiTransparent") = New SolidColorBrush(New MyColor(1, Color8))
+                BackColorMain = New MyColor(17, 20, 24)
+                BackColorSub = New MyColor(12, 14, 17)
+                TextColorMain = Color1
+                TextColorSub = New MyColor(122, 131, 142)
+                TitleTextColor = New MyColor(255, 255, 255)
+                BubbleOtherBack = New MyColor(20, 23, 28)
+                BubbleOtherText = Color1
+                BubbleMineBack = New MyColor(76, 141, 255)
+                BubbleMineText = New MyColor(255, 255, 255)
+                BubbleMetaText = New MyColor(170, 178, 188)
+            ElseIf Dark Then
                 Color1 = New MyColor().FromHSL(ColorHue, 20, 90)
                 Color2 = New MyColor().FromHSL(ColorHue, 78, 66 + Shift)
                 Color3 = New MyColor().FromHSL(ColorHue, 85, 60 + Shift)
@@ -282,15 +356,6 @@ Friend Module ModSecret
             Application.Current.Resources("ColorObjectBg0") = CType(ColorBg0, Color)
             Application.Current.Resources("ColorObjectBg1") = CType(ColorBg1, Color)
 
-            '皮肤覆盖层：必须在基础配色全部写完后再叠加，否则会被上面的赋值冲掉。
-            '未在皮肤里声明的键保持上面的主题色，两者是叠加关系而不是替换关系。
-            '单独 try：皮肤包出错不该连累下面的界面刷新，否则会出现“顶栏没换、内容换了”的半截状态。
-            Try
-                SkinManager.ApplyOverlay()
-            Catch ex As Exception
-                Logger.Warn(ex, "应用皮肤覆盖层失败")
-                SkinMetrics.Reset()
-            End Try
 
             ThemeRefreshMain()
         Catch ex As Exception
@@ -318,17 +383,18 @@ Friend Module ModSecret
             '这两个变量后面“主页面背景”也要用，必须声明在 If 之外
             Dim Brush = New LinearGradientBrush With {.EndPoint = New Point(1, 0), .StartPoint = New Point(0, 0)}
             Dim Deltas = ColorHueTopbarDelta.Switch(Function(d) New Integer() {-d, 0, d}, Function(d) d)
-            Dim IsDarkMode As Boolean = Settings.Get(Of Boolean)("DstDarkMode")
+            'Indra 外观恒为深色：它是一整套写死的外观，不跟随深浅设置
+            Dim IsDarkMode As Boolean = Appearance = AppearanceStyle.Indra OrElse Settings.Get(Of Boolean)("DstDarkMode")
 
-            '顶部条背景。皮肤可以要求纯色，这时直接跳过内置渐变计算。
-            If SkinMetrics.TitlebarSolid AndAlso SkinMetrics.TitlebarColor <> "" Then
-                Dim SolidColor As Color
-                If TryParseColorString(SkinMetrics.TitlebarColor, SolidColor) Then
-                    FrmMain.PanTitle.Background = New SolidColorBrush(SolidColor)
-                    FrmMain.PanTitle.Background.Freeze()
-                End If
+            '顶部条背景：Indra 外观用纯色，PCL 用内置渐变
+            If Appearance = AppearanceStyle.Indra Then
+                FrmMain.PanTitle.Background = New SolidColorBrush(New MyColor(11, 13, 16))
+                FrmMain.PanTitle.Background.Freeze()
             Else
             '顶栏始终深色：里面的导航按钮、图标都按白字设计
+
+
+
             Dim TitleLight As Integer = If(IsDarkMode, 20, 26)
             Dim TitleSat As Double = ColorSat * 0.5
             Brush.GradientStops.Add(New GradientStop With {.Offset = 0, .Color = New MyColor().FromHSL(ColorHue + Deltas(0), TitleSat, TitleLight + ColorLightAdjust)})
@@ -364,12 +430,8 @@ Friend Module ModSecret
             '图标与布局都不是依赖属性，颜色刷新管不到它们，必须在这里主动推一次。
             '顺序有讲究：先套插槽布局（它决定导航横排还是竖排），
             '再推导航朝向与图标，最后建自定义控件。
-            FrmMain.ApplySkinLayoutXaml()
-            FrmMain.ApplyNavOrientation()
-            FrmMain.ApplySkinIcons()
             '已建好的控件不会自己重读度量：启动时控件的 Loaded 早于皮肤覆盖，
             '那时 ButtonFilled 还是默认值，按钮会画成描边。这里统一重推一次。
-            SkinManager.RefreshExistingControls()
         End Sub)
     End Sub
     ''' <summary>

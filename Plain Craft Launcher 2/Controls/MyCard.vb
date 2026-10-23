@@ -63,59 +63,24 @@ Public Class MyCard
 
     'UI 建立
     Public Sub New()
-        '圆角、描边、阴影都从 SkinMetrics 取，皮肤包可以整体改掉卡片的外观
-        Dim Radius As New CornerRadius(SkinMetrics.RadiusCard)
         MainChrome = New MyDropShadow With {
-            .Margin = New Thickness(-3, -3, -3, -3 - GetWPFSize(1)),
-            .ShadowRadius = 3,
-            .Opacity = SkinMetrics.CardShadowOpacity.GetValueOrDefault(DropShadowIdleOpacity),
-            .CornerRadius = Radius}
+            .Margin = New Thickness(-3, -3, -3, -3 - GetWPFSize(1)), .ShadowRadius = 3, .Opacity = 0, .CornerRadius = New CornerRadius(14)}
         MainChrome.SetResourceReference(MyDropShadow.ColorProperty, "ColorObject1")
         Children.Insert(0, MainChrome)
-        MainBorder = New Border With {
-            .CornerRadius = Radius,
-            .IsHitTestVisible = False,
-            .BorderThickness = New Thickness(SkinMetrics.CardBorderThickness)}
+        MainBorder = New Border With {.CornerRadius = New CornerRadius(14), .BorderThickness = New Thickness(1), .IsHitTestVisible = False}
         MainBorder.SetResourceReference(Border.BackgroundProperty, "ColorBrushCard")
-        If SkinMetrics.CardBorderBrushKey <> "" Then
-            MainBorder.SetResourceReference(Border.BorderBrushProperty, SkinMetrics.CardBorderBrushKey)
-        Else
-            MainBorder.SetResourceReference(Border.BorderBrushProperty, "ColorBrushGray6")
-        End If
+        MainBorder.SetResourceReference(Border.BorderBrushProperty, "ColorBrushCardBorder")
         Children.Insert(1, MainBorder)
         MainGrid = New Grid
         Children.Add(MainGrid)
     End Sub
-    ''' <summary>
-    ''' 重新套用皮肤度量（圆角、描边、阴影）。
-    ''' <para>
-    ''' 页面实例在 PCL 里是被缓存复用的，切皮肤时不会重建，
-    ''' 因此已有控件必须能被主动推一次，而不是等下次构造。
-    ''' </para>
-    ''' </summary>
-    Public Sub ApplySkinMetrics()
-        If MainChrome Is Nothing OrElse MainBorder Is Nothing Then Return
-        Dim Radius As New CornerRadius(SkinMetrics.RadiusCard)
-        MainChrome.CornerRadius = Radius
-        MainBorder.CornerRadius = Radius
-        MainBorder.BorderThickness = New Thickness(SkinMetrics.CardBorderThickness)
-        If SkinMetrics.CardBorderBrushKey <> "" Then
-            MainBorder.SetResourceReference(Border.BorderBrushProperty, SkinMetrics.CardBorderBrushKey)
-        Else
-            MainBorder.SetResourceReference(Border.BorderBrushProperty, "ColorBrushGray6")
-        End If
-        If SkinMetrics.CardShadowOpacity.HasValue Then
-            MainChrome.Opacity = SkinMetrics.CardShadowOpacity.Value
-        End If
-    End Sub
-
     Private IsLoad As Boolean = False
     Private Sub Init() Handles Me.Loaded
         If IsLoad Then Return
         IsLoad = True
-        '初次加载限定
-        If MainTextBlock Is Nothing Then
-            MainTextBlock = New TextBlock With {.HorizontalAlignment = HorizontalAlignment.Left, .VerticalAlignment = VerticalAlignment.Top, .Margin = New Thickness(SkinMetrics.CardPaddingLeft - 10, 12, 0, 0), .FontWeight = FontWeights.Bold, .FontSize = SkinMetrics.CardTitleFontSize, .IsHitTestVisible = False}
+        '初次加载限定（这里不能走 MainTextBlock 属性 getter，它会再次调用 Init）
+        If _MainTextBlock Is Nothing Then
+            MainTextBlock = New TextBlock With {.HorizontalAlignment = HorizontalAlignment.Left, .VerticalAlignment = VerticalAlignment.Top, .Margin = New Thickness(15, 12, 0, 0), .FontWeight = FontWeights.Bold, .FontSize = 13, .IsHitTestVisible = False}
             MainTextBlock.SetResourceReference(TextBlock.ForegroundProperty, "ColorBrush1")
             MainTextBlock.SetBinding(TextBlock.TextProperty, New Binding("Title") With {.Source = Me, .Mode = BindingMode.OneWay})
             MainGrid.Children.Add(MainTextBlock)
@@ -137,6 +102,35 @@ Public Class MyCard
             AniStop("MyCard Height " & Uuid)
             IsHeightAnimating = False
             RunInUi(Sub() UseAnimation = RawUseAnimation, True)
+        End If
+        UpdateHeaderLayout()
+    End Sub
+
+    ''' <summary>
+    ''' 按卡片当前是否折叠调整标题与箭头的摆放：
+    ''' 折叠后的卡片只有 40px 高，标题必须真正上下居中；展开的卡片标题仍贴在顶部。
+    ''' </summary>
+    Private Sub UpdateHeaderLayout()
+        If Not IsLoad Then Return '加载前调用会提前触发 Init，导致 SwapControl 尚未建立
+        '折叠卡片，以及本身就不能展开、又固定成单行高度（<=44）的卡片，标题都应当垂直居中
+        Dim Compact As Boolean = IsSwapped OrElse (Not CanSwap AndAlso SwapControl Is Nothing AndAlso Height > 0 AndAlso Height <= 44)
+        If _MainTextBlock IsNot Nothing Then
+            If Compact Then
+                _MainTextBlock.VerticalAlignment = VerticalAlignment.Center
+                _MainTextBlock.Margin = New Thickness(15, 0, 0, 0)
+            Else
+                _MainTextBlock.VerticalAlignment = VerticalAlignment.Top
+                _MainTextBlock.Margin = New Thickness(15, 12, 0, 0)
+            End If
+        End If
+        If _MainSwap IsNot Nothing Then
+            If Compact Then
+                _MainSwap.VerticalAlignment = VerticalAlignment.Center
+                _MainSwap.Margin = New Thickness(0, 0, 16, 0)
+            Else
+                _MainSwap.VerticalAlignment = VerticalAlignment.Top
+                _MainSwap.Margin = New Thickness(0, 17, 16, 0)
+            End If
         End If
     End Sub
 
@@ -172,29 +166,21 @@ Public Class MyCard
     End Sub
 
     '动画
-    Private Const DropShadowIdleOpacity As Double = 0.07
-    Private Const DropShadowHoverOpacity As Double = 0.4
+    Private Const DropShadowIdleOpacity As Double = 0
+    Private Const DropShadowHoverOpacity As Double = 0
     Public Property HasMouseAnimation As Boolean = True
     Private Sub MyCard_MouseEnter(sender As Object, e As MouseEventArgs) Handles Me.MouseEnter
         If Not HasMouseAnimation Then Return
         Dim AniList As New List(Of AniData)
-        If Not IsNothing(MainTextBlock) Then AniList.Add(AaColor(MainTextBlock, TextBlock.ForegroundProperty, "ColorBrush2", 90))
+        If Not IsNothing(MainTextBlock) Then AniList.Add(AaColor(MainTextBlock, TextBlock.ForegroundProperty, "ColorBrush1", 90))
         If Not IsNothing(MainSwap) Then AniList.Add(AaColor(MainSwap, Shapes.Path.FillProperty, "ColorBrush2", 90))
-        AniList.AddRange({
-            AaColor(MainChrome, MyDropShadow.ColorProperty, "ColorObject4", 90),
-            AaOpacity(MainChrome, DropShadowHoverOpacity - MainChrome.Opacity, 90)
-        })
         AniStart(AniList, "MyCard Mouse " & Uuid)
     End Sub
     Private Sub MyCard_MouseLeave(sender As Object, e As MouseEventArgs) Handles Me.MouseLeave
         If Not HasMouseAnimation Then Return
         Dim AniList As New List(Of AniData)
         If Not IsNothing(MainTextBlock) Then AniList.Add(AaColor(MainTextBlock, TextBlock.ForegroundProperty, "ColorBrush1", 90))
-        If Not IsNothing(MainSwap) Then AniList.Add(AaColor(MainSwap, Shapes.Path.FillProperty, "ColorBrush1", 90))
-        AniList.AddRange({
-            AaColor(MainChrome, MyDropShadow.ColorProperty, "ColorObject1", 90),
-            AaOpacity(MainChrome, DropShadowIdleOpacity - MainChrome.Opacity, 90)
-        })
+        If Not IsNothing(MainSwap) Then AniList.Add(AaColor(MainSwap, Shapes.Path.FillProperty, "ColorBrushGray3", 90))
         AniStart(AniList, "MyCard Mouse " & Uuid)
     End Sub
 
@@ -287,6 +273,7 @@ Public Class MyCard
         Set(value As Boolean)
             If _IsSwapped = value Then Return
             _IsSwapped = value
+            UpdateHeaderLayout()
             If SwapControl Is Nothing Then Return
             '展开
             If Not IsSwapped Then BuildContent()

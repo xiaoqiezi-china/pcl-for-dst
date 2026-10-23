@@ -286,12 +286,6 @@
   <Compile Include="Pages\PageInstance\DstItemPanel.vb" />
   <Compile Include="Modules\DstDisclaimer.vb" />
   <Compile Include="Modules\DstCustomServer.vb" />
-  <Compile Include="Modules\Skin\SkinMetrics.vb" />
-  <Compile Include="Modules\Skin\SkinPack.vb" />
-  <Compile Include="Modules\Skin\SkinManager.vb" />
-  <Compile Include="Modules\Skin\SkinAction.vb" />
-  <Compile Include="Modules\Skin\SkinEvents.vb" />
-  <Compile Include="Modules\Skin\SkinXaml.vb" />
   <Compile Include="Modules\DstAnnounce.vb" />
         <Compile Include="Modules\ModFavorite.vb" />
     <Compile Include="Controls\WindowImagePreview.vb" />
@@ -452,9 +446,6 @@
     <Compile Include="Pages\PageSetup\PageSetupDst.xaml.vb">
       <DependentUpon>PageSetupDst.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Pages\PageSetup\PageSetupSkin.xaml.vb">
-      <DependentUpon>PageSetupSkin.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Pages\PageGroup\PageGroupLeft.xaml.vb">
       <DependentUpon>PageGroupLeft.xaml</DependentUpon>
     </Compile>
@@ -524,6 +515,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Controls\MyRailButton.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Controls\MyRadioBox.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -566,6 +561,9 @@
     </Compile>
     <Compile Include="Controls\MyMsg\MyMsgText.xaml.vb">
       <DependentUpon>MyMsgText.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controls\MyRailButton.xaml.vb">
+      <DependentUpon>MyRailButton.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controls\MyRadioBox.xaml.vb">
       <DependentUpon>MyRadioBox.xaml</DependentUpon>
@@ -759,10 +757,6 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Pages\PageSetup\PageSetupDst.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Pages\PageSetup\PageSetupSkin.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

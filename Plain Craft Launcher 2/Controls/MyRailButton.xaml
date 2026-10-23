@@ -1,0 +1,9 @@
+<Border x:Name="PanBack" x:Class="MyRailButton"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        HorizontalAlignment="Center" VerticalAlignment="Top" Background="Transparent" CornerRadius="12" Width="52" Height="52">
+    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+        <Path x:Name="ShapeLogo" Width="18" Height="18" Stretch="Uniform" Fill="{DynamicResource ColorBrushGray3}" HorizontalAlignment="Center" Margin="0,0,0,3" IsHitTestVisible="False" />
+        <TextBlock x:Name="LabText" FontSize="10.5" HorizontalAlignment="Center" Foreground="{DynamicResource ColorBrushGray3}" IsHitTestVisible="False" />
+    </StackPanel>
+</Border>

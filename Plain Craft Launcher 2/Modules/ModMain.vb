@@ -392,7 +392,6 @@ EndHint:
     Public FrmSetupSystem As PageSetupSystem
     Public FrmSetupLink As PageSetupLink
     Public FrmSetupDst As PageSetupDst
-    Public FrmSetupSkin As PageSetupSkin
     Public FrmGroupLeft As PageGroupLeft
     Public FrmGroupInfo As PageGroupInfo
     Public FrmGroupReport As PageGroupReport

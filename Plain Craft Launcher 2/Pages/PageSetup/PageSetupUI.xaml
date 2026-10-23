@@ -38,6 +38,21 @@
                             <local:MySlider local:SettingService.Key="UiLauncherLight" 
                                             Grid.Row="2" Grid.Column="4" x:Name="SliderLauncherLight" Visibility="Collapsed" MaxValue="40" ValueByKey="5" Margin="0,10,0,0" />
                         </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="Name1" />
+                                <ColumnDefinition />
+                                <ColumnDefinition />
+                                <ColumnDefinition />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Left" Text="外观" Margin="0,0,20,0" />
+                            <local:MyRadioBox local:SettingService.Key="DstAppearance" local:SettingService.Value="0"
+                                              Grid.Column="1" Text="PCL" x:Name="RadioAppearance0"
+                                              ToolTip="PCL 原版外观：顶部横排导航，跟随下方的深浅设置与主题色。" />
+                            <local:MyRadioBox local:SettingService.Key="DstAppearance" local:SettingService.Value="1"
+                                              Grid.Column="2" Text="PCL Inder" x:Name="RadioAppearance1"
+                                              ToolTip="左侧竖排导航、深色简约风格。选定后不跟随主题色与深浅设置。" />
+                        </Grid>
                         <local:MyCheckBox x:Name="CheckDarkMode" Text="深色模式" Margin="0,2,0,10"
                                           ToolTip="取消勾选切换为浅色主题，配色与上面的主题色相自动配套。" />
                         <Grid x:Name="PanLauncherTheme" Height="90" Margin="0,0,0,7">                            <Grid.ColumnDefinitions>
@@ -305,6 +320,63 @@
                         <local:MyCheckBox Height="22" VerticalAlignment="Center" Grid.Row="4" Grid.Column="4" Text="Mod 更新" x:Name="CheckHiddenFunctionModUpdate" local:SettingService.Key="UiHiddenFunctionModUpdate" ToolTip="禁止在 Mod 管理页面更新 Mod。" />
                         <local:MyCheckBox Height="22" VerticalAlignment="Center" Grid.Row="4" Grid.Column="5" Text="功能隐藏" x:Name="CheckHiddenFunctionHidden" local:SettingService.Key="UiHiddenFunctionHidden" ToolTip="仅隐藏本选项卡，设置的禁用内容依然有效。&#xa;可以在保留个性化设置页面的情况下避免隐藏设置被修改。" />
                         <local:MyCheckBox Height="22" VerticalAlignment="Center" Grid.Row="4" Grid.Column="6" Text="版本修改" x:Name="CheckHiddenFunctionModify" local:SettingService.Key="UiHiddenFunctionInstanceModify" ToolTip="隐藏版本设置中的版本修改功能。" />
+                    </Grid>
+                </StackPanel>
+            </local:MyCard>
+<local:MyCard x:Name="CardSkin" Margin="0,0,0,15" Title="离线皮肤" CanSwap="True" IsSwapped="True">
+                <StackPanel Margin="25,40,25,15">
+                    <local:MyHint Text="由于技术问题，此功能只保证对 1.19.2 以前的版本有效！" Theme="Yellow" Margin="0,0,0,10" />
+                    <Grid Margin="-1,0,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition />
+                            <ColumnDefinition />
+                            <ColumnDefinition />
+                            <ColumnDefinition />
+                            <ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+                        <local:MyRadioBox local:SettingService.Key="LaunchSkinType" local:SettingService.Value="0" 
+                                          x:Name="RadioSkinType0" Height="22" Grid.Column="0" 
+                                          Text="随机" ToolTip="随机选择一个默认皮肤" />
+                        <local:MyRadioBox local:SettingService.Key="LaunchSkinType" local:SettingService.Value="1" 
+                                          x:Name="RadioSkinType1" Height="22" Grid.Column="1"
+                                          Text="Steve" />
+                        <local:MyRadioBox local:SettingService.Key="LaunchSkinType" local:SettingService.Value="2" 
+                                          x:Name="RadioSkinType2" Height="22" Grid.Column="2"
+                                          Text="Alex" />
+                        <local:MyRadioBox local:SettingService.Key="LaunchSkinType" local:SettingService.Value="3" 
+                                          x:Name="RadioSkinType3" Height="22" Grid.Column="3" 
+                                          Text="正版皮肤" ToolTip="使用某个正版玩家的皮肤" />
+                        <local:MyRadioBox local:SettingService.Key="LaunchSkinType" local:SettingService.Value="4" 
+                                          x:Name="RadioSkinType4" Height="22" Grid.Column="4" 
+                                          Text="自定义" ToolTip="以资源包的形式加载自定义皮肤。&#xa;使用此方式更换的皮肤在多人游戏中仅自己可见，且会替换游戏中所有的角色。" />
+                    </Grid>
+                    <Grid x:Name="PanSkinID" Margin="0,14,0,2" Visibility="Collapsed">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
+                            <ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock VerticalAlignment="Center" HorizontalAlignment="Left" Text="正版玩家名" Margin="0,0,25,0" />
+                        <local:MyTextBox local:SettingService.Key="LaunchSkinID" Grid.Column="1" MaxLength="50" />
+                        <Grid Height="35" Grid.Row="1" Grid.ColumnSpan="2" Margin="0,14,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="Button" />
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="Button" />
+                            </Grid.ColumnDefinitions>
+                            <local:MyButton x:Name="BtnSkinSave" Text="保存皮肤" MinWidth="140" Padding="13,0" Margin="0,0,20,0" Grid.Row="1" />
+                            <local:MyButton x:Name="BtnSkinCache" Text="刷新" MinWidth="140" Padding="13,0" Margin="0,0,20,0" ToolTip="刷新并重新下载 PCL 当前显示的皮肤" Grid.Row="1" Grid.Column="1" />
+                        </Grid>
+                    </Grid>
+                    <Grid x:Name="PanSkinChange" Margin="0,14,0,2" Height="35" Visibility="Collapsed">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="Button" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="Button" />
+                        </Grid.ColumnDefinitions>
+                        <local:MyButton x:Name="BtnSkinChange" Text="更改皮肤" MinWidth="140" Padding="13,0" Margin="0,0,20,0" />
+                        <local:MyButton x:Name="BtnSkinDelete" Text="重置皮肤" MinWidth="140" Padding="13,0" Margin="0,0,20,0" ColorType="Red" Grid.Column="1" />
                     </Grid>
                 </StackPanel>
             </local:MyCard>
