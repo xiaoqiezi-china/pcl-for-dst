@@ -101,10 +101,7 @@ Public Class FormMain
         Resizer.addResizerRightDown(ResizerRB)
         Resizer.addResizerRightUp(ResizerRT)
         Resizer.addResizerUp(ResizerT)
-        'PLC 彩蛋
-        If RandomInteger(1, 1000) = 233 Then
-            ShapeTitleLogo.Data = New GeometryConverter().ConvertFromString("M26,29 v-25 h6 a7,7 180 0 1 0,14 h-6 M83,6.5 a10,11.5 180 1 0 0,18 M48,2.5 v24.5 h13.5")
-        End If
+
         '加载窗口
         '帝释天蓝黑：载入后强制重新套用一次配色，避免构造函数阶段调用失败导致顶栏仍是默认蓝
         ThemeNow = -1
@@ -534,7 +531,6 @@ Public Class FormMain
         '标题栏显示类型
         Select Case Settings.Get(Of Integer)("UiLogoType")
             Case 0 '无
-                ShapeTitleLogo.Visibility = Visibility.Collapsed
                 LabTitleLogo.Visibility = Visibility.Collapsed
                 ImageTitleLogo.Visibility = Visibility.Collapsed
                 If Not IsNothing(FrmSetupUI) Then 'TODO: 和 FrmSetupUI 解耦
@@ -542,9 +538,8 @@ Public Class FormMain
                     FrmSetupUI.PanLogoText.Visibility = Visibility.Collapsed
                     FrmSetupUI.PanLogoChange.Visibility = Visibility.Collapsed
                 End If
-            Case 1 '默认
-                ShapeTitleLogo.Visibility = Visibility.Visible
-                LabTitleLogo.Visibility = Visibility.Collapsed
+            Case 1 '默认：显示产品名文字
+                LabTitleLogo.Visibility = Visibility.Visible
                 ImageTitleLogo.Visibility = Visibility.Collapsed
                 If Not IsNothing(FrmSetupUI) Then
                     FrmSetupUI.CheckLogoLeft.Visibility = Visibility.Collapsed
@@ -552,7 +547,6 @@ Public Class FormMain
                     FrmSetupUI.PanLogoChange.Visibility = Visibility.Collapsed
                 End If
             Case 2 '文本
-                ShapeTitleLogo.Visibility = Visibility.Collapsed
                 LabTitleLogo.Visibility = Visibility.Visible
                 ImageTitleLogo.Visibility = Visibility.Collapsed
                 If Not IsNothing(FrmSetupUI) Then
@@ -561,7 +555,6 @@ Public Class FormMain
                     FrmSetupUI.PanLogoChange.Visibility = Visibility.Collapsed
                 End If
             Case 3 '图片
-                ShapeTitleLogo.Visibility = Visibility.Collapsed
                 LabTitleLogo.Visibility = Visibility.Collapsed
                 ImageTitleLogo.Visibility = Visibility.Visible
                 If Not IsNothing(FrmSetupUI) Then
@@ -579,9 +572,14 @@ Public Class FormMain
         FrmSetupUI?.CardLogo.TriggerForceResize()
         '标题栏文本
         'Indra 外观用固定的产品名，其余情况沿用用户设置的标题文字
-        LabTitleLogo.Text = If(Appearance = AppearanceStyle.Indra,
-                               "PCL Indra",
-                               If(String.IsNullOrWhiteSpace(Settings.Get(Of String)("UiLogoText")), LauncherShortName, Settings.Get(Of String)("UiLogoText")))
+        '「默认」显示产品名；「文本」才用用户填的内容
+        If Settings.Get(Of Integer)("UiLogoType") = 1 Then
+            LabTitleLogo.Text = LauncherShortName
+        ElseIf Appearance = AppearanceStyle.Indra Then
+            LabTitleLogo.Text = "PCL Indra"
+        Else
+            LabTitleLogo.Text = If(String.IsNullOrWhiteSpace(Settings.Get(Of String)("UiLogoText")), LauncherShortName, Settings.Get(Of String)("UiLogoText"))
+        End If
         '标题栏文本是否居左
         PanTitleMain.ColumnDefinitions(0).Width = New GridLength(If(Settings.Get(Of Boolean)("UiLogoLeft") AndAlso Settings.Get(Of Integer)("UiLogoType") = 0, 0, 1), GridUnitType.Star)
     End Sub
@@ -1243,16 +1241,8 @@ Public Class FormMain
         PanTitleSelect.Visibility = If(IsIndra, Visibility.Collapsed, Visibility.Visible)
         PanRailSelect.Visibility = If(IsIndra, Visibility.Visible, Visibility.Collapsed)
 
-        '标题栏品牌：Indra 用文字，PCL 用图形 Logo。
-        '注意顺序：UpdateTitleBar 之类的地方也会写 LabTitleLogo，所以这里只负责显隐，
-        '文字内容由 RefreshTitleVersion 统一给，避免两处互相覆盖。
-        If IsIndra Then
-            If ShapeTitleLogo IsNot Nothing Then ShapeTitleLogo.Visibility = Visibility.Collapsed
-            If LabTitleLogo IsNot Nothing Then LabTitleLogo.Visibility = Visibility.Visible
-        Else
-            If ShapeTitleLogo IsNot Nothing Then ShapeTitleLogo.Visibility = Visibility.Visible
-            If LabTitleLogo IsNot Nothing Then LabTitleLogo.Visibility = Visibility.Collapsed
-        End If
+        '标题栏显隐统一由 UiLogoType 决定（见 UpdateTitleBar），这里不再按外观另做一套，
+        '否则会覆盖掉「默认」的文字标。
     End Sub
 
     ''' <summary>

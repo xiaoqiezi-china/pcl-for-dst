@@ -115,9 +115,10 @@ Friend Module DstBot
     Public Function SafeText(Msg As String) As String
         If String.IsNullOrWhiteSpace(Msg) Then Return ""
         Dim S As String = Msg
-        '已知的内置地址与令牌
-        S = S.Replace(DstBotPresetApi, "帝释天服务")
-        S = S.Replace(DstBotPresetToken, "***")
+        '已知的内置地址与令牌。发布版这两项是空串，Replace 的 oldValue 为空会抛异常，
+        '所以必须先判空——这个函数是在异常处理路径上被调用的，自己再炸一次会直接崩掉启动器。
+        If DstBotPresetApi <> "" Then S = S.Replace(DstBotPresetApi, "帝释天服务")
+        If DstBotPresetToken <> "" Then S = S.Replace(DstBotPresetToken, "***")
         '自定义服务也不能露
         Dim CustomUrl As String = Settings.Get(Of String)("DstBotApiUrl").Trim()
         If CustomUrl <> "" Then S = S.Replace(CustomUrl, "自定义服务")
@@ -837,8 +838,11 @@ Friend Module DstBot
 
     Public ReadOnly Property GroupNo As String
         Get
-            '群号不再写死，来自 /v2/api/list_qqgroups，由用户挑选后存进设置
-            Return Settings.Get(Of String)("DstGroupId").Trim()
+            '用户挑过的群优先；没挑过就看配置文件里的预设群号。
+            '预设版把群号一起释放到 config.ini，换机器或更新后都能恢复。
+            Dim FromSetting As String = Settings.Get(Of String)("DstGroupId").Trim()
+            If FromSetting <> "" Then Return FromSetting
+            Return ModConfigFile.Read(ModConfigFile.SectionCloud, "GroupId").Trim()
         End Get
     End Property
 
@@ -867,11 +871,22 @@ Friend Module DstBot
             If ApiKey <> "" Then
                 ModConfigFile.Write(ModConfigFile.SectionCloud, "ApiKey", ApiKey)
             End If
-            '地址变了，之前探测出来的连接状态和群列表都不再作数
+            '地址变了，之前探测出来的连接状态、群列表、服务器列表都不再作数
             AutoOfflineFlag = False
-            Groups.Clear()
+            SyncLock Groups
+                Groups.Clear()
+            End SyncLock
             GroupsUpdatedAt = Date.MinValue
-            Logger.Info($"已切换服务预设，当前地址：{ApiBase}")
+            SyncLock ServerList
+                ServerList.Clear()
+            End SyncLock
+            UpdatedAt = Date.MinValue
+            '没有任何服务地址时状态要归位，否则界面会一直显示上一次的连接结果
+            If ApiBase = "" Then
+                StatusLast = BotStatus.NotConfigured
+                ErrRaw = ""
+            End If
+            Logger.Info($"已切换服务预设，当前地址：{If(ApiBase = "", "(无)", ApiBase)}")
         Catch ex As Exception
             Logger.Warn(ex, "切换服务预设失败")
         End Try

@@ -3,8 +3,8 @@ Imports System.Text.RegularExpressions
 ''' <summary>
 ''' 版本更新公告。
 ''' <para>
-''' 内容一律来自服务器（与「检查更新」同一个接口 dclvar 的 dclupgradeinfo 字段），
-''' 不再在本地写死文案——本地文案一升级就会和实际发布内容对不上。
+''' 内容来自 GitHub Release 的正文（即发布时填的更新说明），
+''' 不再从预设服务器取，也不在本地写死文案——那样一升级就对不上实际发布内容。
 ''' </para>
 ''' <para>
 ''' 每个版本只弹一次，点过之后记住版本号。取不到服务器内容时静默跳过，
@@ -35,16 +35,18 @@ Public Module DstAnnounce
             Try
                 DstUpdate.CheckLauncherUpdate(
                 Sub(Info)
-                    '这里只是复用同一个接口取公告正文，不关心是否有新版本
-                    'DstUpdate 已经解开过转义了，这里直接用
-                    Content = Info.Announce
+                    '这里只借用取数流程，不关心是否有新版本
+                    '优先用 GitHub Release 的正文；没有才退回预设服务器的公告
+                    '公告只认 GitHub Release 的正文；拿不到就这次不弹，
+                    '绝不能退回预设服务器的公告——那份文案和实际发布内容早就对不上了
+                    Content = Info.Notes
                     ErrText = Info.Err
                     RunInUi(
                     Sub()
                         Try
                             If Content = "" Then
                                 '服务器没给公告：静默跳过，仍然记下版本号避免每次启动都去请求
-                                Logger.Info("更新公告：服务器未提供内容，跳过" &
+                                Logger.Info("更新公告：没有可用的更新说明，跳过" &
                                             If(ErrText <> "", "（" & ErrText & "）", ""))
                                 Settings.Set("DstLastAnnounceVersion", VersionBaseName)
                                 Return

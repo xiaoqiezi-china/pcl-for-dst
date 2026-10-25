@@ -3,11 +3,16 @@ Imports System.Security.Cryptography
 Public Class Settings
 
     ''' <summary>
-    ''' 常规模式的初始值。DPCL 默认不带在线服务的连接，所以一开始就打开；
-    ''' 用户可以在设置里关掉它去连自己的服务器。
-    ''' 用常量而不是把 #If 写进数组初始化器，是因为 VB 不允许那样做。
+    ''' 常规模式的初始值。
+    ''' <para>
+    ''' 有内置预设的发行版（DstBotPresetApi 非空）默认直连，开箱即可看到服务器；
+    ''' 没有预设的开源构建则默认常规模式，避免一启动就卡在连不上的探测上。
+    ''' 用户随时可以在设置里改。
+    ''' </para>
     ''' </summary>
-    Private Const DpclDefaultOffline As Boolean = True
+    Private Shared Function DpclDefaultOffline() As Boolean
+        Return DstBotPresetApi = ""
+    End Function
     ''' <summary>标题栏默认文本。</summary>
     Private Const DpclDefaultLogoText As String = "DPCL"
     Public Shared ReadOnly Entries As Dictionary(Of String, Setting) = (New List(Of Setting) From {
@@ -176,7 +181,7 @@ Public Class Settings
         New Setting("DstBotGroupId", ""),
         New Setting("DstGroupId", ""),
         New Setting("DstGroupName", ""),
-        New Setting("DstOfflineMode", DpclDefaultOffline),
+        New Setting("DstOfflineMode", DpclDefaultOffline()),
         New Setting("DstOfflineShowServers", True),
         New Setting("DstNeMusicLevel", "standard"),
         New Setting("DstDisclaimerAgreed", False),

@@ -113,10 +113,12 @@ Friend Module ModSecret
     Public Const DstBotPresetToken As String = ModSecretLocal.PresetToken
     ''' <summary>闭源版默认选中的预设 id，开源版为空。</summary>
     Public Const BuiltinPresetId As String = ModSecretLocal.PresetId
+    Public Const BuiltinGroupId As String = ModSecretLocal.PresetGroup
 #Else
     Public Const DstBotPresetApi As String = ""
     Public Const DstBotPresetToken As String = ""
     Public Const BuiltinPresetId As String = ""
+    Public Const BuiltinGroupId As String = ""
 #End If
 
 #End Region

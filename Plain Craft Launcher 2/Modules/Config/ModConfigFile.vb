@@ -72,6 +72,8 @@ Friend Module ModConfigFile
             Sb.AppendLine("ApiKey=")
             Sb.AppendLine("; 当前选中的预设 id，切换预设时由启动器维护")
             Sb.AppendLine("PresetId=")
+            Sb.AppendLine("; 机器人所在的群号，随预设一起下发；留空则由用户在设置里挑")
+            Sb.AppendLine("GroupId=")
             Dim Initial As String = Sb.ToString()
             '闭源发布版会带一份初始数据，由这里填进去；开源版这段是空操作
             Initial = MergeBuiltinDefaults(Initial)
@@ -91,6 +93,7 @@ Friend Module ModConfigFile
         Result = ReplaceValue(Result, SectionCloud, "ApiBase", DstBotPresetApi)
         Result = ReplaceValue(Result, SectionCloud, "ApiKey", DstBotPresetToken)
         Result = ReplaceValue(Result, SectionCloud, "PresetId", BuiltinPresetId)
+        Result = ReplaceValue(Result, SectionCloud, "GroupId", BuiltinGroupId)
         Return Result
     End Function
 

@@ -101,6 +101,9 @@ Public Class PageSetupDst
         AniControlEnabled += 1
         Try
             CmbDstPreset.Items.Clear()
+            '第一项固定是「不使用」：用户可能只想用自己的服务器，
+            '不该被逼着从列表里选一个。它的 Tag 就是空 id。
+            CmbDstPreset.Items.Add(New MyComboBoxItem With {.Content = "不使用预设", .Tag = PresetTagPrefix})
             For Each Item In ModPresetSource.Items
                 CmbDstPreset.Items.Add(New MyComboBoxItem With {
                     .Content = Item.Name,
@@ -112,7 +115,8 @@ Public Class PageSetupDst
             For Each One As MyComboBoxItem In CmbDstPreset.Items
                 If CStr(One.Tag) = PresetTagPrefix & CurrentId Then Target = One : Exit For
             Next
-            If Target Is Nothing AndAlso CmbDstPreset.Items.Count > 0 Then Target = CType(CmbDstPreset.Items(0), MyComboBoxItem)
+            '找不到就落到「不使用预设」那一项，不要默认替用户挑一个服务器
+            If Target Is Nothing Then Target = CType(CmbDstPreset.Items(0), MyComboBoxItem)
             If Target IsNot Nothing Then CmbDstPreset.SelectedItem = Target
         Finally
             AniControlEnabled -= 1
@@ -147,8 +151,28 @@ Public Class PageSetupDst
         If AniControlEnabled > 0 Then Return
         RefreshPresetInfo()
         Dim Picked As ModPresetSource.Preset = PickedPreset()
-        If Picked Is Nothing Then Return
-        RefreshPresetInfo()
+        '选了「不使用预设」：清掉预设带来的地址，转成自定义，让用户自己填
+        If Picked Is Nothing Then
+            ModConfigFile.Write(ModConfigFile.SectionCloud, "PresetId", "")
+            ModConfigFile.Write(ModConfigFile.SectionCloud, "ApiBase", "")
+            ModConfigFile.Write(ModConfigFile.SectionCloud, "ApiKey", "")
+            ModConfigFile.Write(ModConfigFile.SectionCloud, "GroupId", "")
+            DstBot.ApplyPreset("")
+            AniControlEnabled += 1
+            Try
+                RadioDstCustom.Checked = True
+                RadioDstPreset.Checked = False
+                PanDstPreset.Visibility = Visibility.Collapsed
+                PanDstCustomInput.Visibility = Visibility.Visible
+            Finally
+                AniControlEnabled -= 1
+            End Try
+            Settings.Set("DstBotUseCustom", True)
+            RefreshState()
+            RefreshGroupList()
+            Hint("已停用预设，请自行填写服务器地址", HintType.Blue)
+            Return
+        End If
         ModConfigFile.Write(ModConfigFile.SectionCloud, "PresetId", Picked.Id)
         ModConfigFile.Write(ModConfigFile.SectionCloud, "ApiBase", Picked.Api)
         DstBot.ApplyPreset(Picked.Api, Picked.ApiKey)

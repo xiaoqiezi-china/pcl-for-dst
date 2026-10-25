@@ -25,7 +25,7 @@ Friend Module ModPresetSource
     ''' <summary>本地备份目录。</summary>
     Public ReadOnly Property BackupFolder As String
         Get
-            Return Paths.Base & "PCL\\PresetBackup\\"
+            Return Paths.Base & "PCL\PresetBackup\"
         End Get
     End Property
 

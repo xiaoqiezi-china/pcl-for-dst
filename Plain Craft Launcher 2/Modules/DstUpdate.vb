@@ -312,23 +312,62 @@ Friend Module DstUpdate
     ''' 预设服务器仍然负责服务器列表与整合包下载，但它不能决定
     ''' 用户装哪个启动器，两者职责分开。
     ''' </para>
+    ''' <para>
+    ''' 下载走 PCL 自己的 LoaderDownload：断点续传、多源重试、限速与进度都是现成的，
+    ''' 任务卡片也挂到任务管理器上，用户能直接看到进度。
+    ''' </para>
     ''' </summary>
     Public Sub DownloadLauncherUpdate(RemoteVersion As String)
         RunInThread(
         Sub()
             Try
-                Dim LocalFile As String = PathTemp & "Update\DST-" & RemoteVersion & ".bin"
-                DirectoryUtils.Create(PathUtils.RemoveLastPart(LocalFile))
-                RunInUi(Sub() Hint("正在下载更新……", HintType.Blue))
-                '地址来自 Release；传入参数只作兼容，不再用于拼接服务器 URL
                 Dim Release As ModUpdateSource.ReleaseInfo = ModUpdateSource.FetchLatest(Force:=True)
-                If Not Release.Ok Then Throw New Exception(If(Release.Err = "", "没有取到下载地址", Release.Err))
-                Dim Used As String = ModUpdateSource.Download(Release.AssetUrl, LocalFile)
-                If Used = "" Then Throw New Exception("所有下载源都不可用，请到发布页手动下载")
-                Dim Size As Long = New IO.FileInfo(LocalFile).Length
-                Logger.Info($"更新包已下载：{Size} 字节，来源：{Used}")
-                If Size = 0 Then Throw New Exception("更新包为空")
-                RunInUi(Sub() InstallDownloadedUpdate(LocalFile, Release.AssetName))
+                If Not Release.Ok Then Throw New Exception(If(Release.Err = "", "没有取到版本信息", Release.Err))
+                'API 被限流时只能拿到版本号，下载地址缺失：引导去发布页
+                If Not Release.CanDownload Then
+                    RunInUi(Sub()
+                                If MyMsgBox($"已经获取到新版本 {Release.Version}，但暂时拿不到下载地址（可能是 GitHub 接口限流）。" & vbCrLf &
+                                                             "要打开发布页手动下载吗？", "需要手动下载", "打开发布页", "稍后") = 1 Then
+                                    OpenWebsite(ModUpdateSource.ReleasesPage)
+                                End If
+                            End Sub)
+                    Return
+                End If
+                '文件名带上时间戳与随机后缀：PCL 的下载任务会按路径复用可续传的旧文件，
+                '固定名字会让它把上次残留的半个文件当成断点，于是「下载完成」但内容不全。
+                '更新包本来就是一次性的，每次用新路径最省事。
+                Dim Stamp As String = Date.Now.ToString("yyyyMMddHHmmss") & "-" & GetUuid()
+                Dim LocalFile As String = PathTemp & "Update\DST-" & RemoteVersion & "-" & Stamp & ".bin"
+                DirectoryUtils.Create(PathUtils.RemoveLastPart(LocalFile))
+
+                '官方地址在前、镜像在后，NetFile 会依次重试
+                Dim Download As New LoaderDownload("下载启动器更新",
+                    New List(Of NetFile) From {
+                        New NetFile(ModUpdateSource.BuildSources(Release.AssetUrl), LocalFile,
+                                    New FileChecker With {.MinSize = 1024 * 1024})}) With {.ProgressWeight = 1}
+                Dim Install As New LoaderTask(Of Integer, Integer)("准备安装",
+                    Sub()
+                        '下载完先确认拿到的确实是启动器，避免把镜像的错误页当成更新包
+                        If Not FileUtils.Exists(LocalFile) Then Throw New Exception("下载后未找到更新文件")
+                        If DstUpdate.SniffPackage(LocalFile) = "unknown" Then Throw New Exception("下载到的不是有效的启动器文件")
+                        RunInUi(Sub() InstallDownloadedUpdate(LocalFile, Release.AssetName))
+                    End Sub) With {.ProgressWeight = 0.1}
+
+                Dim Combo As New LoaderCombo(Of Integer)("更新启动器：" & Release.Version,
+                    New List(Of LoaderBase) From {Download, Install})
+                Combo.OnStateChanged =
+                Sub()
+                    Select Case Combo.State
+                        Case LoadState.Failed
+                            RunInUi(Sub() MyMsgBox($"下载更新失败：{Combo.Error.GetDisplay(False)}", "更新失败", "关闭", IsWarn:=True))
+                        Case LoadState.Canceled
+                            RunInUi(Sub() Hint("已取消更新", HintType.Blue))
+                    End Select
+                End Sub
+                Combo.Start()
+                LoaderTaskbarAdd(Combo)
+                FrmMain.BtnExtraDownload.ShowRefresh()
+                FrmMain.BtnExtraDownload.Ribble()
             Catch ex As Exception
                 ex.ThrowIfCanceled()
                 Logger.Warn(ex, "下载启动器更新失败")
@@ -340,8 +379,8 @@ Friend Module DstUpdate
     ''' <summary>把下载好的更新包装好，用 --update 参数交给新进程完成替换。</summary>
     Private Sub InstallDownloadedUpdate(Package As String, SuggestedName As String)
         Try
-            Dim Root As String = PathTemp & "Update\Extract\"
-            If DirectoryUtils.Exists(Root) Then DirectoryUtils.Delete(Root)
+            '每次解压到新目录：固定路径会残留上次的内容，出现「新程序」其实是旧文件的情况
+            Dim Root As String = PathTemp & "Update\Extract-" & Date.Now.ToString("yyyyMMddHHmmss") & "\"
             DirectoryUtils.Create(Root)
             '按文件内容判断类型，不依赖扩展名
             Dim Kind As String = SniffPackage(Package)
