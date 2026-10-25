@@ -122,13 +122,19 @@ jobs:
         GH_TOKEN: ${{ github.token }}
       run: |
         $tag = '${{ github.ref_name }}'
-        $exe = 'Plain Craft Launcher 2\obj\Release\Plain Craft Launcher 2.exe'
-        if (-not (Test-Path $exe)) { throw '找不到 Release 产物' }
-        # 附件名固定，客户端按 .exe 后缀挑第一个，不依赖具体命名
-        Copy-Item $exe 'DST Craft Launcher.exe' -Force
+        # 只有一条产品线：DPCL 与 DST 是同一个启动器的两种打包，
+        # 都挂到同一个 Release 上，客户端按 .exe 后缀挑第一个。
+        $dst  = 'Plain Craft Launcher 2\obj\Release\Plain Craft Launcher 2.exe'
+        $dpcl = 'Plain Craft Launcher 2\bin-dpcl\Plain Craft Launcher 2.exe'
+        foreach ($f in @($dst, $dpcl)) {
+          if (-not (Test-Path $f)) { throw "找不到 Release 产物：$f" }
+        }
+        Copy-Item $dst  'DST Craft Launcher.exe' -Force
+        Copy-Item $dpcl 'DST Plain Craft Launcher.exe' -Force
+        $files = @('DST Craft Launcher.exe', 'DST Plain Craft Launcher.exe')
         gh release view $tag 2>$null
         if ($LASTEXITCODE -ne 0) {
-          gh release create $tag 'DST Craft Launcher.exe' --title $tag --generate-notes
+          gh release create $tag $files --title $tag --generate-notes
         } else {
-          gh release upload $tag 'DST Craft Launcher.exe' --clobber
+          gh release upload $tag $files --clobber
         }

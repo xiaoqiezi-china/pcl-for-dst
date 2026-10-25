@@ -4,14 +4,17 @@ Imports System.Text
 ''' <summary>
 ''' 启动器自动更新的数据源。
 ''' <para>
-''' 这里**只认 GitHub**，与预设服务器（<see cref="DstBot"/>）没有任何关系：
+''' 这里**只认 GitHub Release**，与预设服务器（<see cref="DstBot"/>）没有任何关系：
 ''' 预设服务器是可替换的、由使用者挑选的第三方服务，让它来决定「装哪个启动器」风险太大。
-''' 更新包从仓库的 Release 取，仓库地址是编译期常量，用户改不了。
 ''' </para>
 ''' <para>
-''' 对国内网络做了三级降级：官方地址 → 加速镜像 → 全部失败后提示手动下载。
-''' 镜像只是加速通道，不是信任源：它们转发的是同一份文件，
-''' 而且下载完会校验文件头（<see cref="DstUpdate.SniffPackage"/>），拿到的必须真的是启动器。
+''' 仓库里有两条产品线，版本号各不相同（DST 走 0.3.x，DPCL 走 1.0.x）。
+''' 它们共用一个仓库，所以 tag 必须带产品前缀（<c>dst-v</c> / <c>dpcl-v</c>），
+''' 客户端只在自己那条线的 Release 里找，否则 DST 会被推去装 DPCL。
+''' </para>
+''' <para>
+''' 对国内网络做了降级：官方地址 → 加速镜像。镜像只是加速通道，不是信任源：
+''' 它们转发的是同一份文件，而且下载完会校验文件头，拿到的必须真的是启动器。
 ''' </para>
 ''' </summary>
 Friend Module ModUpdateSource
@@ -20,10 +23,11 @@ Friend Module ModUpdateSource
     Private Const RepoOwner As String = "xiaoqiezi-china"
     Private Const RepoName As String = "pcl-for-dst"
 
-    ''' <summary>GitHub API：取最新 Release。匿名请求有速率限制，结果缓存在内存里。</summary>
-    Public ReadOnly Property ApiLatestRelease As String
+
+    ''' <summary>列出最近的 Release。接口按发布时间倒序返回。</summary>
+    Private ReadOnly Property ApiReleases As String
         Get
-            Return $"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases/latest"
+            Return $"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases?per_page=20"
         End Get
     End Property
 
@@ -34,9 +38,7 @@ Friend Module ModUpdateSource
         End Get
     End Property
 
-    ''' <summary>
-    ''' 加速镜像前缀。按顺序尝试，第一个成功的就用；空串代表官方地址。
-    ''' </summary>
+    ''' <summary>加速镜像前缀。按顺序尝试，空串代表官方地址。</summary>
     Private ReadOnly Mirrors As String() = {
         "",
         "https://ghfast.top/",
@@ -47,7 +49,6 @@ Friend Module ModUpdateSource
     Public Class ReleaseInfo
         Public Property Version As String = ""
         Public Property Notes As String = ""
-        ''' <summary>下载地址，优先挑 .exe，没有就挑第一个附件。</summary>
         Public Property AssetUrl As String = ""
         Public Property AssetName As String = ""
         Public Property Err As String = ""
@@ -63,37 +64,41 @@ Friend Module ModUpdateSource
     Private Const CacheMinutes As Integer = 30
 
     ''' <summary>
-    ''' 查询最新 Release。必须在工作线程调用。
+    ''' 查询本产品线的最新 Release。必须在工作线程调用。
     ''' </summary>
-    ''' <param name="Force">忽略缓存强制重新请求。</param>
+    ''' <param name="Force">忽略内存缓存强制重新请求。</param>
     Public Function FetchLatest(Optional Force As Boolean = False) As ReleaseInfo
         If Not Force AndAlso Cached IsNot Nothing AndAlso Date.Now - CachedAt < TimeSpan.FromMinutes(CacheMinutes) Then
             Return Cached
         End If
         Dim Result As New ReleaseInfo
         Try
-            Dim Json As String = HttpGetText(ApiLatestRelease)
+            Dim Json As String = HttpGetText(ApiReleases)
             If String.IsNullOrWhiteSpace(Json) Then
                 Result.Err = "服务器返回为空"
                 Return Result
             End If
-            Dim Obj As JObject = JObject.Parse(Json)
-            'tag_name 形如 v1.0.0 或 0.3.3，统一去掉前导 v
-            Result.Version = If(Obj("tag_name"), "").ToString().Trim().TrimStart("v"c, "V"c)
-            Result.Notes = If(Obj("body"), "").ToString()
-            Dim Assets = TryCast(Obj("assets"), JArray)
-            If Assets IsNot Nothing AndAlso Assets.Count > 0 Then
-                Dim Picked As JToken = Nothing
+            '只发一条产品线的 Release，接口按发布时间倒序，第一个就是最新的
+            Dim Arr As JArray = JArray.Parse(Json)
+            If Arr.Count = 0 Then
+                Result.Err = "仓库里还没有发布过 Release"
+                Return Result
+            End If
+            Dim Target As JObject = CType(Arr(0), JObject)
+            'tag 形如 v1.0.0 或 1.0.0，去掉前导 v 就是版本号
+            Result.Version = If(Target("tag_name"), "").ToString().Trim().TrimStart("v"c, "V"c)
+            Result.Notes = If(Target("body"), "").ToString()
+            '取第一个 .exe 附件。发版时 CI 只挂这一个，不需要更复杂的挑选
+            Dim Assets = TryCast(Target("assets"), JArray)
+            If Assets IsNot Nothing Then
                 For Each Item As JToken In Assets
                     Dim Name As String = If(Item("name"), "").ToString()
                     If Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) Then
-                        Picked = Item
+                        Result.AssetName = Name
+                        Result.AssetUrl = If(Item("browser_download_url"), "").ToString()
                         Exit For
                     End If
                 Next
-                If Picked Is Nothing Then Picked = Assets(0)
-                Result.AssetName = If(Picked("name"), "").ToString()
-                Result.AssetUrl = If(Picked("browser_download_url"), "").ToString()
             End If
             If Result.Version = "" Then
                 Result.Err = "Release 里没有版本号"
