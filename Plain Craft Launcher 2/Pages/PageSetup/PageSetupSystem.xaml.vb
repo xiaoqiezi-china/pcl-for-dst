@@ -33,17 +33,24 @@ Public Class PageSetupSystem
     ''' <summary>把两个凭据的当前来源写在输入框下面，一眼能看出还用不用得了。</summary>
     Private Sub RefreshSecretStatus()
         If LabSecretStatus Is Nothing Then Return
-        LabSecretStatus.Text = SecretStateText(TextMsClientId, BuiltinOAuthClientId, "正版登录") & " · " &
-                               SecretStateText(TextCurseForgeKey, BuiltinCurseForgeKey, "社区资源搜索")
+        LabSecretStatus.Text = SecretStateText(TextMsClientId, MsClientIdResolve(), "正版登录") & " · " &
+                               SecretStateText(TextCurseForgeKey, CurseForgeKeyResolve(), "社区资源搜索")
     End Sub
 
-    ''' <summary>单个凭据的状态描述。</summary>
-    Private Function SecretStateText(Box As MyTextBox, Builtin As String, Usage As String) As String
+    ''' <summary>
+    ''' 单个凭据的状态描述。
+    ''' <para>
+    ''' 只说「有没有、从哪来」，绝不回显凭据本身：
+    ''' 它可能来自远程下发或 config.ini，显示出来没有意义还容易泄露。
+    ''' </para>
+    ''' </summary>
+    Private Function SecretStateText(Box As MyTextBox, Effective As String, Usage As String) As String
         Dim Name As String = If(Box Is TextMsClientId, "微软 ClientId", "CurseForge Key")
-        If Box IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(Box.Text) Then Return Name & "：已填写"
-        If Not String.IsNullOrWhiteSpace(Builtin) Then Return Name & "：使用内置默认值"
+        If Box IsNot Nothing AndAlso Not String.IsNullOrWhiteSpace(Box.Text) Then Return Name & "：已手动填写"
+        If Not String.IsNullOrWhiteSpace(Effective) Then Return Name & "：使用启动器内置值"
         Return Name & "：未配置，" & Usage & "不可用"
     End Function
+
     Public Sub Reload()
         SettingService.RefreshSettings(Me)
     End Sub

@@ -450,10 +450,13 @@ Public Class ResourceProject
     End Function
 
     ''' <summary>
-    ''' 将当前工程信息实例化为控件。
+    ''' 这个工程支持的 Minecraft 版本，例如「1.20.1, 1.20.2」。
+    ''' <para>
+    ''' 抽成公共方法是因为收藏夹、资源详情等地方也要显示同样的措辞，
+    ''' 每处各写一遍迟早会出现「1.20+」和「1.20 及以上」这种不一致。
+    ''' </para>
     ''' </summary>
-    Public Function ToResourceItem(ShowMcVersionDesc As Boolean, ShowLoaderDesc As Boolean) As MyVirtualizingElement(Of MyResourceItem)
-        '获取版本描述
+    Public Function GetGameVersionDescription() As String
         Dim GameVersionDescription As String
         If Drops Is Nothing OrElse Not Drops.Any() Then
             GameVersionDescription = "仅快照版本" '#5412
@@ -499,7 +502,15 @@ Public Class ResourceProject
             Next
             GameVersionDescription = Segments.Join(", ")
         End If
-        '获取 Mod 加载器描述
+        Return GameVersionDescription
+    End Function
+
+    ''' <summary>
+    ''' 这个工程支持的 Mod 加载器描述。
+    ''' </summary>
+    ''' <param name="Full">完整描述，单独展示时用，例如「仅 Fabric」「任意」。</param>
+    ''' <param name="Part">可拼在版本前面的简写，例如「Fabric」。</param>
+    Public Sub GetModLoaderDescription(ByRef Full As String, ByRef Part As String)
         Dim ModLoaderDescriptionFull As String, ModLoaderDescriptionPart As String
         Dim ModLoadersForDesc = ModLoaders.Flags().ToList()
         Select Case ModLoadersForDesc.Count
@@ -526,6 +537,33 @@ Public Class ResourceProject
                     ModLoaderDescriptionPart = ModLoadersForDesc.Join(" / ")
                 End If
         End Select
+        Full = ModLoaderDescriptionFull
+        Part = ModLoaderDescriptionPart
+    End Sub
+
+    ''' <summary>
+    ''' 下载量的中文简写，例如「1919 万」。
+    ''' </summary>
+    Public Function GetDownloadText() As String
+        Return If(DownloadCount > 100000000, Math.Round(DownloadCount / 100000000, 2) & " 亿",
+               If(DownloadCount > 100000, Math.Floor(DownloadCount / 10000) & " 万", DownloadCount))
+    End Function
+
+    ''' <summary>
+    ''' 最近更新时间，例如「2 天前」。
+    ''' </summary>
+    Public Function GetUpdateText() As String
+        If LastUpdate = Date.MinValue Then Return "未知"
+        Return StringUtils.FormatTimeSpan(LastUpdate - Date.Now, True)
+    End Function
+
+    ''' <summary>
+    ''' 将当前工程信息实例化为控件。
+    ''' </summary>
+    Public Function ToResourceItem(ShowMcVersionDesc As Boolean, ShowLoaderDesc As Boolean) As MyVirtualizingElement(Of MyResourceItem)
+        Dim GameVersionDescription As String = GetGameVersionDescription()
+        Dim ModLoaderDescriptionFull As String = Nothing, ModLoaderDescriptionPart As String = Nothing
+        GetModLoaderDescription(ModLoaderDescriptionFull, ModLoaderDescriptionPart)
         '实例化 UI
         Return New MyVirtualizingElement(Of MyResourceItem)(
         Function()

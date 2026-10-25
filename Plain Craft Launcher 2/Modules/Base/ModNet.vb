@@ -1493,7 +1493,8 @@ FinishExCatch:
                             FileUtils.Copy(Target, File.LocalPath)
                             File.Finish(False)
                             Continue For
-                        Catch
+                        Catch ex As Exception
+                            Logger.Warn(ex, $"复制已下载文件到目标位置失败：{File.LocalPath}")
                         End Try
                     End If
                     '回退到下载

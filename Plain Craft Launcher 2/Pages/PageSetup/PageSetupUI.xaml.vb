@@ -74,14 +74,18 @@ Public Class PageSetupUI
         If PanLauncherTheme IsNot Nothing Then PanLauncherTheme.IsEnabled = Enabled
     End Sub
 
-    ''' <summary>深浅色切换：整套配色会变，按需要重启处理。</summary>
+    ''' <summary>
+    ''' 深浅色切换：只是换一整套配色，就地刷新即可。
+    ''' <para>
+    ''' 颜色资源都是就地改 Color（见 ModTheme.SetColorBrush），所有引用会同时生效，
+    ''' 不需要重建界面。只有切换外观（窗口骨架都变了）才需要重启。
+    ''' </para>
+    ''' </summary>
     Private Sub CheckDarkMode_Change(sender As Object, user As Boolean) Handles CheckDarkMode.Change
         If AniControlEnabled > 0 OrElse Not user Then Return
         Settings.Set("DstDarkMode", CheckDarkMode.Checked)
         ConfigUtils.SaveAll()
-        '与界面实际生效的值比较，选回原样就不必重启
-        If CheckDarkMode.Checked = AppliedDarkMode Then Return
-        ShowRestartHint("已切换为" & If(CheckDarkMode.Checked, "深色", "浅色") & "模式。")
+        ThemeRefresh(Force:=True)
     End Sub
 
     Public Sub Reset()
@@ -330,6 +334,7 @@ Refresh:
             SliderLauncherDelta.Visibility = Visibility.Visible
             LabLauncherLight.Visibility = Visibility.Visible
             SliderLauncherLight.Visibility = Visibility.Visible
+            If PanCustomColors IsNot Nothing Then PanCustomColors.Visibility = Visibility.Collapsed
         Else
             If LabLauncherHue.Visibility = Visibility.Collapsed Then Return
             LabLauncherHue.Visibility = Visibility.Collapsed
@@ -340,13 +345,231 @@ Refresh:
             SliderLauncherDelta.Visibility = Visibility.Collapsed
             LabLauncherLight.Visibility = Visibility.Collapsed
             SliderLauncherLight.Visibility = Visibility.Collapsed
+            If PanCustomColors IsNot Nothing Then PanCustomColors.Visibility = Visibility.Collapsed
         End If
         CardLauncher.TriggerForceResize()
     End Sub
+    '定制主题：只有它在选中时显示 9 个主题色色块
+    Private Sub RadioLauncherTheme16_Change(sender As Object, e As RouteEventArgs) Handles RadioLauncherTheme16.Changed
+        If RadioLauncherTheme16.Checked Then
+            If PanCustomColors IsNot Nothing Then PanCustomColors.Visibility = Visibility.Visible
+            '定制主题不看色相滑块，那三个滑块对它没有意义
+            LabLauncherHue.Visibility = Visibility.Collapsed
+            SliderLauncherHue.Visibility = Visibility.Collapsed
+            LabLauncherSat.Visibility = Visibility.Collapsed
+            SliderLauncherSat.Visibility = Visibility.Collapsed
+            LabLauncherDelta.Visibility = Visibility.Collapsed
+            SliderLauncherDelta.Visibility = Visibility.Collapsed
+            LabLauncherLight.Visibility = Visibility.Collapsed
+            SliderLauncherLight.Visibility = Visibility.Collapsed
+            RefreshCustomColorBoxes()
+            CardLauncher.TriggerForceResize()
+        ElseIf PanCustomColors IsNot Nothing Then
+            PanCustomColors.Visibility = Visibility.Collapsed
+            CardLauncher.TriggerForceResize()
+        End If
+    End Sub
+
     Private Sub HSL_Change() Handles SliderLauncherHue.Change, SliderLauncherLight.Change, SliderLauncherSat.Change, SliderLauncherDelta.Change
         If AniControlEnabled <> 0 OrElse SliderLauncherSat Is Nothing OrElse Not SliderLauncherSat.IsLoaded Then Return
         ThemeRefresh()
     End Sub
+
+    '个性化包
+    Private Sub BtnPersonalExport_Click(sender As Object, e As EventArgs) Handles BtnPersonalExport.Click
+        Try
+            Dim DefaultName As String = "个性化包_" & Date.Now.ToString("yyyyMMdd_HHmm") & ModPersonalPack.PackExtension
+            Dim Target As String = Dialogs.SaveFile("导出个性化包", DefaultName,
+                                                    filter:={ (ModPersonalPack.PackExtension.TrimStart("."c), "个性化包") })
+            If String.IsNullOrWhiteSpace(Target) Then Return
+            If Not Target.EndsWith(ModPersonalPack.PackExtension, StringComparison.OrdinalIgnoreCase) Then
+                Target &= ModPersonalPack.PackExtension
+            End If
+            Hint("正在打包……", HintType.Blue, False)
+            RunInThread(
+            Sub()
+                Dim R = ModPersonalPack.Export(Target)
+                RunInUi(
+                Sub()
+                    If R.Ok Then
+                        Hint($"已导出个性化包（{R.FileCount} 个文件）", HintType.Green)
+                    Else
+                        Hint(R.Reason, HintType.Red)
+                    End If
+                End Sub)
+            End Sub)
+        Catch ex As Exception
+            Logger.Error(ex, "导出个性化包失败", LogBehavior.Alert)
+        End Try
+    End Sub
+
+    Private Sub BtnPersonalImport_Click(sender As Object, e As EventArgs) Handles BtnPersonalImport.Click
+        Try
+            Dim Picked = Dialogs.SelectFile("选择个性化包", False,
+                                            filter:={ ({ModPersonalPack.PackExtension.TrimStart("."c)}, "个性化包") })
+            Dim File As String = Picked.FirstOrDefault()
+            If String.IsNullOrWhiteSpace(File) Then Return
+            Dim R = ModPersonalPack.Import(File)
+            If Not R.Ok Then
+                If R.Reason <> "已取消" Then Hint(R.Reason, HintType.Red)
+                Return
+            End If
+            Hint($"已导入个性化包（{R.FileCount} 个文件），正在刷新界面……", HintType.Green)
+            '把界面上的控件同步到刚导入的设置：主题单选、色块、配色、背景图
+            SyncUiAfterImport()
+        Catch ex As Exception
+            Logger.Error(ex, "导入个性化包失败", LogBehavior.Alert)
+        End Try
+    End Sub
+
+    ''' <summary>
+    ''' 导入个性化包之后，把界面上的控件同步成包里带来的设置。
+    ''' <para>
+    ''' 光调 ThemeRefresh 是不够的：主题单选按钮还停在原来那项，
+    ''' 用户会看到「明明导入的是定制主题，界面却选着别的」。
+    ''' 定制主题还要把 9 个色块刷成导入的颜色。
+    ''' </para>
+    ''' </summary>
+    Private Sub SyncUiAfterImport()
+        Try
+            Dim Theme As Integer = Settings.Get(Of Integer)("UiLauncherTheme")
+            Dim Radios As New Dictionary(Of Integer, MyRadioBox) From {
+                {0, RadioLauncherTheme0}, {1, RadioLauncherTheme1}, {2, RadioLauncherTheme2},
+                {3, RadioLauncherTheme3}, {4, RadioLauncherTheme4}, {5, RadioLauncherTheme5},
+                {6, RadioLauncherTheme6}, {7, RadioLauncherTheme7}, {8, RadioLauncherTheme8},
+                {9, RadioLauncherTheme9}, {10, RadioLauncherTheme10}, {11, RadioLauncherTheme11},
+                {12, RadioLauncherTheme12}, {13, RadioLauncherTheme13}, {14, RadioLauncherTheme14},
+                {15, RadioLauncherTheme15}, {16, RadioLauncherTheme16}
+            }
+            AniControlEnabled += 1
+            Try
+                Dim Target As MyRadioBox = Nothing
+                If Radios.TryGetValue(Theme, Target) AndAlso Target IsNot Nothing Then Target.Checked = True
+                If CheckDarkMode IsNot Nothing Then CheckDarkMode.Checked = Settings.Get(Of Boolean)("DstDarkMode")
+                If RadioAppearance1 IsNot Nothing Then
+                    RadioAppearance1.Checked = Settings.Get(Of Integer)("DstAppearance") = 1
+                    RadioAppearance0.Checked = Settings.Get(Of Integer)("DstAppearance") <> 1
+                End If
+            Finally
+                AniControlEnabled -= 1
+            End Try
+
+            If PanCustomColors IsNot Nothing Then
+                PanCustomColors.Visibility = If(Theme = ThemeCustom, Visibility.Visible, Visibility.Collapsed)
+            End If
+            RefreshCustomColorBoxes()
+            ThemeRefresh(Force:=True)
+            BackgroundRefresh(False, True)
+            If CardLauncher IsNot Nothing Then CardLauncher.TriggerForceResize()
+        Catch ex As Exception
+            Logger.Error(ex, "同步个性化包导入后的界面失败")
+        End Try
+    End Sub
+
+    '定制主题：9 个主题色色块
+    Private CustomColorSwatches As Border()
+
+    ''' <summary>第一次显示时把 9 个色块建出来。</summary>
+    Private Sub EnsureCustomColorControls()
+        If CustomColorSwatches IsNot Nothing Then Return
+        Dim Swatches(9) As Border
+        For I = 1 To 9
+            Dim Index As Integer = I '闭包捕获
+            Dim Sw As New Border With {
+                .Width = 34, .Height = 34, .CornerRadius = New CornerRadius(5),
+                .Margin = New Thickness(0, 0, 10, 10), .BorderThickness = New Thickness(1),
+                .Cursor = Cursors.Hand,
+                .ToolTip = "第 " & I & " 号主题色：点击选颜色，右键恢复自动"
+            }
+            Sw.SetResourceReference(Border.BorderBrushProperty, "ColorBrushGray5")
+            AddHandler Sw.MouseLeftButtonUp, Sub() PickCustomColor(Index)
+            AddHandler Sw.MouseRightButtonUp, Sub() ResetCustomColor(Index)
+            PanCustomColorList.Children.Add(Sw)
+            Swatches(I) = Sw
+        Next
+        CustomColorSwatches = Swatches
+    End Sub
+
+    ''' <summary>把 9 个色块刷成当前生效的颜色。</summary>
+    Private Sub RefreshCustomColorBoxes()
+        EnsureCustomColorControls()
+        If CustomColorSwatches Is Nothing Then Return
+        For I = 1 To 9
+            RefreshCustomColorSwatch(I)
+        Next
+    End Sub
+
+    ''' <summary>刷新某一块色块。没指定就显示算法算出来的颜色。</summary>
+    Private Sub RefreshCustomColorSwatch(Index As Integer)
+        If CustomColorSwatches Is Nothing OrElse CustomColorSwatches(Index) Is Nothing Then Return
+        Try
+            Dim Picked As MyColor = GetCustomColor(Index)
+            Dim Shown As MyColor
+            If Picked IsNot Nothing Then
+                Shown = Picked
+            Else
+                Select Case Index
+                    Case 1 : Shown = Color1
+                    Case 2 : Shown = Color2
+                    Case 3 : Shown = Color3
+                    Case 4 : Shown = Color4
+                    Case 5 : Shown = Color5
+                    Case 6 : Shown = Color6
+                    Case 7 : Shown = Color7
+                    Case 8 : Shown = Color8
+                    Case Else : Shown = Color9
+                End Select
+            End If
+            CustomColorSwatches(Index).Background = New SolidColorBrush(CType(Shown, Color))
+        Catch ex As Exception
+            Logger.Warn(ex, $"刷新主题色块 {Index} 失败")
+        End Try
+    End Sub
+
+    ''' <summary>点色块：打开系统调色板。</summary>
+    Private Sub PickCustomColor(Index As Integer)
+        Try
+            Dim Current As MyColor = GetCustomColor(Index)
+            If Current Is Nothing Then
+                '还没指定过，就从当前算出来的颜色起步
+                Select Case Index
+                    Case 1 : Current = Color1
+                    Case 2 : Current = Color2
+                    Case 3 : Current = Color3
+                    Case 4 : Current = Color4
+                    Case 5 : Current = Color5
+                    Case 6 : Current = Color6
+                    Case 7 : Current = Color7
+                    Case 8 : Current = Color8
+                    Case Else : Current = Color9
+                End Select
+            End If
+            Using Dlg As New System.Windows.Forms.ColorDialog
+                Dlg.FullOpen = True
+                Dlg.AnyColor = True
+                Dlg.Color = CType(Current, System.Drawing.Color)
+                If Dlg.ShowDialog() <> System.Windows.Forms.DialogResult.OK Then Return
+                Dim Picked As New MyColor(Dlg.Color.R, Dlg.Color.G, Dlg.Color.B)
+                Settings.Set("UiLauncherCustomColor" & Index, "0x" & CInt(Picked.R).ToString("X2") & CInt(Picked.G).ToString("X2") & CInt(Picked.B).ToString("X2"))
+            End Using
+            RefreshCustomColorSwatch(Index)
+            ThemeRefresh(Force:=True)
+        Catch ex As Exception
+            Logger.Error(ex, "选择主题色失败")
+        End Try
+    End Sub
+
+    ''' <summary>右键色块：恢复成算法算出来的颜色。</summary>
+    Private Sub ResetCustomColor(Index As Integer)
+        Try
+            Settings.Set("UiLauncherCustomColor" & Index, "")
+            RefreshCustomColorSwatch(Index)
+            ThemeRefresh(Force:=True)
+        Catch ex As Exception
+            Logger.Warn(ex, "恢复主题色失败")
+        End Try
+    End Sub
+
 
 #Region "功能隐藏"
 
@@ -542,7 +765,8 @@ Refresh:
             Hint("已切换到常规模式", HintType.Blue, False)
             If FrmLaunchLeft IsNot Nothing Then FrmLaunchLeft.RefreshDependentViewsAfterModeChange()
         Else
-            '取消离线：先探测一次，连不上就自动退回离线
+            '取消离线：先探测一次，但不管结果如何都保持用户的选择
+            '以前探测失败会把勾选框强行改回来，等于不让用户关；现在只提醒，不改状态
             RunInThread(
             Sub()
                 Dim Ok As Boolean = DstBot.ProbeOnline()
@@ -551,9 +775,7 @@ Refresh:
                     If Ok Then
                         Hint("已回到在线模式", HintType.Green, False)
                     Else
-                        Hint("远程服务不可用，继续保持常规模式", HintType.Red)
-                        CheckOfflineMode.Checked = True
-                        Settings.Set("DstOfflineMode", True)
+                        Hint("远程服务不可用，相关功能暂时没有数据；保持你选的在线模式", HintType.Red)
                     End If
                     If FrmLaunchLeft IsNot Nothing Then FrmLaunchLeft.RefreshDependentViewsAfterModeChange()
                 End Sub)

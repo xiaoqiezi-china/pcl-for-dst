@@ -197,6 +197,37 @@ Public Class MyExtraButton
         End Try
     End Sub
 
+    '滚轮
+    ''' <summary>
+    ''' 鼠标滚轮在按钮上滚动时触发。参数为滚动的格数，向上为正、向下为负。
+    ''' 默认不处理；需要响应滚轮的按钮（例如音量）在外部挂这个事件。
+    ''' </summary>
+    Public Event Wheel(sender As Object, Delta As Integer)
+    Private Sub PanClick_MouseWheel(sender As Object, e As MouseWheelEventArgs) Handles PanClick.MouseWheel
+        If WheelEvent Is Nothing Then Return
+        RaiseEvent Wheel(Me, e.Delta)
+        e.Handled = True
+    End Sub
+
+    ''' <summary>
+    ''' 在按钮旁边浮出一个只有文字的提示气泡。传空字符串则收起。
+    ''' </summary>
+    Public Sub ShowWheelTip(Text As String)
+        RunInUi(
+        Sub()
+            If String.IsNullOrEmpty(Text) Then
+                PopupWheel.IsOpen = False
+                Return
+            End If
+            TextWheel.Text = Text
+            PopupWheel.IsOpen = True
+        End Sub)
+    End Sub
+    ''' <summary>收起滚轮提示气泡。</summary>
+    Public Sub HideWheelTip()
+        PopupWheel.IsOpen = False
+    End Sub
+
     ''' <summary>
     ''' 发出一圈波浪效果提示。
     ''' </summary>

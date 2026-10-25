@@ -89,7 +89,7 @@ Public Class FavoriteListView
 
     ''' <summary>把选中状态同步到已有行，不重建控件。</summary>
     Private Sub RefreshCheckedState()
-        For Each Row In Panel.Children.OfType(Of MyLocalModItem)()
+        For Each Row In Panel.Children.OfType(Of MyFavoriteItem)()
             Dim Entry As FavoriteEntry = TryCast(Row.Tag, FavoriteEntry)
             If Entry Is Nothing Then Continue For
             Row.Checked = SelectedKeys.Contains(Entry.Key)
@@ -97,22 +97,30 @@ Public Class FavoriteListView
         RaiseEvent SelectionChanged(Me, EventArgs.Empty)
     End Sub
 
-    ''' <summary>构造一行。与模组管理使用同一个控件，保证手感一致。</summary>
-    Private Function BuildRow(Entry As FavoriteEntry) As MyLocalModItem
-        Dim Item As New MyLocalModItem With {
+    ''' <summary>
+    ''' 构造一行。信息层级对齐下载页：标题 / 标签 / 描述，外加一行「版本 · 下载量 · 最近更新 · 来源」。
+    ''' <para>
+    ''' 这四项全部来自 <see cref="ResourceProject"/>，措辞也由它统一给出，
+    ''' 不在本类里另写一套格式化，免得和下载页出现两套说法。
+    ''' </para>
+    ''' </summary>
+    Private Function BuildRow(Entry As FavoriteEntry) As MyFavoriteItem
+        Dim Item As New MyFavoriteItem With {
             .SnapsToDevicePixels = True,
             .Tag = Entry,
             .Title = If(Entry.Title = "", Entry.SubTitle, Entry.Title),
             .Description = If(Entry.Description = "", Entry.SubTitle, Entry.Description),
-            .ItemIsEnabled = True,
             .Checked = SelectedKeys.Contains(Entry.Key)
         }
         '图标：优先用项目对象自己的 LogoUrl（与详情页同一条路径，含镜像兜底）
         Dim Project As ResourceProject = ModFavorite.ToProject(Entry)
         If Project IsNot Nothing Then
             Project.ApplyLogoToMyImage(Item.PathLogo)
-        ElseIf Entry.Logo <> "" Then
-            Item.LogoSource = Entry.Logo
+            '老版本存下的收藏可能没有项目 JSON，那种情况只显示标题与描述，不硬凑一行空的下边栏
+            FillMeta(Item, Project)
+        Else
+            Item.ShowMeta = False
+            If Entry.Logo <> "" Then Item.LogoSource = Entry.Logo
         End If
         '左键只负责勾选，与模组管理完全一致：这样点一下就能选，不会被详情页抢走
         AddHandler Item.Click, Sub() ToggleSelect(Entry)
@@ -128,6 +136,25 @@ Public Class FavoriteListView
         Item.Buttons = {BtnInfo, BtnRemove}
         Return Item
     End Function
+
+    ''' <summary>把项目信息填进下边栏。任何一项取不到就留空，由控件自己把图标一起隐藏。</summary>
+    Private Sub FillMeta(Item As MyFavoriteItem, Project As ResourceProject)
+        Try
+            Dim LoaderFull As String = Nothing, LoaderPart As String = Nothing
+            Project.GetModLoaderDescription(LoaderFull, LoaderPart)
+            Dim Version As String = Project.GetGameVersionDescription()
+            '版本与加载器都有时，显示成「Fabric 1.16+」，和下载页的「全部显示」一致
+            Item.VersionText = If(LoaderPart = "", Version, LoaderPart & " " & Version)
+            Item.DownloadText = Project.GetDownloadText()
+            Item.UpdateText = Project.GetUpdateText()
+            Item.SourceText = Project.Platform.ToString
+            Item.Tags = Project.Tags
+        Catch ex As Exception
+            '单行信息填失败不该让整个列表崩掉，退回到只显示标题
+            Logger.Warn(ex, $"填充收藏夹条目信息失败：{Item.Title}")
+            Item.ShowMeta = False
+        End Try
+    End Sub
 
     ''' <summary>切换某条目的选中状态。</summary>
     Public Sub ToggleSelect(Entry As FavoriteEntry)

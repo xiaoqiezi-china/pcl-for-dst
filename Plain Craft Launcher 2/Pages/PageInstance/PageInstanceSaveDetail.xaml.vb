@@ -311,7 +311,8 @@ Public Class PageInstanceSaveDetail
             Try
                 Dim Unix As Date = New Date(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)
                 Texts = Unix.AddMilliseconds(CLng(Tag.TagValue)).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
-            Catch
+            Catch ex As Exception
+                Logger.Warn(ex, "解析时间戳失败")
             End Try
         End If
         Dim Buttons As New List(Of FrameworkElement)
@@ -705,7 +706,8 @@ Public Class PageInstanceSaveDetail
                 For Each F In DirectoryUtils.EnumerateFiles(Folder, False, "*.mca")
                     Files.Add(F)
                 Next
-            Catch
+            Catch ex As Exception
+                Logger.Warn(ex, $"枚举区域文件失败：{Folder}")
             End Try
             For Each F In Files
                 Total += 1
@@ -725,7 +727,8 @@ Public Class PageInstanceSaveDetail
         Dim SizeText As String = ""
         Try
             SizeText = FormatSize(FileUtils.GetInfo(File).Length)
-        Catch
+        Catch ex As Exception
+            Logger.Warn(ex, $"读取区域文件大小失败：{File}")
         End Try
         Dim Chunks As Integer = CountChunks(File)
         Dim SubText As String = DimNameOf(Folder) & " · " &
@@ -781,7 +784,8 @@ Public Class PageInstanceSaveDetail
                     If DstSavePaths.IsPlayerDataFile(F) Then Files.Add(F)
                 Next
             End If
-        Catch
+        Catch ex As Exception
+            Logger.Warn(ex, "枚举玩家数据文件失败")
         End Try
         If Files.Count = 0 Then
             PanPlayer.Children.Add(EmptyHint("没有玩家数据。单人存档一般不会有，多人联机时才会生成。"))
@@ -1157,7 +1161,8 @@ Public Class PageInstanceSaveDetail
             Dim Got As String = ""
             Try
                 If FileUtils.Exists(Cached) AndAlso New IO.FileInfo(Cached).Length > 100 Then Got = Cached
-            Catch
+            Catch ex As Exception
+                Logger.Warn(ex, $"读取地图缓存失败：{Cached}")
             End Try
             If Got = "" Then
                 Dim Urls As String() = {
@@ -1291,7 +1296,8 @@ Public Class PageInstanceSaveDetail
             Logger.Warn(ex, "保存 level.dat 失败")
             Try
                 If FileUtils.Exists(Temp) Then FileUtils.Delete(Temp)
-            Catch
+            Catch ex2 As Exception
+                Logger.Warn(ex2, $"清理临时文件失败：{Temp}")
             End Try
             Return False
         End Try
@@ -1451,7 +1457,8 @@ Public Class PageInstanceSaveDetail
                     For Each F In DirectoryUtils.EnumerateFiles(Folder, False, "*.png")
                         Return LoadImageFile(F)
                     Next
-                Catch
+                Catch ex As Exception
+                    Logger.Warn(ex, $"读取地图图片失败：{Folder}")
                 End Try
             End If
         Catch ex As Exception

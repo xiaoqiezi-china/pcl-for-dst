@@ -396,7 +396,7 @@ Friend Module DstBot
                     Parsed.Add(New DstMessage With {
                         .UserName = WebUtility.HtmlDecode(FirstText(Item, "user_name")).Trim(),
                         .UserQq = FirstText(Item, "user_qq").Trim(),
-                        .GroupName = WebUtility.HtmlDecode(FirstText(Item, "user_group_name")).Trim(),
+                        .GroupName = SafeRemoteText(WebUtility.HtmlDecode(FirstText(Item, "user_group_name")), 64),
                         .TimeText = FirstText(Item, "time").Trim(),
                         .Content = WebUtility.HtmlDecode(FirstText(Item, "content", "message", "text"))
                     })
@@ -542,6 +542,7 @@ Friend Module DstBot
                 Try
                     Total += New IO.FileInfo(F).Length
                 Catch ex As Exception
+                    Logger.Warn(ex, $"统计聊天缓存大小时跳过文件：{F}")
                 End Try
             Next
             Return Total
@@ -595,6 +596,7 @@ Friend Module DstBot
             Try
                 If FileUtils.Exists(Raw) Then FileUtils.Delete(Raw)
             Catch ex As Exception
+                Logger.Warn(ex, $"删除原始聊天记录失败：{Raw}")
             End Try
         End Try
     End Function
@@ -688,8 +690,44 @@ Friend Module DstBot
         End Get
     End Property
 
+    ''' <summary>
+    ''' 把远程返回的文本净化成可持久化、可展示的形式。
+    ''' <para>
+    ''' 去掉所有控制字符（含换行、制表符与 NUL）并截断长度：
+    ''' 这些值会被写进 ini / 注册表，也可能直接显示在界面上，
+    ''' 留换行会让它有机会伪造出额外的配置行。
+    ''' </para>
+    ''' </summary>
+    Friend Function SafeRemoteText(Value As String, MaxLength As Integer) As String
+        If String.IsNullOrEmpty(Value) Then Return ""
+        Dim Clean As New StringBuilder
+        For Each C As Char In Value
+            If Not Char.IsControl(C) Then Clean.Append(C)
+            If Clean.Length >= MaxLength Then Exit For
+        Next
+        Return Clean.ToString().Trim()
+    End Function
+
+    ''' <summary>
+    ''' 把群号收敛成只含数字的安全文件名片段。
+    ''' <para>
+    ''' 群号本来就只有数字，但它是从远程接口拿回来的字符串，
+    ''' 直接拼进路径等于把目录穿越的口子交给对方（..\..\ 之类）。
+    ''' 非数字一律丢弃，长度也做上限，拿不到合法值就退回 unknown。
+    ''' </para>
+    ''' </summary>
+    Private Function SafeGroupId(GroupId As String) As String
+        If String.IsNullOrWhiteSpace(GroupId) Then Return "unknown"
+        Dim Clean As New StringBuilder
+        For Each C As Char In GroupId
+            If Char.IsDigit(C) Then Clean.Append(C)
+            If Clean.Length >= 20 Then Exit For
+        Next
+        Return If(Clean.Length = 0, "unknown", Clean.ToString())
+    End Function
+
     Private Function ChatCacheFile(GroupId As String) As String
-        Return ChatCacheFolder & If(GroupId = "", "unknown", GroupId) & ".json"
+        Return ChatCacheFolder & SafeGroupId(GroupId) & ".json"
     End Function
 
     ''' <summary>读取某个群的本地聊天记录。</summary>
@@ -742,6 +780,7 @@ Friend Module DstBot
                 Try
                     Total += New IO.FileInfo(F).Length
                 Catch ex As Exception
+                    Logger.Warn(ex, $"统计缓存大小时跳过文件：{F}")
                 End Try
             Next
             Return Total
@@ -782,14 +821,18 @@ Friend Module DstBot
         End Get
     End Property
 
-    Public ReadOnly Property ApiBase As String
-        Get
-            If UseCustom Then
-                Dim Raw As String = Settings.Get(Of String)("DstBotApiUrl").Trim()
-                If Raw <> "" Then Return Raw.TrimEnd("/"c)
-            End If
-            Return DstBotPresetApi
-        End Get
+    Public ReadOnly Property ApiBase As String
+        Get
+            If UseCustom Then
+                Dim Raw As String = Settings.Get(Of String)("DstBotApiUrl").Trim()
+                If Raw <> "" Then Return Raw.TrimEnd("/"c)
+            End If
+            '配置文件里的服务地址优先于编译期内置：
+            '发布版把初始地址释放到 config.ini，更新启动器后它还在
+            Dim FromFile As String = ModConfigFile.Read(ModConfigFile.SectionCloud, "ApiBase").Trim()
+            If FromFile <> "" Then Return FromFile.TrimEnd("/"c)
+            Return DstBotPresetApi
+        End Get
     End Property
 
     Public ReadOnly Property GroupNo As String
@@ -799,15 +842,40 @@ Friend Module DstBot
         End Get
     End Property
 
-    Public ReadOnly Property ApiToken As String
-        Get
-            If UseCustom Then
-                Dim Raw As String = Settings.Get(Of String)("DstBotToken").Trim()
-                If Raw <> "" Then Return Raw
-            End If
-            Return DstBotPresetToken
-        End Get
+    Public ReadOnly Property ApiToken As String
+        Get
+            If UseCustom Then
+                Dim Raw As String = Settings.Get(Of String)("DstBotToken").Trim()
+                If Raw <> "" Then Return Raw
+            End If
+            Dim FromFile As String = ModConfigFile.Read(ModConfigFile.SectionCloud, "ApiKey").Trim()
+            If FromFile <> "" Then Return FromFile
+            Return DstBotPresetToken
+        End Get
     End Property
+
+    ''' <summary>
+    ''' 切换预设后立刻生效：把地址写进配置，清掉内存里的探测状态。
+    ''' 传空串表示切到「自定义」，此时不动配置文件里的地址，等用户自己填。
+    ''' </summary>
+    Public Sub ApplyPreset(ApiUrl As String, Optional ApiKey As String = "")
+        Try
+            If ApiUrl <> "" Then
+                ModConfigFile.Write(ModConfigFile.SectionCloud, "ApiBase", ApiUrl.TrimEnd("/"c))
+            End If
+            '令牌一并落盘：预设里带了就用预设的，没带就保留原值不动
+            If ApiKey <> "" Then
+                ModConfigFile.Write(ModConfigFile.SectionCloud, "ApiKey", ApiKey)
+            End If
+            '地址变了，之前探测出来的连接状态和群列表都不再作数
+            AutoOfflineFlag = False
+            Groups.Clear()
+            GroupsUpdatedAt = Date.MinValue
+            Logger.Info($"已切换服务预设，当前地址：{ApiBase}")
+        Catch ex As Exception
+            Logger.Warn(ex, "切换服务预设失败")
+        End Try
+    End Sub
 
     ''' <summary>界面展示用的服务名，预设服务不暴露具体信息。</summary>
     Public ReadOnly Property ServiceName As String
@@ -892,8 +960,8 @@ Friend Module DstBot
                 StatusLast = BotStatus.Online
                 '没选过群时自动选第一个，避免主页空着
                 If GroupNo = "" AndAlso Parsed.Count > 0 Then
-                    Settings.Set("DstGroupId", Parsed(0).GroupId)
-                    Settings.Set("DstGroupName", Parsed(0).GroupName)
+                    Settings.Set("DstGroupId", SafeGroupId(Parsed(0).GroupId))
+                    Settings.Set("DstGroupName", SafeRemoteText(Parsed(0).GroupName, 64))
                 End If
                 RememberGroupName(Parsed) '本机缓存群名，下次启动不必等群列表
                 CheckNewReport(Parsed)
@@ -916,6 +984,16 @@ Friend Module DstBot
     Public RespLast As String = ""
     Public QqMsgLast As String = ""
 
+    ''' <summary>最近一次健康检查的往返耗时（毫秒）。-1 表示还没测过。</summary>
+    Public Property LastLatencyMs As Integer = -1
+
+    ''' <summary>给界面看的延迟文本。</summary>
+    Public ReadOnly Property LatencyText As String
+        Get
+            If LastLatencyMs < 0 Then Return "—"
+            Return LastLatencyMs & " ms"
+        End Get
+    End Property
     Public ReadOnly Property StatusText As String
         Get
             Select Case StatusLast
@@ -1455,14 +1533,14 @@ Friend Module DstBot
         Dim Hit As DstGroup = Groups_.FirstOrDefault(Function(G) G.GroupId = Id)
         If Hit IsNot Nothing AndAlso Hit.GroupName <> "" Then
             If Settings.Get(Of String)("DstGroupName") <> Hit.GroupName Then
-                Settings.Set("DstGroupName", Hit.GroupName)
+                Settings.Set("DstGroupName", SafeRemoteText(Hit.GroupName, 64))
             End If
         End If
     End Sub
 
     ''' <summary>切换群时同步缓存群名。</summary>
     Public Sub SetGroup(Id As String, Optional Name As String = "")
-        Settings.Set("DstGroupId", Id)
+        Settings.Set("DstGroupId", SafeGroupId(Id))
         If Name <> "" Then Settings.Set("DstGroupName", Name)
     End Sub
     ''' <summary>界面展示用的 key 掩码，绝不完整展示。</summary>

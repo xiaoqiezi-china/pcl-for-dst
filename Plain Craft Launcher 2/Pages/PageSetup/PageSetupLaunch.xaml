@@ -27,6 +27,8 @@
                             <RowDefinition Height="28" />
                             <RowDefinition Height="9" />
                             <RowDefinition Height="28" />
+                            <RowDefinition Height="9" />
+                            <RowDefinition Height="28" />
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Left" Text="默认版本隔离" Margin="0,0,25,0" />
                         <local:MyComboBox local:SettingService.Key="LaunchArgumentIndieV2" x:Name="ComboArgumentIndieV2"
@@ -104,6 +106,13 @@
                                 </local:MyTextBox.ValidateRules>
                             </local:MyTextBox>
                         </Grid>
+                        <TextBlock VerticalAlignment="Center" Grid.Row="12" HorizontalAlignment="Left" Text="自动获取汉化" Margin="0,0,25,0" />
+                        <local:MyComboBox local:SettingService.Key="LaunchArgumentHanhua" x:Name="ComboArgumentHanhua"
+                                          Grid.Row="12" Grid.ColumnSpan="2" Grid.Column="1"
+                                          ToolTip="启动游戏时自动从 CFPA 拉取对应版本的汉化资源包，并写进 options.txt 启用它。&#xa;已有相同文件时会直接覆盖，不会重复下载。">
+                            <local:MyComboBoxItem Content="否" />
+                            <local:MyComboBoxItem Content="是" local:SettingService.Value="1" />
+                        </local:MyComboBox>
                     </Grid>
                 </StackPanel>
             </local:MyCard>

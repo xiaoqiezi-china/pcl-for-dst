@@ -65,6 +65,24 @@ Public Module ModMusic
 #Region "UI 控制"
 
     ''' <summary>
+    ''' 当前曲目的显示名。在线音乐的文件名是纯数字 ID，要换成歌名。
+    ''' </summary>
+    Private Function MusicCurrentDisplayName() As String
+        If String.IsNullOrEmpty(MusicCurrent) Then Return ""
+        Try
+            '在线音乐放在网易云缓存目录里，文件名就是歌曲 ID
+            Dim Id As Long = DstNetease.NeIdFromCachePath(MusicCurrent)
+            If Id > 0 Then
+                Dim Title As String = DstNetease.NeSongTitle(Id)
+                If Not String.IsNullOrEmpty(Title) Then Return Title
+            End If
+        Catch ex As Exception
+            Logger.Warn(ex, "获取在线音乐名称失败")
+        End Try
+        Return PathUtils.GetFileNameWithoutExtension(MusicCurrent)
+    End Function
+
+    ''' <summary>
     ''' 刷新背景音乐按钮 UI 与设置页 UI。
     ''' </summary>
     Private Sub MusicRefreshUI()
@@ -72,7 +90,13 @@ Public Module ModMusic
         Sub()
             Try
 
-                If Not MusicAllList.Any() Then
+                '只要当前有东西在播（本地背景音乐或在线音乐）就显示按钮。
+                '在线音乐存在网易云缓存目录里，不会进 MusicAllList，
+                '所以不能只用列表是否为空来判断。
+                Dim HasCurrent As Boolean = Not String.IsNullOrEmpty(MusicCurrent) AndAlso
+                                            MusicNAudio IsNot Nothing AndAlso
+                                            MusicState <> MusicStates.Stop
+                If Not MusicAllList.Any() AndAlso Not HasCurrent Then
                     '无背景音乐
                     FrmMain.BtnExtraMusic.Show = False
                 Else
@@ -82,7 +106,7 @@ Public Module ModMusic
                     If MusicState = MusicStates.Pause Then
                         FrmMain.BtnExtraMusic.Logo = Logo.IconPlay
                         FrmMain.BtnExtraMusic.LogoScale = 0.8
-                        ToolTipText = "已暂停：" & PathUtils.GetFileNameWithoutExtension(MusicCurrent)
+                        ToolTipText = "已暂停：" & MusicCurrentDisplayName()
                         If MusicAllList.Count > 1 Then
                             ToolTipText += vbCrLf & "左键恢复播放，右键播放下一曲。"
                         Else
@@ -91,7 +115,7 @@ Public Module ModMusic
                     Else
                         FrmMain.BtnExtraMusic.Logo = Logo.IconMusic
                         FrmMain.BtnExtraMusic.LogoScale = 1
-                        ToolTipText = "正在播放：" & PathUtils.GetFileNameWithoutExtension(MusicCurrent)
+                        ToolTipText = "正在播放：" & MusicCurrentDisplayName()
                         If MusicAllList.Count > 1 Then
                             ToolTipText += vbCrLf & "左键暂停，右键播放下一曲。"
                         Else
@@ -103,6 +127,48 @@ Public Module ModMusic
 
             Catch ex As Exception
                 Logger.Error(ex, "刷新背景音乐 UI 失败")
+            End Try
+        End Sub)
+    End Sub
+
+    '滚轮调音量：每格 5%，范围 0~100
+    Public Const MusicVolumeStep As Integer = 50
+    ''' <summary>
+    ''' 用滚轮调整背景音乐音量。Delta 是 MouseWheelEventArgs.Delta（一格 120）。
+    ''' 调完在按钮旁边浮一个只显示百分比的提示，1.2 秒后自动收起。
+    ''' </summary>
+    Public Sub MusicWheelVolume(Delta As Integer)
+        Try
+            '一格 = 5%，按 0~1000 换算
+            Dim StepValue As Integer = If(Delta > 0, MusicVolumeStep, -MusicVolumeStep)
+            '向上滚一格 120，快速滚动会给出更大的值，按比例换算
+            StepValue = CInt(StepValue * Math.Max(1, Math.Abs(Delta) / 120))
+            Dim Current As Integer = Settings.Get(Of Integer)("UiMusicVolume")
+            Dim NewValue As Integer = (Current + StepValue).Clamp(0, 1000)
+            If NewValue <> Current Then
+                Settings.Set("UiMusicVolume", NewValue)
+                '播放线程每 100ms 轮询这个值，这里不用直接碰 NAudio
+                Logger.Info($"滚轮调整音量：{Current} → {NewValue}")
+            End If
+            ShowMusicVolumeTip(NewValue)
+        Catch ex As Exception
+            Logger.Warn(ex, "滚轮调整音量失败")
+        End Try
+    End Sub
+
+    ''' <summary>在音乐按钮旁浮出音量百分比，稍后自动收起。</summary>
+    Private Sub ShowMusicVolumeTip(Volume As Integer)
+        RunInUi(
+        Sub()
+            Try
+                If FrmMain?.BtnExtraMusic Is Nothing Then Return
+                FrmMain.BtnExtraMusic.ShowWheelTip(Math.Round(Volume / 10) & "%")
+                AniStop("Music Volume Tip")
+                AniStart(AaCode(Sub()
+                                    If FrmMain?.BtnExtraMusic IsNot Nothing Then FrmMain.BtnExtraMusic.HideWheelTip()
+                                End Sub, 1200), "Music Volume Tip")
+            Catch ex As Exception
+                Logger.Warn(ex, "显示音量提示失败")
             End Try
         End Sub)
     End Sub

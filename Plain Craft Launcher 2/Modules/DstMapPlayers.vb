@@ -65,7 +65,8 @@ Public Module DstMapPlayers
                 '排除 .dat_old 这类备份
                 If DstSavePaths.IsPlayerDataFile(F) Then Files.Add(F)
             Next
-        Catch
+        Catch ex As Exception
+            Logger.Warn(ex, $"读取玩家数据文件失败：{Folder}")
         End Try
         For Each F In Files
             Dim P As New MapPlayer With {.FilePath = F, .Uuid = PathUtils.GetFileNameWithoutExtension(F)}

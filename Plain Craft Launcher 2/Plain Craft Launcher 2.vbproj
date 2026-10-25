@@ -109,8 +109,9 @@
     <NoWarn>41999,42016,42017,42018,42019,42020,42021,42022,42032,42036,42314</NoWarn>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <CodeAnalysisRuleSet>BasicDesignGuidelineRules.ruleset</CodeAnalysisRuleSet>
-    <DefineConstants>RELEASE</DefineConstants>
-    <DefineConstants Condition="Exists('Modules\ModSecret.Local.vb')">$(DefineConstants),DST_LOCAL</DefineConstants>
+    <DefineConstants Condition="'$(DpclBuild)' == 'true'">RELEASE,DPCL_BUILD</DefineConstants>
+    <DefineConstants Condition="'$(DpclBuild)' != 'true'">RELEASE</DefineConstants>
+    <DefineConstants Condition="Exists('Modules\ModSecret.Local.vb') AND '$(DpclBuild)' != 'true'">$(DefineConstants),DST_LOCAL</DefineConstants>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
@@ -219,6 +220,12 @@
     <Compile Include="Modules\Resource\ResourceVersion.vb" />
     <Compile Include="Modules\Resource\ModFavoriteShare.vb" />
     <Compile Include="Modules\Resource\ModFileIdentity.vb" />
+    <Compile Include="Modules\Resource\ModPersonalPack.vb" />
+    <Compile Include="Modules\Config\ModConfigFile.vb" />
+    <Compile Include="Modules\Config\ModPresetSource.vb" />
+    <Compile Include="Modules\Resource\ModHanhua.vb" />
+    <Compile Include="Modules\Resource\ModPackState.vb" />
+    <Compile Include="Modules\Resource\ModPackFolder.vb" />
     <Compile Include="Modules\Resource\ModInstallPlanner.vb" />
     <Compile Include="Modules\Resource\ModInstallRunner.vb" />
     <Compile Include="Modules\Resource\ModInstallDialog.vb" />
@@ -234,6 +241,9 @@
     </Compile>
     <Compile Include="Pages\PageInstance\MyLocalModItem.xaml.vb">
       <DependentUpon>MyLocalModItem.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controls\MyFavoriteItem.xaml.vb">
+      <DependentUpon>MyFavoriteItem.xaml</DependentUpon>
     </Compile>
     <Compile Include="Modules\ModEvent.vb" />
     <Compile Include="Controls\MyExtraButton.xaml.vb">
@@ -265,7 +275,8 @@
     <Compile Include="Modules\ModDevelop.vb" />
     <Compile Include="Modules\Minecraft\ModWatcher.vb" />
     <Compile Include="Modules\ModSecret.vb" />
-    <Compile Include="Modules\ModSecret.Local.vb" Condition="Exists('Modules\ModSecret.Local.vb')">
+    <Compile Include="Modules\ModTheme.vb" />
+    <Compile Include="Modules\ModSecret.Local.vb" Condition="Exists('Modules\ModSecret.Local.vb') AND '$(DpclBuild)' != 'true'">
       <AutoGen>False</AutoGen>
     </Compile>
     <Compile Include="Modules\DstBot.vb" />
@@ -582,6 +593,10 @@
     </Compile>
 
     <Page Include="Pages\PageInstance\MyLocalModItem.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Controls\MyFavoriteItem.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

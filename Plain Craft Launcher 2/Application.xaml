@@ -21,62 +21,75 @@
             <!-- 字体：Latin 用 Segoe UI Variable，中文用 Noto Sans SC，缺失时回退到系统雅黑 -->
             <FontFamily x:Key="UiFontFamily">Noto Sans SC, Microsoft YaHei UI, Segoe UI</FontFamily>
 
-            <!-- 颜色表（现代简约：纯中性面 + 单一强调色） -->
-            <SolidColorBrush x:Key="ColorBrush1">#EDEFF3</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush2">#4C8DFF</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush3">#6CA3FF</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush4">#96BEFF</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush5">#1C2127</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush6">#161A1F</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush7">#111418</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrush8">#0B0D10</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushBg0">#101317</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushBg1">#F70B0D10</SolidColorBrush>
-            <Color x:Key="ColorObject1">#EDEFF3</Color>
-            <Color x:Key="ColorObject2">#4C8DFF</Color>
-            <Color x:Key="ColorObject3">#6CA3FF</Color>
-            <Color x:Key="ColorObject4">#96BEFF</Color>
-            <Color x:Key="ColorObject5">#1C2127</Color>
-            <Color x:Key="ColorObject6">#161A1F</Color>
-            <Color x:Key="ColorObject7">#111418</Color>
-            <Color x:Key="ColorObject8">#0B0D10</Color>
-            <Color x:Key="ColorObjectBg0">#101317</Color>
-            <Color x:Key="ColorObjectBg1">#F70B0D10</Color>
-            <SolidColorBrush x:Key="ColorBrushBorder">#20242B</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushBorderLight">#2D323A</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushCardBorder">#1C2027</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushInput">#0F1216</SolidColorBrush>
+            <!--
+                颜色表：默认值必须是 PCL 浅色（与上游一致）。
+                Indra 外观与深色模式都由 ModTheme.ThemeRefresh 在运行时覆盖，
+                所以在 ThemeRefresh 之前创建的窗口先看到的是这套浅色，不会闪一下深色。
+            -->
+            <SolidColorBrush x:Key="ColorBrush1">#343d4a</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush2">#0b5bcb</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush3">#1370f3</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush4">#4890f5</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush5">#96c0f9</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush6">#d5e6fd</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush7">#e0eafd</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush8">#eaf2fe</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrush9">#f5f8fe</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushBg0">#96c0f9</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushBg1">#bee0eafd</SolidColorBrush>
+            <Color x:Key="ColorObject1">#343d4a</Color>
+            <Color x:Key="ColorObject2">#0b5bcb</Color>
+            <Color x:Key="ColorObject3">#1370f3</Color>
+            <Color x:Key="ColorObject4">#4890f5</Color>
+            <Color x:Key="ColorObject5">#96c0f9</Color>
+            <Color x:Key="ColorObject6">#d5e6fd</Color>
+            <Color x:Key="ColorObject7">#e0eafd</Color>
+            <Color x:Key="ColorObject8">#eaf2fe</Color>
+            <Color x:Key="ColorObject9">#f5f8fe</Color>
+            <Color x:Key="ColorObjectBg0">#96c0f9</Color>
+            <Color x:Key="ColorObjectBg1">#bee0eafd</Color>
+            <!-- 以下键是定制版新增的，默认值同样是浅色；深色与 Indra 在 ModTheme 里覆盖 -->
+            <SolidColorBrush x:Key="ColorBrushBorder">#E0E0E0</SolidColorBrush>
+            <!--
+                窗口最外圈那道 1px 轮廓，和内容里的分隔线不是一回事：
+                顶边压在深色标题栏上，用 ColorBrushBorder 会变成一条扎眼的白线。
+                半透明黑在深色上是暗线、在浅色上是灰线，两套主题都不用另配。
+            -->
+            <SolidColorBrush x:Key="ColorBrushWindowBorder" Color="#33000000" />
+            <SolidColorBrush x:Key="ColorBrushBorderLight">#F0F0F0</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushCardBorder">#EBEBEB</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushInput">#FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushRail">#F5F5F5</SolidColorBrush>
             <!-- 启动按钮下方那行副标题：按钮是实心蓝底时必须用可读的浅色 -->
             <SolidColorBrush x:Key="ColorBrushLaunchSub" Color="#FF8C8C8C" />
-            <SolidColorBrush x:Key="ColorBrushRail">#14171C</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray1">#EDEFF3</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray2">#AAB2BC</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray3">#7A838E</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray4">#5C646E</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray5">#424953</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray6">#2E343C</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray7">#1C2026</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushGray8">#14171C</SolidColorBrush>
-            <Color x:Key="ColorObjectGray1">#EDEFF3</Color>
-            <Color x:Key="ColorObjectGray2">#AAB2BC</Color>
-            <Color x:Key="ColorObjectGray3">#7A838E</Color>
-            <Color x:Key="ColorObjectGray4">#5C646E</Color>
-            <Color x:Key="ColorObjectGray5">#424953</Color>
-            <Color x:Key="ColorObjectGray6">#2E343C</Color>
-            <Color x:Key="ColorObjectGray7">#1C2026</Color>
-            <Color x:Key="ColorObjectGray8">#14171C</Color>
-            <SolidColorBrush x:Key="ColorBrushRedBack">#80502222</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushRedLight">#FF6B6B</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushRedDark">#E5484D</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushHalfWhite" Color="#14FFFFFF" />
-            <SolidColorBrush x:Key="ColorBrushSemiWhite" Color="#CCFFFFFF" />
-            <SolidColorBrush x:Key="ColorBrushWhite" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ColorBrushGray1">#404040</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray2">#737373</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray3">#8c8c8c</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray4">#a6a6a6</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray5">#cccccc</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray6">#ebebeb</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray7">#f0f0f0</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushGray8">#f5f5f5</SolidColorBrush>
+            <Color x:Key="ColorObjectGray1">#404040</Color>
+            <Color x:Key="ColorObjectGray2">#737373</Color>
+            <Color x:Key="ColorObjectGray3">#8c8c8c</Color>
+            <Color x:Key="ColorObjectGray4">#a6a6a6</Color>
+            <Color x:Key="ColorObjectGray5">#cccccc</Color>
+            <Color x:Key="ColorObjectGray6">#ebebeb</Color>
+            <Color x:Key="ColorObjectGray7">#f0f0f0</Color>
+            <Color x:Key="ColorObjectGray8">#f5f5f5</Color>
+            <SolidColorBrush x:Key="ColorBrushRedBack">#80fbdddd</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushRedLight">#ff4c4c</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushRedDark">#ce2111</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushHalfWhite" Color="#55ffffff" />
+            <SolidColorBrush x:Key="ColorBrushSemiWhite" Color="#bbffffff" />
+            <SolidColorBrush x:Key="ColorBrushWhite" Color="#ffffff" />
             <SolidColorBrush x:Key="ColorBrushTransparent" Color="Transparent" />
-            <SolidColorBrush x:Key="ColorBrushSemiTransparent">#010B0D10</SolidColorBrush>
-            <SolidColorBrush x:Key="ColorBrushBackgroundTransparentSidebar" Color="#F60D1013" />
+            <SolidColorBrush x:Key="ColorBrushSemiTransparent">#01eaf2fe</SolidColorBrush>
+            <SolidColorBrush x:Key="ColorBrushBackgroundTransparentSidebar" Color="#F1FFFFFF" />
             <SolidColorBrush x:Key="ColorBrushTitleIcon" Color="#FFFFFF" />
-            <SolidColorBrush x:Key="ColorBrushCard" Color="#FF14171C" />
-            <SolidColorBrush x:Key="ColorBrushCardHover" Color="#FF1A1E24" />
+            <SolidColorBrush x:Key="ColorBrushCard" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="ColorBrushCardHover" Color="#FFFAFAFA" />
             <!-- Window -->
             <Style TargetType="{x:Type Window}" x:Key="MyWindow">
                 <Setter Property="OverridesDefaultStyle" Value="True"/>

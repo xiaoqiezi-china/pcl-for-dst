@@ -1,4 +1,5 @@
 Imports System.Net.Http
+Imports System.Text.RegularExpressions
 
 ''' <summary>
 ''' 启动器自身的更新与「下载索引」相关逻辑，全部走帝释天服务端的 /v2/api 接口。
@@ -18,6 +19,10 @@ Friend Module DstUpdate
         ''' <summary>服务器标记的重大更新（设置里选“仅重大更新提示”时起作用）。</summary>
         Public Property Critical As Boolean
         Public Property Err As String = ""
+        ''' <summary>服务端下发的微软 ClientId，可能为空。</summary>
+        Public Property ClientId As String = ""
+        ''' <summary>服务端下发的 CurseForge Key，可能为空。</summary>
+        Public Property CurseForgeKey As String = ""
     End Class
 
 
@@ -118,6 +123,38 @@ Friend Module DstUpdate
         Return ""
     End Function
 
+    ''' <summary>
+    ''' 把服务器返回的公告整理成可以直接显示的文本。
+    ''' <para>
+    ''' 服务器把它存在 JSON 的一个字符串字段里，换行往往写成字面的反斜杠加 n，
+    ''' 而不是真正的换行符。这里统一转成真换行，顺便归一 Windows 换行与 &lt;br&gt; 写法，
+    ''' 并去掉行尾空白、压缩连续空行。
+    ''' </para>
+    ''' </summary>
+    Public Function NormalizeAnnounce(Raw As String) As String
+        If String.IsNullOrEmpty(Raw) Then Return ""
+        Dim Bs As Char = ChrW(92) '反斜杠，避免在源码里写转义
+        Dim Text As String = Raw
+        '字面的转义换行（服务器把 \n 当普通字符存了进来）
+        Text = Text.Replace(Bs & "r" & Bs & "n", vbLf)
+        Text = Text.Replace(Bs & "n", vbLf)
+        Text = Text.Replace(Bs & "r", vbLf)
+        '真正的 CRLF / CR 也归一成 LF
+        Text = Text.Replace(vbCrLf, vbLf).Replace(vbCr, vbLf)
+        'HTML 换行写法
+        Text = Regex.Replace(Text, "<br" & Bs & "s*/?>", vbLf, RegexOptions.IgnoreCase)
+        '字面的制表符展开成空格
+        Text = Text.Replace(Bs & "t", "    ")
+        '逐行去掉行尾空白，并压缩连续空行
+        Dim Lines As New List(Of String)
+        For Each Line In Text.Split(ChrW(10))
+            Lines.Add(Line.TrimEnd())
+        Next
+        Text = String.Join(vbLf, Lines)
+        Text = Regex.Replace(Text, vbLf & "{3,}", vbLf & vbLf)
+        Return Text.Trim()
+    End Function
+
     ''' <summary>编辑距离，用于容忍键名拼写差异。</summary>
     Private Function EditDistance(A As String, B As String) As Integer
         Dim D(A.Length, B.Length) As Integer
@@ -146,9 +183,18 @@ Friend Module DstUpdate
             Try
                 Dim Vars As JObject = FetchVars()
                 Info.RemoteVersion = PickVar(Vars, "dclversion", "version")
-                Info.Announce = PickVar(Vars, "dclupgradeinfo", "dclupgradinfo", "upgradeinfo", "upgradenote")
+                '公告里的换行可能写成字面的反斜杠加 n，在这里统一解开，
+                '这样所有展示公告的地方（更新检查、启动弹窗、设置页）拿到的都是可直接显示的文本
+                Info.Announce = NormalizeAnnounce(PickVar(Vars, "dclupgradeinfo", "dclupgradinfo", "upgradeinfo", "upgradenote"))
                 Dim CriticalText As String = PickVar(Vars, "dclcritical", "critical", "important")
                 Info.Critical = CriticalText.Trim().ToLower() = "1" OrElse CriticalText.Trim().ToLower() = "true"
+                '服务端把凭据也放在 getvar 里下发，这样更新启动器后不用重新要 Key
+                Info.ClientId = PickVar(Vars, "clientid", "clientId", "dclclientid")
+                Info.CurseForgeKey = PickVar(Vars, "cfapikey", "curseforgekey", "dclcfapikey")
+                '服务端下发的凭据写进 config.ini：
+                '优先于编译期内置，但低于用户在设置里手填的值（那一层由 MsClientIdResolve 处理）
+                If Info.ClientId <> "" Then ModConfigFile.Write(ModConfigFile.SectionCredential, "ClientId", Info.ClientId)
+                If Info.CurseForgeKey <> "" Then ModConfigFile.Write(ModConfigFile.SectionCredential, "CurseForgeKey", Info.CurseForgeKey)
                 If Info.RemoteVersion = "" Then
                     Info.Err = "没有获取到版本号"
                 Else

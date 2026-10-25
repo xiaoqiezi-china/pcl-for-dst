@@ -60,11 +60,13 @@ Public Class PageInstanceSaves
                       Dim TA As Date = Date.MinValue, TB As Date = Date.MinValue
                       Try
                           TA = DirectoryUtils.GetInfo(A).LastWriteTime
-                      Catch
+                      Catch ex As Exception
+                          Logger.Warn(ex, $"读取存档修改时间失败：{A}")
                       End Try
                       Try
                           TB = DirectoryUtils.GetInfo(B).LastWriteTime
-                      Catch
+                      Catch ex As Exception
+                          Logger.Warn(ex, $"读取存档修改时间失败：{B}")
                       End Try
                       Return TB.CompareTo(TA)
                   End Function)
@@ -244,10 +246,12 @@ Public Class PageInstanceSaves
                     Try
                         Size += FileUtils.GetInfo(F).Length
                         Files += 1
-                    Catch
+                    Catch ex As Exception
+                        Logger.Warn(ex, $"统计存档大小时跳过文件：{F}")
                     End Try
                 Next
-            Catch
+            Catch ex As Exception
+                Logger.Warn(ex, $"统计存档大小失败：{SaveDir}")
             End Try
             Dim Text As String = $"{FormatSize(Size)} · {Files} 个文件"
             RunInUi(Sub() Item.Description = Text)
@@ -294,7 +298,8 @@ Public Class PageInstanceSaves
                     Try
                         Size += FileUtils.GetInfo(F).Length
                         Files += 1
-                    Catch
+                    Catch ex As Exception
+                        Logger.Warn(ex, $"统计存档大小时跳过文件：{F}")
                     End Try
                 Next
                 For Each D In DirectoryUtils.EnumerateDirectories(SaveDir, True)
@@ -309,7 +314,8 @@ Public Class PageInstanceSaves
                 Dim Info = DirectoryUtils.GetInfo(SaveDir)
                 Created = Info.CreationTime.ToString("yyyy-MM-dd HH:mm:ss")
                 Modified = Info.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
-            Catch
+            Catch ex As Exception
+                Logger.Warn(ex, $"读取存档创建时间失败：{SaveDir}")
             End Try
             Dim WorldName As String = ""
             Dim GameVersion As String = ""

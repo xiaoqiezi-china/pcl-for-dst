@@ -42,7 +42,7 @@
         <Rectangle Panel.ZIndex="100" x:Name="ResizerRT" HorizontalAlignment="Right" Stroke="{x:Null}" Width="13" StrokeThickness="0.0001" VerticalAlignment="Top" Height="13" Cursor="SizeNESW">
             <Rectangle.Fill><SolidColorBrush Color="Transparent" /></Rectangle.Fill>
         </Rectangle>
-        <Border Margin="0" CornerRadius="20" x:Name="BorderForm" BorderBrush="{DynamicResource ColorBrushBorder}" BorderThickness="1" Background="{DynamicResource ColorBrush8}">
+        <Border Margin="0" CornerRadius="20" x:Name="BorderForm" BorderBrush="{DynamicResource ColorBrushWindowBorder}" BorderThickness="1" Background="{DynamicResource ColorBrush8}">
             <Grid x:Name="PanForm" SnapsToDevicePixels="False" UseLayoutRounding="False">
                 <Grid.Clip>
                     <RectangleGeometry x:Name="RectForm" RadiusX="19" RadiusY="19" />
@@ -66,8 +66,8 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="1*" />
                         </Grid.ColumnDefinitions>
-                        <Path x:Name="ShapeTitleLogo" Data="M26,29 v-25 h6 a7,7 180 0 1 0,14 h-6 M62.5,6.5 a10,11.5 180 1 0 0,18 M71,2.5 v24.5 h13.5" SnapsToDevicePixels="False" UseLayoutRounding="False" IsHitTestVisible="False" HorizontalAlignment="Left" Margin="22,16,0,16" Stretch="fill" Stroke="{DynamicResource ColorBrush1}" StrokeThickness="2.2" Width="38" />
-                        <TextBlock x:Name="LabTitleLogo" Visibility="Collapsed" SnapsToDevicePixels="False" UseLayoutRounding="False" IsHitTestVisible="False" HorizontalAlignment="Left" Margin="20,0,0,0" Foreground="{DynamicResource ColorBrush1}" FontSize="17" VerticalAlignment="Center" />
+                        <Path x:Name="ShapeTitleLogo" Data="M26,29 v-25 h6 a7,7 180 0 1 0,14 h-6 M62.5,6.5 a10,11.5 180 1 0 0,18 M71,2.5 v24.5 h13.5" SnapsToDevicePixels="False" UseLayoutRounding="False" IsHitTestVisible="False" HorizontalAlignment="Left" Margin="22,16,0,16" Stretch="fill" Stroke="{DynamicResource ColorBrushTitleIcon}" StrokeThickness="2.2" Width="38" />
+                        <TextBlock x:Name="LabTitleLogo" Visibility="Collapsed" SnapsToDevicePixels="False" UseLayoutRounding="False" IsHitTestVisible="False" HorizontalAlignment="Left" Margin="20,0,0,0" Foreground="{DynamicResource ColorBrushTitleIcon}" FontSize="17" VerticalAlignment="Center" />
                         <StackPanel Grid.Column="1" x:Name="PanTitleSelect" HorizontalAlignment="Left" Height="27" VerticalAlignment="Center" Orientation="Horizontal" Margin="13,0">
                             <local:MyRadioButton x:Name="BtnTitleSelect0" Text="启动" Tag="0" Margin="5,0" Checked="True" Padding="2,0"
                                              LogoScale="0.9" Logo="M52.1,164.5c-1.4,0-3.1-0.5-4.2-1.3c-2.6-1.7-4-4.2-4-7V43.8c0-2.9,1.6-5.8,4.1-7c1.2-0.8,2.7-1.2,4.1-1.2c1.5,0,2.9,0.4,4.2,1.2L153.1,93c0,0,0.1,0,0.1,0.1c2.6,1.7,4,4.2,4,7c0,3-1.7,5.8-4.2,7.1l-96.8,56.2C55.1,164,53.5,164.5,52.1,164.5z M60.4,142.1l72.1-42.1L60.4,58.2V142.1z" />

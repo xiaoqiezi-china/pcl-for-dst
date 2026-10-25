@@ -36,7 +36,8 @@ Public Module DstAnnounce
                 DstUpdate.CheckLauncherUpdate(
                 Sub(Info)
                     '这里只是复用同一个接口取公告正文，不关心是否有新版本
-                    Content = If(Info.Announce, "").Trim()
+                    'DstUpdate 已经解开过转义了，这里直接用
+                    Content = Info.Announce
                     ErrText = Info.Err
                     RunInUi(
                     Sub()

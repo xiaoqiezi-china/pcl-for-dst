@@ -29,21 +29,37 @@
 
 需要 Visual Studio 生成工具（MSBuild）与 .NET Framework 4.8 开发包。
 
+两条产品线共用同一份源码，靠条件编译区分：
+
 ```bash
-./build.sh
+./build.sh        # DST：完整版，包含在线服务与 QQ 机器人
+./build-dpcl.sh   # DPCL：纯增强版，不含任何在线服务
 ```
 
-产物为 `dist/DST Craft Launcher.exe`（单文件，依赖已内嵌）。
+| 构建 | 产物 | 版本 | 说明 |
+| --- | --- | --- | --- |
+| DST | `dist/DST Craft Launcher.exe` | 0.3.x | 完整功能，默认在线 |
+| DPCL | `dist-dpcl/DST Plain Craft Launcher.exe` | 1.0.0 | 不含在线服务，默认常规模式 |
+
+DPCL 对应的编译符号是 `DPCL_BUILD`，它会同时关掉对 `DST_LOCAL` 的引用，
+因此该构建不会携带任何内置凭据。
 
 > 注意：`Resources.resx` 硬编码引用了 `PCLCS\bin` 下的 DLL，因此**不要覆盖 `OutDir`**，
-> 否则 PCLCS 的产物不会落在它期望的位置，编译会失败。`build.sh` 已按默认输出处理。
+> 否则 PCLCS 的产物不会落在它期望的位置，编译会失败。两个脚本都已按默认输出处理。
+
 
 ## 凭据
 
-仓库不含任何密钥。需要正版登录或 CurseForge 搜索时：
+仓库不含任何密钥。凭据按以下优先级解析，先命中先用：
 
-- 方式一：在「设置 → 其他 → 账号与 API」中填写
-- 方式二：自建 `Modules/ModSecret.Local.vb`（已在 `.gitignore` 中，不会被提交）
+1. 「设置 → 其他 → 账号与 API」里手填的值
+2. 运行目录下的 `PCL/config.ini`
+3. 编译期内置值
+
+`config.ini` 只在首次启动且文件不存在时释放一份模板，之后**更新启动器不会覆盖它**，
+因此升级后凭据仍在。发行版可以预先塞一份带初始数据的 `config.ini` 一起分发。
+
+开发时若要内置凭据，自建 `Modules/ModSecret.Local.vb`（已在 `.gitignore` 中，不会被提交）：
 
 ```vb
 Friend Module ModSecretLocal
@@ -51,10 +67,11 @@ Friend Module ModSecretLocal
     Public Const CurseForgeKey As String = "你的 CurseForge Key"
     Public Const PresetApi As String = ""
     Public Const PresetToken As String = ""
+    Public Const PresetId As String = "dst"
 End Module
 ```
 
-文件存在时工程会自动定义 `DST_LOCAL` 编译符号。
+文件存在时工程会自动定义 `DST_LOCAL`；`DPCL_BUILD` 下该文件不参与编译。
 
 ## 已知限制
 

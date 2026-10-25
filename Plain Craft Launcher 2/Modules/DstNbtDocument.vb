@@ -79,7 +79,8 @@ Public Class DstNbtDocument
     Private Shared Sub SafeDelete(Target As String)
         Try
             If File.Exists(Target) Then File.Delete(Target)
-        Catch
+        Catch ex As Exception
+            Logger.Warn(ex, $"删除目标文件失败：{Target}")
         End Try
     End Sub
 

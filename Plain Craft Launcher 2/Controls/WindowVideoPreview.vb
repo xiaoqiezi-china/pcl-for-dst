@@ -196,12 +196,14 @@ Public Class WindowVideoPreview
                 Try
                     Client?.CancelAsync()
                 Catch ex As Exception
+                    Logger.Warn(ex, "取消视频请求失败")
                 End Try
                 Try
                     Media.Stop()
                     Media.Close()
                     Media.Source = Nothing
                 Catch ex As Exception
+                    Logger.Warn(ex, "关闭视频播放器失败")
                 End Try
                 If _Current Is Me Then _Current = Nothing
             End Sub
@@ -220,6 +222,7 @@ Public Class WindowVideoPreview
             Try
                 CachedSize = New IO.FileInfo(LocalPath).Length
             Catch ex As Exception
+                Logger.Warn(ex, $"读取视频缓存大小失败：{LocalPath}")
             End Try
             If CachedSize > 0 AndAlso (ExpectedSize <= 0 OrElse CachedSize = ExpectedSize) AndAlso LooksLikeVideo(LocalPath) Then
                 PlayLocal(LocalPath)
@@ -229,6 +232,7 @@ Public Class WindowVideoPreview
             Try
                 FileUtils.Delete(LocalPath)
             Catch ex As Exception
+                Logger.Warn(ex, $"删除视频缓存失败：{LocalPath}")
             End Try
         End If
         LabTip.Text = "正在下载视频……"
@@ -309,6 +313,7 @@ Public Class WindowVideoPreview
             Try
                 Size = New IO.FileInfo(LocalPath).Length
             Catch ex As Exception
+                Logger.Warn(ex, $"读取视频大小失败：{LocalPath}")
             End Try
             Logger.Info($"视频缓存文件：{LocalPath}，{Size} 字节")
             If Size = 0 Then

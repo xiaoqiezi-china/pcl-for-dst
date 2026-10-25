@@ -615,6 +615,7 @@ Public Module DstNetease
         Try
             DirectoryUtils.Delete(Paths.Base & "PCL\DstNetease\Profile")
         Catch ex As Exception
+            Logger.Warn(ex, "清理网易云登录配置失败")
         End Try
     End Sub
 

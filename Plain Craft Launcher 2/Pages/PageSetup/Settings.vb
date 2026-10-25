@@ -2,6 +2,21 @@ Imports System.Security.Cryptography
 
 Public Class Settings
 
+    ''' <summary>
+    ''' 常规模式的初始值：DPCL 是纯增强版，不含在线服务，所以默认就开。
+    ''' 用常量而不是把 #If 写进数组初始化器，是因为 VB 不允许那样做。
+    ''' </summary>
+#If DPCL_BUILD Then
+    Private Const DpclDefaultOffline As Boolean = True
+#Else
+    Private Const DpclDefaultOffline As Boolean = False
+#End If
+    ''' <summary>标题栏默认文本：DPCL 用自己的名字，DST 线仍显示 DST。</summary>
+#If DPCL_BUILD Then
+    Private Const DpclDefaultLogoText As String = "DPCL"
+#Else
+    Private Const DpclDefaultLogoText As String = "DST"
+#End If
     Public Shared ReadOnly Entries As Dictionary(Of String, Setting) = (New List(Of Setting) From {
         New Setting("Identify", "", Source:=Sources.Registry),
         New Setting("WindowHeight", 550),
@@ -98,6 +113,7 @@ Public Class Settings
         New Setting("LaunchArgumentWindowWidth", 854),
         New Setting("LaunchArgumentWindowHeight", 480),
         New Setting("LaunchArgumentWindowType", 1),
+        New Setting("LaunchArgumentHanhua", 0), '0 不自动，1 启动时自动获取汉化并启用
         New Setting("LaunchArgumentRam", False, Source:=Sources.Registry),
         New Setting("LaunchAdvanceJvm", "-XX:-OmitStackTraceInFastThrow -Djdk.lang.Process.allowAmbiguousCommands=True -Dfml.ignoreInvalidMinecraftCertificates=True -Dfml.ignorePatchDiscrepancies=True"),
         New Setting("LaunchAdvanceGame", ""),
@@ -128,11 +144,20 @@ Public Class Settings
         New Setting("ToolUpdateReleaseLast", "", Source:=Sources.Registry),
         New Setting("ToolUpdateSnapshotLast", "", Source:=Sources.Registry),
         New Setting("UiLauncherTransparent", 600, OnChanged:=Sub(Value As Integer) If FrmMain IsNot Nothing Then FrmMain.Opacity = Value / 1000 + 0.4), '避免与 PCL1 设置冲突（UiLauncherOpacity）
-        New Setting("UiLauncherHue", 180),
-        New Setting("UiLauncherSat", 80),
-        New Setting("UiLauncherDelta", 90),
-        New Setting("UiLauncherLight", 20),
-        New Setting("UiLauncherTheme", 0, OnChanged:=AddressOf ThemeChangedNeedsRestart),
+        New Setting("UiLauncherHue", 180, OnChanged:=AddressOf RefreshCustomThemePalette),
+        New Setting("UiLauncherSat", 80, OnChanged:=AddressOf RefreshCustomThemePalette),
+        New Setting("UiLauncherDelta", 90, OnChanged:=AddressOf RefreshCustomThemePalette),
+        New Setting("UiLauncherLight", 20, OnChanged:=AddressOf RefreshCustomThemePalette),
+        New Setting("UiLauncherTheme", 0, OnChanged:=AddressOf ThemeRefresh),
+        New Setting("UiLauncherCustomColor1", "", OnChanged:=AddressOf RefreshCustomThemePalette), '9 个主题色的定制覆盖：0xRRGGBB，空串表示不覆盖
+        New Setting("UiLauncherCustomColor2", "", OnChanged:=AddressOf RefreshCustomThemePalette),
+        New Setting("UiLauncherCustomColor3", "", OnChanged:=AddressOf RefreshCustomThemePalette),
+        New Setting("UiLauncherCustomColor4", "", OnChanged:=AddressOf RefreshCustomThemePalette),
+        New Setting("UiLauncherCustomColor5", "", OnChanged:=AddressOf RefreshCustomThemePalette),
+        New Setting("UiLauncherCustomColor6", "", OnChanged:=AddressOf RefreshCustomThemePalette),
+        New Setting("UiLauncherCustomColor7", "", OnChanged:=AddressOf RefreshCustomThemePalette),
+        New Setting("UiLauncherCustomColor8", "", OnChanged:=AddressOf RefreshCustomThemePalette),
+        New Setting("UiLauncherCustomColor9", "", OnChanged:=AddressOf RefreshCustomThemePalette),
         New Setting("UiLauncherThemeHide", "0|1|2|3|4", Source:=Sources.Registry, Encrypted:=True),
         New Setting("UiLauncherThemeHide2", "0|1|2|3|4", Source:=Sources.Registry, Encrypted:=True),
         New Setting("UiLauncherLogo", True),
@@ -145,7 +170,7 @@ Public Class Settings
         New Setting("UiCustomPreset", 0),
         New Setting("UiCustomNet", ""),
         New Setting("UiLogoType", 2, OnChanged:=AddressOf FormMain.UpdateBackgroundAndTitleBar),
-        New Setting("UiLogoText", "DST", OnChanged:=AddressOf FormMain.UpdateBackgroundAndTitleBar),
+        New Setting("UiLogoText", DpclDefaultLogoText, OnChanged:=AddressOf FormMain.UpdateBackgroundAndTitleBar),
         New Setting("UiLogoLeft", False, OnChanged:=AddressOf FormMain.UpdateBackgroundAndTitleBar),
         New Setting("UiMusicVolume", 500),
         New Setting("UiMusicStop", False),
@@ -158,7 +183,7 @@ Public Class Settings
         New Setting("DstBotGroupId", ""),
         New Setting("DstGroupId", ""),
         New Setting("DstGroupName", ""),
-        New Setting("DstOfflineMode", False),
+        New Setting("DstOfflineMode", DpclDefaultOffline),
         New Setting("DstOfflineShowServers", True),
         New Setting("DstNeMusicLevel", "standard"),
         New Setting("DstDisclaimerAgreed", False),
@@ -168,6 +193,7 @@ Public Class Settings
         New Setting("DstQqMode", False),
         New Setting("DstDarkMode", False),
         New Setting("DstAppearance", 0),
+        New Setting("DstAppearanceAsked", False),
         New Setting("DstAppearanceAskedVersion", ""),
         New Setting("MsClientId", ""),
         New Setting("DstHomeShowServers", True),
@@ -293,7 +319,7 @@ Public Class Settings
                     WriteIni("Setup", Key, Value)
                 Case Sources.Registry
                     Try
-                        RegistryUtils.Write($"HKEY_CURRENT_USER\Software\{RegFolder}", Key, Value)
+                        RegistryUtils.Write($"HKEY_CURRENT_USER\Software\{RegFolderOf(Key)}", Key, Value)
                     Catch ex As Exception
                         Logger.Warn(ex, $"写入注册表失败（{Key} → {Value}）", LogBehavior.Toast)
                     End Try
@@ -362,7 +388,7 @@ Public Class Settings
                 Case Sources.Normal
                     GotValue = ReadIni("Setup", Key, DefaultValue)
                 Case Sources.Registry
-                    GotValue = RegistryUtils.TryRead($"HKEY_CURRENT_USER\Software\{RegFolder}", Key, DefaultValue)
+                    GotValue = RegistryUtils.TryRead($"HKEY_CURRENT_USER\Software\{RegFolderOf(Key)}", Key, DefaultValue)
                 Case Sources.Instance
                     If Instance Is Nothing Then
                         Throw New Exception($"读取版本设置 {Key} 时未提供目标版本")
@@ -424,7 +450,7 @@ Public Class Settings
                     DeleteIniKey("Setup", Key)
                 Case Sources.Registry
                     Try
-                        RegistryUtils.Delete($"HKEY_CURRENT_USER\Software\{RegFolder}", Key)
+                        RegistryUtils.Delete($"HKEY_CURRENT_USER\Software\{RegFolderOf(Key)}", Key)
                     Catch ex As Exception
                         Logger.Warn(ex, $"删除注册表失败（{Key}）", LogBehavior.Toast)
                     End Try
@@ -456,7 +482,7 @@ Public Class Settings
                 Return HasIniKey("Setup", Key)
             Case Sources.Registry
                 Try
-                    Return RegistryUtils.Has($"HKEY_CURRENT_USER\Software\{RegFolder}", Key)
+                    Return RegistryUtils.Has($"HKEY_CURRENT_USER\Software\{RegFolderOf(Key)}", Key)
                 Catch ex As Exception
                     Logger.Warn(ex, $"判断注册表 {Key} 是否存在时出错")
                     Return False

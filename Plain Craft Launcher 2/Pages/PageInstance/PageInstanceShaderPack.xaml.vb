@@ -6,8 +6,6 @@
 Public Class PageInstanceShaderPack
     Implements IRefreshable
 
-    ''' <summary>停用后的扩展名后缀。</summary>
-    Private Const DisabledSuffix As String = ".disabled"
 
 #Region "初始化"
 
@@ -45,21 +43,14 @@ Public Class PageInstanceShaderPack
 
 #Region "列表"
 
+
     ''' <summary>
-    ''' 列表中的一个光影包，可能是 .zip、.zip.disabled，或者一个文件夹。
-    ''' 文件夹形态的 IsFolder 为 True，且不参与启用 / 停用。
+    ''' 列表中的一个光影包。
+    ''' 路径 / 显示名 / 启用状态 / 大小都继承自 <see cref="ModPackFolder.PackFolderItem"/>，
+    ''' 和资源包页共用同一套扫描与改名逻辑；这里只加光影包独有的字段。
     ''' </summary>
     Private Class ShaderPackItem
-        ''' <summary>完整路径（文件路径或文件夹路径）。</summary>
-        Public PackPath As String = ""
-        ''' <summary>显示名：文件夹名，或去掉 .disabled 的文件名。</summary>
-        Public DisplayName As String = ""
-        ''' <summary>是不是文件夹形态。</summary>
-        Public IsFolder As Boolean = False
-        ''' <summary>是否处于启用状态（文件夹形态恒为 True）。</summary>
-        Public IsEnabled As Boolean = False
-        ''' <summary>大小，字节；-1 表示读取失败。</summary>
-        Public SizeBytes As Long = -1
+        Inherits ModPackFolder.PackFolderItem
         ''' <summary>从 shaders\shaders.properties 里读到的名字，读不到就是空字符串。</summary>
         Public PackTitle As String = ""
         ''' <summary>
@@ -69,12 +60,6 @@ Public Class PageInstanceShaderPack
         Public IconBytes As Byte() = Nothing
         ''' <summary>列表里对应的那一行控件，展开配置面板时用来定位插入位置。</summary>
         Public Row As FrameworkElement = Nothing
-        ''' <summary>是否被停用（只有 zip 会被停用）。</summary>
-        Public ReadOnly Property IsDisabled As Boolean
-            Get
-                Return Not IsFolder AndAlso Not IsEnabled
-            End Get
-        End Property
     End Class
 
     '刷新序号，用于丢弃过期的后台扫描结果
@@ -110,46 +95,20 @@ Public Class PageInstanceShaderPack
 
     ''' <summary>
     ''' 扫描 shaderpacks 文件夹。
-    ''' 启用中的是 .zip，停用的改名为 .zip.disabled；文件夹形态由游戏直接读取，不能切换。
-    ''' 扫描时顺便读好图标与 shaders.properties 里的名字，避免每行再开一次压缩包。
+    ''' 磁盘约定与资源包页完全一致，交给 <see cref="ModPackFolder.ScanPackFolder"/> 统一处理；
+    ''' 这里只补光影包独有的图标与 shaders.properties 里的名字。
     ''' </summary>
     Private Function ScanPacks(Folder As String) As List(Of ShaderPackItem)
         Dim Items As New List(Of ShaderPackItem)
-        If Not DirectoryUtils.Exists(Folder) Then Return Items
-        '文件形态
-        For Each FilePath In DirectoryUtils.EnumerateFiles(Folder, False)
-            Dim FileName As String = PathUtils.GetLastPart(FilePath)
-            Dim Item As New ShaderPackItem With {.PackPath = FilePath}
-            If FileName.EndsWith(DisabledSuffix, StringComparison.OrdinalIgnoreCase) Then
-                Dim BaseName As String = FileName.Substring(0, FileName.Length - DisabledSuffix.Length)
-                If Not BaseName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) Then Continue For '不认识的扩展名，不当成光影包
-                Item.IsEnabled = False
-                Item.DisplayName = BaseName
-            ElseIf FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) Then
-                Item.IsEnabled = True
-                Item.DisplayName = FileName
-            Else
-                Continue For '不认识的扩展名，不当成光影包
-            End If
-            Item.SizeBytes = FileSizeOf(FilePath)
-            ReadPackInfo(Item)
-            Items.Add(Item)
-        Next
-        '文件夹形态：游戏会直接读，不参与启用 / 停用
-        For Each DirPath In DirectoryUtils.EnumerateDirectories(Folder, False)
+        '光影包页的既有习惯是显示名保留 .zip，所以这里传 KeepZipSuffix:=True
+        For Each Base In ModPackFolder.ScanPackFolder(Folder, "光影包", KeepZipSuffix:=True)
             Dim Item As New ShaderPackItem With {
-                .PackPath = DirPath, .DisplayName = PathUtils.GetLastPart(DirPath),
-                .IsFolder = True, .IsEnabled = True}
-            Item.SizeBytes = FolderSizeOf(DirPath)
+                .PackPath = Base.PackPath, .DisplayName = Base.DisplayName,
+                .IsFolder = Base.IsFolder, .IsEnabled = Base.IsEnabled,
+                .SizeBytes = Base.SizeBytes}
             ReadPackInfo(Item)
             Items.Add(Item)
         Next
-        '启用中的排在前面，其余按名字排
-        Items.Sort(
-            Function(A As ShaderPackItem, B As ShaderPackItem)
-                If A.IsDisabled <> B.IsDisabled Then Return If(A.IsDisabled, 1, -1)
-                Return String.Compare(A.DisplayName, B.DisplayName, StringComparison.OrdinalIgnoreCase)
-            End Function)
         Return Items
     End Function
 
@@ -287,17 +246,8 @@ Public Class PageInstanceShaderPack
         If Targets.Count = 0 Then Return
         Dim Done As Integer = 0
         For Each Entry In Targets
-            If Entry.IsEnabled = TargetEnabled Then Continue For
-            Try
-                Dim NewPath As String = If(TargetEnabled,
-                                           Entry.PackPath.Substring(0, Entry.PackPath.Length - ".disabled".Length),
-                                           Entry.PackPath & ".disabled")
-                If FileUtils.Exists(NewPath) Then Continue For
-                FileUtils.Move(Entry.PackPath, NewPath)
-                Done += 1
-            Catch ex As Exception
-                Logger.Warn(ex, "批量切换光影包状态失败：" & Entry.DisplayName)
-            End Try
+            Dim Result = ModPackFolder.SetPackEnabled(Entry, TargetEnabled, "光影包")
+            If Result.Ok Then Done += 1
         Next
         Hint($"已{If(TargetEnabled, "启用", "停用")} {Done} 个光影包", HintType.Green)
         SelectedPaths.Clear()
@@ -310,16 +260,7 @@ Public Class PageInstanceShaderPack
         If MyMsgBox($"确定删除这 {Targets.Count} 个光影包吗？此操作不可撤销。", "删除光影包", "删除", "取消", IsWarn:=True) <> 1 Then Return
         Dim Done As Integer = 0
         For Each Entry In Targets
-            Try
-                If Entry.IsFolder Then
-                    DirectoryUtils.Delete(Entry.PackPath, True)
-                Else
-                    FileUtils.Delete(Entry.PackPath)
-                End If
-                Done += 1
-            Catch ex As Exception
-                Logger.Warn(ex, "删除光影包失败：" & Entry.DisplayName)
-            End Try
+            If ModPackFolder.DeletePackItem(Entry, "光影包") Then Done += 1
         Next
         Hint($"已删除 {Done} 个光影包", HintType.Green)
         SelectedPaths.Clear()
@@ -385,37 +326,14 @@ Public Class PageInstanceShaderPack
         Return Item
     End Function
 
-    ''' <summary>
-    ''' 切换光影包的启用状态。
-    ''' Minecraft 只认扩展名：.zip 启用，.zip.disabled 停用，所以这里只改文件名。
-    ''' </summary>
+    ''' <summary>切换光影包的启用状态。改名逻辑与资源包页共用。</summary>
     Private Sub TogglePack(Entry As ShaderPackItem)
-        If Entry.IsFolder Then
-            Hint("文件夹形态的光影包不能在启动器里启用或停用。", HintType.Red)
-            Return
-        End If
-        If Not FileUtils.Exists(Entry.PackPath) Then
-            Hint("这个光影包文件已经不在了：" & Entry.DisplayName, HintType.Red)
+        Dim Result = ModPackFolder.SetPackEnabled(Entry, Not Entry.IsEnabled, "光影包")
+        If Not Result.Ok Then
+            Hint(Result.Reason, HintType.Red)
             RefreshList()
             Return
         End If
-        Dim NewPath As String
-        If Entry.IsEnabled Then
-            NewPath = Entry.PackPath & DisabledSuffix
-        Else
-            NewPath = Entry.PackPath.Substring(0, Entry.PackPath.Length - DisabledSuffix.Length)
-        End If
-        If FileUtils.Exists(NewPath) OrElse DirectoryUtils.Exists(NewPath) Then
-            Hint("目标文件已存在，改名会覆盖它，所以停下了：" & PathUtils.GetLastPart(NewPath), HintType.Red)
-            Return
-        End If
-        Try
-            FileUtils.Move(Entry.PackPath, NewPath)
-        Catch ex As Exception
-            Logger.Error(ex, "切换光影包状态失败", LogBehavior.Alert)
-            Hint("改名失败：" & ex.Message, HintType.Red)
-            Return
-        End Try
         Hint(If(Entry.IsEnabled, "已停用", "已启用") & "：" & Entry.DisplayName, HintType.Green)
         RefreshList()
     End Sub
@@ -434,16 +352,10 @@ Public Class PageInstanceShaderPack
     Private Sub DeletePack(Entry As ShaderPackItem)
         If MyMsgBox("确定要删除光影包「" & Entry.DisplayName & "」吗？" & vbCrLf & "此操作不可撤销。",
                     "删除光影包", "删除", "取消", IsWarn:=True) <> 1 Then Return
-        Try
-            If Entry.IsFolder Then
-                DirectoryUtils.Delete(Entry.PackPath, True)
-            Else
-                FileUtils.Delete(Entry.PackPath, True)
-            End If
-        Catch ex As Exception
-            Logger.Error(ex, "删除光影包失败", LogBehavior.Alert)
+        If Not ModPackFolder.DeletePackItem(Entry, "光影包") Then
+            Hint("删除失败，详情见日志：" & Entry.DisplayName, HintType.Red)
             Return
-        End Try
+        End If
         Logger.Info("已删除光影包：" & Entry.PackPath)
         Hint("已删除：" & Entry.DisplayName, HintType.Green)
         RefreshList()
@@ -947,30 +859,6 @@ Public Class PageInstanceShaderPack
         End Try
     End Function
 
-    Private Function FileSizeOf(FilePath As String) As Long
-        Try
-            Return FileUtils.GetInfo(FilePath).Length
-        Catch ex As Exception
-            Logger.Warn(ex, "读取光影包大小失败：" & FilePath)
-            Return -1
-        End Try
-    End Function
-
-    Private Function FolderSizeOf(DirPath As String) As Long
-        Try
-            Dim Total As Long = 0
-            For Each FilePath In DirectoryUtils.EnumerateFiles(DirPath, True)
-                Try
-                    Total += FileUtils.GetInfo(FilePath).Length
-                Catch
-                End Try
-            Next
-            Return Total
-        Catch ex As Exception
-            Logger.Warn(ex, "统计光影包文件夹大小失败：" & DirPath)
-            Return -1
-        End Try
-    End Function
 
     '搜索与筛选：只重绘列表，不重新扫盘
     '多选操作条

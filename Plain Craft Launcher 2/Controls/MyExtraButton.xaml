@@ -26,5 +26,16 @@
                 <ScaleTransform />
             </Path.RenderTransform>
         </Path>
+        <!-- 滚轮调音量时浮出的小气泡，只显示百分比 -->
+        <Popup Name="PopupWheel" AllowsTransparency="True" IsHitTestVisible="False" PopupAnimation="Fade"
+               Placement="Left" HorizontalOffset="-4" VerticalOffset="-18" StaysOpen="True">
+            <Border BorderBrush="{DynamicResource ColorBrush1}" BorderThickness="1.5" CornerRadius="3"
+                    Background="{DynamicResource ColorBrushCard}" Padding="9,4" SnapsToDevicePixels="True">
+                <Border.Effect>
+                    <DropShadowEffect Opacity="0.4" BlurRadius="4" ShadowDepth="2" />
+                </Border.Effect>
+                <TextBlock Name="TextWheel" Foreground="{DynamicResource ColorBrush1}" FontSize="12" FontWeight="Bold" />
+            </Border>
+        </Popup>
     </Grid>
 </Grid>

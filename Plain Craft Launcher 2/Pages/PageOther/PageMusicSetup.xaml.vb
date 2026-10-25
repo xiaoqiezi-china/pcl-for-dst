@@ -5,32 +5,9 @@
 Public Class PageMusicSetup
 
     Private Sub PageMusicSetup_Loaded(sender As Object, e As RoutedEventArgs) Handles Me.Loaded
-        InitVolume()
         RefreshCount()
     End Sub
 
-    ''' <summary>音量：读的是 PCL 自己的 UiMusicVolume（0..1000），界面用 0..100。</summary>
-    Private Sub InitVolume()
-        If SliderMusicVolume Is Nothing Then Return
-        AniControlEnabled += 1
-        Try
-            SliderMusicVolume.Value = Settings.Get(Of Integer)("UiMusicVolume") / 10
-            If LabSetupVolume IsNot Nothing Then LabSetupVolume.Text = SliderMusicVolume.Value & "%"
-        Finally
-            AniControlEnabled -= 1
-        End Try
-    End Sub
-
-    Private Sub SliderMusicVolume_Change(sender As Object, user As Boolean) Handles SliderMusicVolume.Change
-        Try
-            If Not user Then Return
-            If SliderMusicVolume Is Nothing Then Return
-            Settings.Set("UiMusicVolume", CInt(SliderMusicVolume.Value * 10))
-            If LabSetupVolume IsNot Nothing Then LabSetupVolume.Text = SliderMusicVolume.Value & "%"
-        Catch ex As Exception
-            Logger.Warn(ex, "保存音量失败")
-        End Try
-    End Sub
 
 #Region "网易云"
 

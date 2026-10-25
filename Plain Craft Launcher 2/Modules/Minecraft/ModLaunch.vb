@@ -125,7 +125,8 @@ Public Module ModLaunch
                 New LoaderCombo(Of String)("补全文件", DlClientFix(McInstanceSelected, False, True)) With {.ProgressWeight = 15, .Show = False},
                 New LoaderTask(Of String, Integer)("获取启动参数", AddressOf McLaunchArgumentMain) With {.ProgressWeight = 2},
                 New LoaderTask(Of Integer, Integer)("解压文件", AddressOf McLaunchNatives) With {.ProgressWeight = 2},
-                New LoaderTask(Of Integer, Integer)("预启动处理", AddressOf McLaunchPrerun) With {.ProgressWeight = 1},
+                New LoaderTask(Of Integer, Integer)("预启动处理", AddressOf McLaunchPrerun) With {.ProgressWeight = 1}, '排在预启动处理之后：options.txt 在那里被改写，否则我们写进去的 resourcePacks 会被盖掉
+                New LoaderTask(Of Integer, Integer)("获取汉化资源包", AddressOf McLaunchHanhua) With {.ProgressWeight = 2, .Block = False},
                 New LoaderTask(Of Integer, Integer)("执行自定义命令", AddressOf McLaunchCustom) With {.ProgressWeight = 1},
                 New LoaderTask(Of Integer, Process)("启动进程", AddressOf McLaunchRun) With {.ProgressWeight = 2},
                 New LoaderTask(Of Process, Integer)("等待游戏窗口出现", AddressOf McLaunchWait) With {.ProgressWeight = 1},
@@ -2006,6 +2007,23 @@ IgnoreCustomSkin:
         End Try
 
     End Sub
+    ''' <summary>
+    ''' 启动前自动获取汉化资源包（设置里开启「自动获取汉化」时）。
+    ''' 已经装好并启用就什么都不做；失败不影响启动，只提示。
+    ''' </summary>
+    Private Sub McLaunchHanhua(Loader As LoaderTask(Of Integer, Integer))
+        Try
+            If Settings.Get(Of Integer)("LaunchArgumentHanhua") <> 1 Then Return
+            If McInstanceSelected Is Nothing Then Return
+            ModHanhua.AutoFetch(McInstanceSelected, WaitForExit:=True)
+        Catch ex As Exception
+            '汉化拿不到不该拦着玩家进游戏
+            If ex.IsCanceled Then Return
+            Logger.Warn(ex, "自动获取汉化资源包失败")
+            McLaunchLog("自动获取汉化资源包失败：" & ex.Message)
+        End Try
+    End Sub
+
     Private Sub McLaunchCustom(Loader As LoaderTask(Of Integer, Integer))
 
         '获取自定义命令

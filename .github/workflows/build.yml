@@ -51,16 +51,61 @@ jobs:
 
 
     - name: Replace
+      shell: pwsh
       run: |
-        (gc "Plain Craft Launcher 2\Modules\ModSecret.vb") -replace 'Public OAuthClientId As String = If(Environment.GetEnvironmentVariable("PCL_MS_CLIENT_ID"), "")', 'Public OAuthClientId As String = If(Environment.GetEnvironmentVariable("PCL_MS_CLIENT_ID"), "${{ secrets.CLIENT_ID }}")' | Out-File "Plain Craft Launcher 2\Modules\ModSecret.vb"
-        (gc "Plain Craft Launcher 2\Modules\ModSecret.vb") -replace 'Public CurseForgeAPIKey As String = If(Environment.GetEnvironmentVariable("PCL_CURSEFORGE_API_KEY"), "")', 'Public CurseForgeAPIKey As String = If(Environment.GetEnvironmentVariable("PCL_CURSEFORGE_API_KEY"), "${{ secrets.CURSEFORGE_API_KEY }}")' | Out-File "Plain Craft Launcher 2\Modules\ModSecret.vb"
-        (gc "Plain Craft Launcher 2\Modules\Base\ModBase.vb") -replace 'Public Const CommitHash As String = ""', 'Public Const CommitHash As String = "${{ github.sha }}"' | Out-File "Plain Craft Launcher 2\Modules\Base\ModBase.vb"
+        # 用「环境变量调用的默认值」当锚点，而不是整行声明：
+        # 声明行的类型和修饰符会随重构变化（OAuthClientId 就改名成过 BuiltinOAuthClientId），
+        # 锚在 Environment.GetEnvironmentVariable(...) 上更稳。
+        # 这里用 .Replace() 而不是 -replace：锚点是纯字面量不必碰正则；
+        # 而且 -replace 的替换串里 $ 有特殊含义，会把 ${{ ... }} 当成分组引用。
+        $ErrorActionPreference = 'Stop'
+        $utf8 = New-Object System.Text.UTF8Encoding($false)
+
+        $secretFile = 'Plain Craft Launcher 2\Modules\ModSecret.vb'
+        $secretText = [System.IO.File]::ReadAllText((Resolve-Path $secretFile))
+        $secretText = $secretText.Replace(
+          'Environment.GetEnvironmentVariable("PCL_MS_CLIENT_ID"), ""',
+          'Environment.GetEnvironmentVariable("PCL_MS_CLIENT_ID"), "${{ secrets.CLIENT_ID }}"')
+        $secretText = $secretText.Replace(
+          'Environment.GetEnvironmentVariable("PCL_CURSEFORGE_API_KEY"), ""',
+          'Environment.GetEnvironmentVariable("PCL_CURSEFORGE_API_KEY"), "${{ secrets.CURSEFORGE_API_KEY }}"')
+        [System.IO.File]::WriteAllText((Resolve-Path $secretFile), $secretText, $utf8)
+
+        $baseFile = 'Plain Craft Launcher 2\Modules\Base\ModBase.vb'
+        $baseText = [System.IO.File]::ReadAllText((Resolve-Path $baseFile))
+        $baseText = $baseText.Replace(
+          'Public Const CommitHash As String = ""',
+          'Public Const CommitHash As String = "${{ github.sha }}"')
+        [System.IO.File]::WriteAllText((Resolve-Path $baseFile), $baseText, $utf8)
+
+        # 踩过的坑：替换匹配不到不会报错，CI 照样「构建成功」但一个凭据都没注入。
+        # 所以必须回读校验，对不上就让构建直接失败。
+        $expectId = '${{ secrets.CLIENT_ID }}'
+        $expectCf = '${{ secrets.CURSEFORGE_API_KEY }}'
+        $expectSha = '${{ github.sha }}'
+        $nowSecret = [System.IO.File]::ReadAllText((Resolve-Path $secretFile))
+        $nowBase = [System.IO.File]::ReadAllText((Resolve-Path $baseFile))
+        if ($expectId -ne '' -and -not $nowSecret.Contains($expectId)) { throw 'ClientId 注入失败：锚点未匹配' }
+        if ($expectCf -ne '' -and -not $nowSecret.Contains($expectCf)) { throw 'CurseForge Key 注入失败：锚点未匹配' }
+        if (-not $nowBase.Contains($expectSha)) { throw 'CommitHash 注入失败：锚点未匹配' }
+        Write-Host '凭据与 CommitHash 注入完成'
         
     - name: Restore NuGet Packages
       run: dotnet restore PCLCS\PCLCS.csproj
 
+    # 纯逻辑模块（NBT、路径工具）不依赖 WPF，可以脱离启动器直接跑。
+    # 放在编译之前：逻辑错了就不必浪费时间打包。
+    - name: Test
+      shell: bash
+      run: bash tests/run.sh
+
     - name: Build
       run: msbuild "Plain Craft Launcher 2\Plain Craft Launcher 2.vbproj" -p:Configuration=${{ matrix.configuration }}
+
+    # DPCL 是另一条产品线（纯增强版、不含在线服务），走完全独立的编译符号与产物名。
+    # 它同样要被 CI 覆盖：这条线平时改得少，一旦坏了没人会立刻发现。
+    - name: Build DPCL
+      run: msbuild "Plain Craft Launcher 2\Plain Craft Launcher 2.vbproj" -p:Configuration=${{ matrix.configuration }} -p:DpclBuild=true -p:OutputPath=bin-dpcl/
 
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v7

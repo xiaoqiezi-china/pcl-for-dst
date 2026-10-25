@@ -59,8 +59,8 @@
         <!-- 配置卡片：初始居中显示，渲染时淡出 -->
         <Border x:Name="CardSetup" Width="460" CornerRadius="8" Padding="0"
                 HorizontalAlignment="Center" VerticalAlignment="Center"
-                Background="#D91E2228"
-                BorderBrush="#40FFFFFF" BorderThickness="1">
+                Background="{DynamicResource ColorBrushCard}"
+                BorderBrush="{DynamicResource ColorBrushCardBorder}" BorderThickness="1">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="24" ShadowDepth="0" Opacity="0.5" Color="#000000" />
             </Border.Effect>
@@ -102,19 +102,19 @@
         <!-- 右上角：鼠标指向的方块信息 + 点选后的改色区 -->
         <Border x:Name="PanPick" HorizontalAlignment="Right" VerticalAlignment="Top"
                 Margin="0,14,14,0" Padding="10,8" CornerRadius="6"
-                Background="#E6121418" Visibility="Collapsed" MinWidth="200"
+                Background="{DynamicResource ColorBrushCard}" Visibility="Collapsed" MinWidth="200"
                 MouseEnter="PanPick_MouseEnter">
             <StackPanel>
-                <TextBlock x:Name="LabPickCoord" Text="" FontSize="11.5" FontWeight="Bold" Foreground="#FFEDEDED" />
-                <TextBlock x:Name="LabPickBlock" Text="" FontSize="11" Foreground="#FF9DB4C8" Margin="0,3,0,0" />
-                <TextBlock x:Name="LabPickChunk" Text="" FontSize="10.5" Foreground="#FF7A8894" Margin="0,2,0,0" />
+                <TextBlock x:Name="LabPickCoord" Text="" FontSize="11.5" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" />
+                <TextBlock x:Name="LabPickBlock" Text="" FontSize="11" Foreground="{DynamicResource ColorBrushGray3}" Margin="0,3,0,0" />
+                <TextBlock x:Name="LabPickChunk" Text="" FontSize="10.5" Foreground="{DynamicResource ColorBrushGray4}" Margin="0,2,0,0" />
 
                 <!-- 选中方块后才显示：当前颜色 + 调色板 -->
                 <StackPanel x:Name="PanPickEdit" Margin="0,8,0,0" Visibility="Collapsed">
                     <StackPanel Orientation="Horizontal">
                         <Border x:Name="SwatchPick" Width="22" Height="22" CornerRadius="4"
-                                VerticalAlignment="Center" BorderBrush="#40FFFFFF" BorderThickness="1" />
-                        <TextBlock x:Name="LabPickHex" Text="" FontSize="11" Foreground="#FF9DB4C8"
+                                VerticalAlignment="Center" BorderBrush="{DynamicResource ColorBrushGray5}" BorderThickness="1" />
+                        <TextBlock x:Name="LabPickHex" Text="" FontSize="11" Foreground="{DynamicResource ColorBrushGray3}"
                                    VerticalAlignment="Center" Margin="8,0,0,0" />
                         <local:MyIconButton x:Name="BtnPickReset" Width="22" Height="22" LogoScale="0.7"
                                             Margin="8,0,0,0" ToolTip="恢复默认颜色"

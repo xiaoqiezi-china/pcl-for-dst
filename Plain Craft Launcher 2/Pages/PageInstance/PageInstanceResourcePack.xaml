@@ -24,6 +24,8 @@
                                         Padding="13,0" Margin="0,0,15,0" HorizontalAlignment="Left" />
                         <local:MyButton x:Name="BtnSelectAll" Grid.Column="2" MinWidth="110" Text="全选"
                                         Padding="13,0" Margin="0,0,15,0" HorizontalAlignment="Left" />
+                        <local:MyButton x:Name="BtnFetchHanhua" Grid.Column="3" MinWidth="110" Text="获取汉化"
+                                        Padding="13,0" HorizontalAlignment="Left" ToolTip="下载 CFPA 自动构建的汉化资源包，覆盖安装到当前版本" />
                     </Grid>
                 </local:MyCard>
 

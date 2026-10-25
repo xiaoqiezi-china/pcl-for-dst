@@ -26,6 +26,7 @@ Public Class Application
                                 NewKey.SetValue(Name, Value, OldKey.GetValueKind(Name))
                                 Count += 1
                             Catch ex As Exception
+                                Logger.Warn(ex, $"迁移设置项失败：{Name}")
                             End Try
                         Next
                     Else
@@ -40,6 +41,7 @@ Public Class Application
                                 NewKey.SetValue(Name, Value, OldKey.GetValueKind(Name))
                                 Count += 1
                             Catch ex As Exception
+                                Logger.Warn(ex, $"补搬 Dst 设置项失败：{Name}")
                             End Try
                         Next
                     End If
@@ -51,6 +53,66 @@ Public Class Application
         End Try
     End Sub
 
+    ''' <summary>
+    ''' 把账号凭据从 Software\PCL 搬到 Software\PCL\DST（只搬一次）。
+    ''' <para>
+    ''' 判断依据不是「新键是否为空」，而是「旧键里那份密文我们解不解得开」：
+    ''' 加密密钥是 "PCL" &amp; Identify，我们自己写的一直是 0000-0000-0000-0000，
+    ''' 所以能解开就说明是 DST 写的，放心搬；解不开说明是官方版写的，绝对不要动它。
+    ''' </para>
+    ''' <para>
+    ''' 这条判断很关键：之前两版共用同一个键，我们读不懂官方版的密文时会把值重置成默认值，
+    ''' 等于把对方的登录状态抹掉。分开存之后就不会再发生。
+    ''' </para>
+    ''' </summary>
+    Private Shared Sub MigrateAccountRegistry()
+        Try
+            Const OldPath As String = "Software\PCL"
+            Const NewPath As String = "Software\PCL\DST"
+            Using NewKey As Microsoft.Win32.RegistryKey = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(NewPath)
+                '新键已经有凭据了，说明搬过了，不再重复处理
+                If NewKey IsNot Nothing AndAlso NewKey.GetValue("CacheMsV2OAuthRefresh") IsNot Nothing Then Return
+            End Using
+            Using OldKey As Microsoft.Win32.RegistryKey = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(OldPath)
+                If OldKey Is Nothing Then Return
+                '旧键里没有正版凭据，无事可做
+                Dim Raw As Object = OldKey.GetValue("CacheMsV2OAuthRefresh")
+                If Raw Is Nothing OrElse CStr(Raw) = "" Then Return
+                '密钥是 "PCL" & Identify，所以旧键里的 Identify 就是判断依据：
+                '等于本地这个值，说明凭据是我们写的；不等就说明是官方版写的，绝不能动
+                Dim OldIdentify As String = ""
+                Try
+                    Dim RawIdentify As Object = OldKey.GetValue("Identify")
+                    If RawIdentify IsNot Nothing Then OldIdentify = CStr(RawIdentify).Trim()
+                Catch
+                End Try
+                If OldIdentify <> "" AndAlso OldIdentify <> Identify Then
+                    Logger.Info($"Software\PCL 的识别码是 {OldIdentify}，与本地不同，凭据来自其它 PCL 版本，保留原样不迁移")
+                    Return
+                End If
+
+                '确实是我们的，搬到新键
+                Using Target As Microsoft.Win32.RegistryKey = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(NewPath)
+                    If Target Is Nothing Then Return
+                    Dim Count As Integer = 0
+                    For Each Name As String In OldKey.GetValueNames()
+                        Try
+                            If Not IsAccountSetting(Name) Then Continue For
+                            Dim Value As Object = OldKey.GetValue(Name)
+                            If Value Is Nothing Then Continue For
+                            Target.SetValue(Name, Value, OldKey.GetValueKind(Name))
+                            Count += 1
+                        Catch ex As Exception
+                            Logger.Warn(ex, $"迁移账号凭据失败：{Name}")
+                        End Try
+                    Next
+                    Logger.Info($"已把 {Count} 项账号凭据迁移到 Software\PCL\DST")
+                End Using
+            End Using
+        Catch ex As Exception
+            Logger.Warn(ex, "迁移账号凭据失败")
+        End Try
+    End Sub
     '开始
     Private Sub Application_Startup(sender As Object, e As StartupEventArgs) Handles Me.Startup
         Try
@@ -63,6 +125,12 @@ Public Class Application
             End If
             '把旧版写在 Software\DSTLauncher 的设置搬到 Software\PCL（只搬一次）
             MigrateLegacyRegistry()
+            '账号凭据单独存到 Software\PCL\DST，避免与官方版互相覆盖
+            MigrateAccountRegistry()
+            '释放本地配置：只在新装时写一份，之后更新启动器不会碰它
+            ModConfigFile.EnsureExists()
+            '先把上次成功的预设备份读回来，这样没网也有预设可选
+            ModPresetSource.LoadFromBackup()
             '提升主线程优先级
             Thread.CurrentThread.Priority = ThreadPriority.Highest
             '执行开发版测试

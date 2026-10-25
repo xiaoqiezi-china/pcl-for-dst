@@ -8,10 +8,20 @@
 ''' </summary>
 Public Module DstAppearanceSetup
 
-    ''' <summary>外观选择已经问过的版本号；与本机当前版本一致就不再问。</summary>
+    ''' <summary>
+    ''' 外观选择是否已经问过。
+    ''' <para>
+    ''' 用一次性标记，不跟版本号绑定：外观是「选一次就长期有效」的偏好，
+    ''' 若拿版本号做标记，每发一个新版本都会再把所有人问一遍。
+    ''' </para>
+    ''' <para>
+    ''' 老版本只写过 DstAppearanceAskedVersion，那里有值就说明问过，直接迁移过来。
+    ''' </para>
+    ''' </summary>
     Private ReadOnly Property HasAsked As Boolean
         Get
-            Return Settings.Get(Of String)("DstAppearanceAskedVersion") = VersionBaseName
+            If Settings.Get(Of Boolean)("DstAppearanceAsked") Then Return True
+            Return Settings.Get(Of String)("DstAppearanceAskedVersion") <> ""
         End Get
     End Property
 
@@ -30,6 +40,8 @@ Public Module DstAppearanceSetup
             Dim Choice As Integer = MyMsgBox(Text, "选择界面外观", "PCL Inder", "PCL")
             Dim Value As Integer = If(Choice = 1, 1, 0)
             Settings.Set("DstAppearance", Value)
+            Settings.Set("DstAppearanceAsked", True)
+            '保留版本记录，方便排查「用户是在哪个版本上选的」
             Settings.Set("DstAppearanceAskedVersion", VersionBaseName)
             ConfigUtils.SaveAll()
             '外观要重启才能完整生效，这里先按选择应用一次骨架，避免下次启动前看着不对

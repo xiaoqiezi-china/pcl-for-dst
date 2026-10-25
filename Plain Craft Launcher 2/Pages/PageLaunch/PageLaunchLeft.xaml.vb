@@ -313,6 +313,17 @@ Public Class PageLaunchLeft
         End If
         'QQ 形态优先级最高，不受版本级登录设置的干扰
         If Settings.Get(Of Boolean)("DstQqMode") Then LoginPageType = 2
+        'DPCL 不带任何在线服务，QQ 形态一律不可用：
+        '即使旧配置里还留着 VersionServerLogin=2，也要回到正版页
+#If DPCL_BUILD Then
+        If LoginPageType = 2 Then
+            LoginPageType = 0
+            '版本级设置也要改回来，否则下次进这个版本又会跳回 QQ 页
+            If McInstanceSelected IsNot Nothing Then Settings.Set("VersionServerLogin", 0, Instance:=McInstanceSelected)
+            Settings.Set("LoginPageType", 0)
+        End If
+        Settings.Set("DstQqMode", False)
+#End If
         Select Case LoginPageType
             Case 2 'QQ 绑定形态
                 Type = PageType.Qq
@@ -401,6 +412,8 @@ UnknownType:
             If Control IsNot Nothing Then Control.Checked = True
         End If
         ApplyQqModeUi()
+        '每次进启动页都按当前模式重算登录方式的可见性
+        ApplyLoginTypeVisibility()
         '群列表到位后再刷一次，否则群名显示不出来
         If Type = PageType.Qq Then DstBot.FetchGroups(OnDone:=AddressOf ApplyQqModeUi)
     End Sub
@@ -792,11 +805,19 @@ Finish:
         End Sub)
     End Sub
 
+    ''' <summary>
+    ''' 按当前模式决定登录方式按钮的可见性。
+    ''' 常规模式下没有远程服务，QQ 登录没有意义。
+    ''' </summary>
+    Private Sub ApplyLoginTypeVisibility()
+        If RadioLoginTypeQq Is Nothing Then Return
+        RadioLoginTypeQq.Visibility = If(DstBot.IsOffline, Visibility.Collapsed, Visibility.Visible)
+    End Sub
     ''' <summary>模式切换后把主页与 QQ 页一起刷新。</summary>
     Public Sub RefreshDependentViewsAfterModeChange()
         Try
             '常规模式下没有远程服务，QQ 登录方式没有意义，直接藏掉
-            RadioLoginTypeQq.Visibility = If(DstBot.IsOffline, Visibility.Collapsed, Visibility.Visible)
+            ApplyLoginTypeVisibility()
             If FrmLaunchRight IsNot Nothing Then
                 FrmLaunchRight.ApplyOfflineUi()
                 FrmLaunchRight.ReloadForGroupChange()

@@ -61,13 +61,32 @@ Friend Module ModFavorite
         Return Arr.ToString(Newtonsoft.Json.Formatting.None)
     End Function
 
-    ''' <summary>把 JSON 解析成记录列表；解析失败返回空列表。</summary>
+    ''' <summary>云端数据的上限：超过就没法当成收藏夹，直接丢弃并记日志。</summary>
+    Private Const CloudMaxBytes As Integer = 1024 * 1024
+    Private Const CloudMaxItems As Integer = 10000
+
     Private Function ParseEntries(Json As String) As List(Of FavoriteEntry)
         Dim Result As New List(Of FavoriteEntry)
         If String.IsNullOrWhiteSpace(Json) Then Return Result
+        '云端内容不是我们生成的，进来先做两道硬限制：
+        '超长文本会把内存吃光，深层嵌套会让解析栈溢出
+        If Json.Length > CloudMaxBytes Then
+            Logger.Warn($"云端收藏数据过大（{Json.Length} 字符），已忽略")
+            Return Result
+        End If
         Try
-            Dim Arr As JArray = JArray.Parse(Json)
+            'Newtonsoft 的 JArray.Parse 没有深度参数，得自己用 JsonReader 卡住
+            Dim Arr As JArray
+            Using Reader As New IO.StringReader(Json)
+                Using Jr As New Newtonsoft.Json.JsonTextReader(Reader) With {.MaxDepth = 32}
+                    Arr = JArray.Load(Jr)
+                End Using
+            End Using
+            If Arr.Count > CloudMaxItems Then
+                Logger.Warn($"云端收藏条目过多（{Arr.Count} 条），已只取前 {CloudMaxItems} 条")
+            End If
             For Each One As JToken In Arr
+                If Result.Count >= CloudMaxItems Then Exit For
                 Dim E As New FavoriteEntry With {
                     .ResourceType = Val(If(One("t"), "0").ToString()),
                     .Title = If(One("n"), "").ToString(),

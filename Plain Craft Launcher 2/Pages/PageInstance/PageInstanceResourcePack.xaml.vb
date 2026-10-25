@@ -25,6 +25,17 @@ Public Class PageInstanceResourcePack
         End Get
     End Property
 
+    ''' <summary>
+    ''' 当前版本真正决定资源包启停的 options.txt。
+    ''' 游戏只认这里的 resourcePacks 列表，文件夹里有文件不代表被启用。
+    ''' </summary>
+    Private ReadOnly Property OptionsFile As String
+        Get
+            If PageInstanceLeft.Instance Is Nothing Then Return ""
+            Return PageInstanceLeft.Instance.PathIndie & "options.txt"
+        End Get
+    End Property
+
     ''' <summary>刷新资源包列表。会被侧边栏的刷新按钮调用。</summary>
     Public Sub Refresh() Implements IRefreshable.Refresh
         RefreshList()
@@ -34,24 +45,13 @@ Public Class PageInstanceResourcePack
 
 #Region "列表"
 
-    ''' <summary>列表中的一个资源包。文件夹形态的 IsFolder 为 True，且不参与启用 / 停用。</summary>
+    ''' <summary>
+    ''' 列表中的一个资源包。
+    ''' 字段与磁盘约定都来自 <see cref="ModPackFolder.PackFolderItem"/>，
+    ''' 和光影包页共用同一套扫描与改名逻辑，这里只是给本页起个短名字。
+    ''' </summary>
     Private Class PackItem
-        ''' <summary>完整路径（文件路径或文件夹路径）。</summary>
-        Public PackPath As String = ""
-        ''' <summary>显示名：文件夹名，或去掉 .zip / .zip.disabled 的文件名。</summary>
-        Public DisplayName As String = ""
-        ''' <summary>是不是文件夹形态。</summary>
-        Public IsFolder As Boolean = False
-        ''' <summary>是否处于启用状态（文件夹形态恒为 True）。</summary>
-        Public IsEnabled As Boolean = False
-        ''' <summary>大小，字节。</summary>
-        Public SizeBytes As Long = 0
-        ''' <summary>是否被停用（只有 zip 会被停用）。</summary>
-        Public ReadOnly Property IsDisabled As Boolean
-            Get
-                Return Not IsFolder AndAlso Not IsEnabled
-            End Get
-        End Property
+        Inherits ModPackFolder.PackFolderItem
     End Class
 
     '刷新序号，用于丢弃过期的后台扫描结果
@@ -80,41 +80,17 @@ Public Class PageInstanceResourcePack
         Sub()
             Dim Items As New List(Of PackItem)
             Try
-                If DirectoryUtils.Exists(Folder) Then
-                    'zip：启用的是 .zip，停用的改名为 .zip.disabled
-                    For Each FilePath In DirectoryUtils.EnumerateFiles(Folder, False)
-                        Dim FileName As String = PathUtils.GetLastPart(FilePath)
-                        Dim Item As New PackItem With {.PackPath = FilePath}
-                        If FileName.EndsWith(".zip.disabled", StringComparison.OrdinalIgnoreCase) Then
-                            Item.IsEnabled = False
-                            Item.DisplayName = FileName.Substring(0, FileName.Length - ".zip.disabled".Length)
-                        ElseIf FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) Then
-                            Item.IsEnabled = True
-                            Item.DisplayName = PathUtils.GetFileNameWithoutExtension(FilePath)
-                        Else
-                            Continue For '不认识的扩展名，不当成资源包
-                        End If
-                        Item.SizeBytes = FileSizeOf(FilePath)
-                        Items.Add(Item)
-                    Next
-                    '文件夹形态：游戏会直接读，不参与启用 / 停用
-                    For Each DirPath In DirectoryUtils.EnumerateDirectories(Folder, False)
-                        Dim Item As New PackItem With {
-                            .PackPath = DirPath, .DisplayName = PathUtils.GetLastPart(DirPath),
-                            .IsFolder = True, .IsEnabled = True}
-                        Item.SizeBytes = FolderSizeOf(DirPath)
-                        Items.Add(Item)
-                    Next
-                End If
+                '扫描规则与光影包页共用：.zip 启用、.zip.disabled 停用、文件夹不参与切换
+                For Each Entry In ModPackFolder.ScanPackFolder(Folder, "资源包", OptionsFile:=OptionsFile)
+                    Items.Add(New PackItem With {
+                        .PackPath = Entry.PackPath, .DisplayName = Entry.DisplayName,
+                        .IsFolder = Entry.IsFolder, .IsEnabled = Entry.IsEnabled,
+                        .IsActive = Entry.IsActive,
+                        .SizeBytes = Entry.SizeBytes})
+                Next
             Catch ex As Exception
                 Logger.Warn(ex, "读取资源包文件夹失败")
             End Try
-            '启用中的排在前面，其余按名字排
-            Items.Sort(
-                Function(A As PackItem, B As PackItem)
-                    If A.IsDisabled <> B.IsDisabled Then Return If(A.IsDisabled, 1, -1)
-                    Return String.Compare(A.DisplayName, B.DisplayName, StringComparison.OrdinalIgnoreCase)
-                End Function)
             RunInUi(
             Sub()
                 If Token <> RefreshToken Then Return '已经有更新的一次扫描了
@@ -149,9 +125,10 @@ Public Class PageInstanceResourcePack
         For Each Item In AllItems
             If Keyword <> "" AndAlso
                Item.DisplayName.IndexOf(Keyword, StringComparison.OrdinalIgnoreCase) < 0 Then Continue For
+            '筛选依据是游戏是否真的加载了它，不是文件后缀
             Select Case Mode
-                Case 1 : If Not Item.IsEnabled Then Continue For
-                Case 2 : If Item.IsEnabled Then Continue For
+                Case 1 : If Not Item.IsActive Then Continue For
+                Case 2 : If Item.IsActive Then Continue For
             End Select
             Shown.Add(Item)
         Next
@@ -167,7 +144,7 @@ Public Class PageInstanceResourcePack
             PanList.Children.Add(BuildPackRow(Entry))
         Next
         PanList.Children.Add(New TextBlock With {
-            .Text = $"共 {Shown.Count} 个。启用中的资源包是 .zip，停用后改名成 .zip.disabled；文件夹形态的资源包由游戏直接读取，这里不能切换。",
+            .Text = $"共 {Shown.Count} 个",
             .FontSize = 11, .Opacity = 0.45, .TextWrapping = TextWrapping.Wrap,
             .Margin = New Thickness(2, 6, 0, 0)
         })
@@ -204,11 +181,11 @@ Public Class PageInstanceResourcePack
             Return
         End If
         LabSelect.Text = $"已选择 {Count} 个文件"
-        '文件夹形态不能改启用状态，只有全部是可切换的 zip 时才亮
-        Dim CanToggle As Boolean = SelectedPaths.All(
-            Function(P) AllItems.Any(Function(I) I.PackPath = P AndAlso Not I.IsFolder))
-        BtnSelectEnable.IsEnabled = CanToggle
-        BtnSelectDisable.IsEnabled = CanToggle
+        '启用 = 在 options.txt 里；停用 = 在文件夹里但不在 options.txt 里。
+        '所以两个按钮各看各的：已经全启用时「启用」无事可做，反之亦然。
+        Dim Selected As List(Of PackItem) = AllItems.Where(Function(I) SelectedPaths.Contains(I.PackPath)).ToList()
+        BtnSelectEnable.IsEnabled = Selected.Any(Function(I) Not I.IsActive)
+        BtnSelectDisable.IsEnabled = Selected.Any(Function(I) I.IsActive)
         If CardSelect.Visibility <> Visibility.Visible Then
             CardSelect.Visibility = Visibility.Visible
             CardSelect.Opacity = 0
@@ -218,29 +195,48 @@ Public Class PageInstanceResourcePack
 
     ''' <summary>批量启用 / 停用选中的资源包。</summary>
     Private Sub BatchToggle(TargetEnabled As Boolean)
-        Dim Targets = AllItems.Where(Function(I) SelectedPaths.Contains(I.PackPath) AndAlso Not I.IsFolder).ToList()
+        Dim Targets = AllItems.Where(Function(I) SelectedPaths.Contains(I.PackPath) AndAlso I.IsActive <> TargetEnabled).ToList()
         If Targets.Count = 0 Then Return
         Dim Done As Integer = 0
+        Dim Failed As New List(Of String)
         For Each Entry In Targets
-            If Entry.IsEnabled = TargetEnabled Then Continue For
-            Try
-                Dim NewPath As String = If(TargetEnabled,
-                                           Entry.PackPath.Substring(0, Entry.PackPath.Length - ".disabled".Length),
-                                           Entry.PackPath & ".disabled")
-                If FileUtils.Exists(NewPath) AndAlso Not String.Equals(NewPath, Entry.PackPath, StringComparison.OrdinalIgnoreCase) Then
-                    Logger.Warn("批量切换跳过（目标已存在）：" & NewPath)
-                    Continue For
-                End If
-                FileUtils.Move(Entry.PackPath, NewPath)
+            Dim Reason As String = SetPackActive(Entry, TargetEnabled)
+            If Reason = "" Then
                 Done += 1
-            Catch ex As Exception
-                Logger.Warn(ex, "批量切换资源包状态失败：" & Entry.DisplayName)
-            End Try
+            Else
+                Failed.Add(Entry.DisplayName & "：" & Reason)
+            End If
         Next
         Hint($"已{(If(TargetEnabled, "启用", "停用"))} {Done} 个资源包", HintType.Green)
+        '失败原因汇总成一条，别刷屏
+        If Failed.Count > 0 Then Hint($"{Failed.Count} 个没能切换：" & String.Join("；", Failed.Take(3)), HintType.Red)
         SelectedPaths.Clear()
         RefreshList()
     End Sub
+
+    ''' <summary>
+    ''' 启用或停用一个资源包，返回空字符串表示成功，否则是可以直接展示的原因。
+    ''' <para>
+    ''' 只改 options.txt 里的 resourcePacks 列表，不碰磁盘上的文件名：
+    ''' 游戏认的是这份列表，文件一直留在 resourcepacks 文件夹里。
+    ''' </para>
+    ''' </summary>
+    Private Function SetPackActive(Entry As PackItem, TargetActive As Boolean) As String
+        If Entry Is Nothing Then Return "条目为空"
+        '极老的版本可能留着 .zip.disabled 的文件，启用时先改回 .zip，否则游戏根本读不到它
+        If TargetActive AndAlso Not Entry.IsFolder AndAlso Not Entry.IsEnabled Then
+            Dim Result = ModPackFolder.SetPackEnabled(Entry, True, "资源包")
+            If Not Result.Ok Then Return Result.Reason
+            Entry.PackPath = Result.NewPath
+        End If
+        Dim PackName As String = PathUtils.GetLastPart(Entry.PackPath)
+        If TargetActive Then
+            If Not ModPackState.EnablePack(OptionsFile, "file/" & PackName) Then Return "写入失败"
+        Else
+            If Not ModPackState.DisablePack(OptionsFile, "file/" & PackName) Then Return "写入失败"
+        End If
+        Return ""
+    End Function
 
     ''' <summary>批量删除选中的资源包。</summary>
     Private Sub BatchDelete()
@@ -249,16 +245,7 @@ Public Class PageInstanceResourcePack
         If MyMsgBox($"确定删除这 {Targets.Count} 个资源包吗？此操作不可撤销。", "删除资源包", "删除", "取消", IsWarn:=True) <> 1 Then Return
         Dim Done As Integer = 0
         For Each Entry In Targets
-            Try
-                If Entry.IsFolder Then
-                    DirectoryUtils.Delete(Entry.PackPath, True)
-                Else
-                    FileUtils.Delete(Entry.PackPath)
-                End If
-                Done += 1
-            Catch ex As Exception
-                Logger.Warn(ex, "删除资源包失败：" & Entry.DisplayName)
-            End Try
+            If ModPackFolder.DeletePackItem(Entry, "资源包") Then Done += 1
         Next
         Hint($"已删除 {Done} 个资源包", HintType.Green)
         SelectedPaths.Clear()
@@ -267,29 +254,6 @@ Public Class PageInstanceResourcePack
 
 #End Region
 
-    Private Function FileSizeOf(FilePath As String) As Long
-        Try
-            Return FileUtils.GetInfo(FilePath).Length
-        Catch ex As Exception
-            Logger.Warn(ex, "读取资源包大小失败：" & FilePath)
-            Return 0
-        End Try
-    End Function
-
-    Private Function FolderSizeOf(DirPath As String) As Long
-        Dim Total As Long = 0
-        Try
-            For Each FilePath In DirectoryUtils.EnumerateFiles(DirPath, True)
-                Try
-                    Total += FileUtils.GetInfo(FilePath).Length
-                Catch
-                End Try
-            Next
-        Catch ex As Exception
-            Logger.Warn(ex, "统计资源包文件夹大小失败：" & DirPath)
-        End Try
-        Return Total
-    End Function
 
 #End Region
 
@@ -297,15 +261,17 @@ Public Class PageInstanceResourcePack
 
     ''' <summary>一个资源包行：图标 + 名字 + 状态与大小 + 右侧图标按钮。</summary>
     Private Function BuildPackRow(Entry As PackItem) As FrameworkElement
-        Dim StateText As String = If(Entry.IsFolder, "文件夹", If(Entry.IsEnabled, "已启用", "已停用"))
+        '「已启用」说的是游戏里真的加载了它；文件在但没勾选是「未启用」
+        Dim StateText As String = If(Entry.IsActive, "已启用", "未启用")
+        If Entry.IsFolder Then StateText = "文件夹"
         Dim SubText As String = StateText & " · " & StringUtils.FormatByteSize(Entry.SizeBytes)
         Dim Buttons As New List(Of FrameworkElement)
-        '启用 / 停用：文件夹形态不显示
+        '启用 / 停用：文件夹形态由游戏直接读取，没有这个概念
         If Not Entry.IsFolder Then
             Dim BtnToggle As New MyIconButton With {
-                .Logo = If(Entry.IsEnabled, Logo.IconButtonStop, Logo.IconButtonCheck),
+                .Logo = If(Entry.IsActive, Logo.IconButtonStop, Logo.IconButtonCheck),
                 .Width = 26, .Height = 26, .LogoScale = 0.8, .Margin = New Thickness(6, 0, 0, 0),
-                .ToolTip = If(Entry.IsEnabled, "停用", "启用")}
+                .ToolTip = If(Entry.IsActive, "停用", "启用")}
             AddHandler BtnToggle.Click, Sub() TogglePack(Entry)
             Buttons.Add(BtnToggle)
         End If
@@ -325,7 +291,7 @@ Public Class PageInstanceResourcePack
         Dim Item As New MyLocalModItem With {
             .Title = Entry.DisplayName,
             .Description = SubText,
-            .ItemIsEnabled = Entry.IsEnabled,
+            .ItemIsEnabled = Entry.IsActive,
             .Checked = SelectedPaths.Contains(Entry.PackPath),
             .LogoSource = PackIconPath(Entry)
         }
@@ -339,38 +305,16 @@ Public Class PageInstanceResourcePack
         Return Item
     End Function
 
-    ''' <summary>
-    ''' 切换资源包的启用状态。
-    ''' Minecraft 只认扩展名：.zip 启用，.zip.disabled 停用，所以这里只改文件名。
-    ''' </summary>
+    ''' <summary>切换资源包的启用状态（只改 options.txt）。</summary>
     Private Sub TogglePack(Entry As PackItem)
-        If Entry.IsFolder Then
-            Hint("文件夹形态的资源包不能在启动器里启用或停用。", HintType.Red)
-            Return
-        End If
-        If Not FileUtils.Exists(Entry.PackPath) Then
-            Hint("这个资源包文件已经不在了：" & Entry.DisplayName, HintType.Red)
+        Dim TargetActive As Boolean = Not Entry.IsActive
+        Dim Reason As String = SetPackActive(Entry, TargetActive)
+        If Reason <> "" Then
+            Hint(Reason, HintType.Red)
             RefreshList()
             Return
         End If
-        Dim NewPath As String
-        If Entry.IsEnabled Then
-            NewPath = Entry.PackPath & ".disabled"
-        Else
-            NewPath = Entry.PackPath.Substring(0, Entry.PackPath.Length - ".disabled".Length)
-        End If
-        If FileUtils.Exists(NewPath) Then
-            Hint("目标文件已存在，改名会覆盖它，所以停下了：" & PathUtils.GetLastPart(NewPath), HintType.Red)
-            Return
-        End If
-        Try
-            FileUtils.Move(Entry.PackPath, NewPath)
-        Catch ex As Exception
-            Logger.Error(ex, "切换资源包状态失败", LogBehavior.Alert)
-            Hint("改名失败：" & ex.Message, HintType.Red)
-            Return
-        End Try
-        Hint(If(Entry.IsEnabled, "已停用", "已启用") & "：" & Entry.DisplayName, HintType.Green)
+        Hint(If(TargetActive, "已启用", "已停用") & "：" & Entry.DisplayName, HintType.Green)
         RefreshList()
     End Sub
 
@@ -388,16 +332,10 @@ Public Class PageInstanceResourcePack
     Private Sub DeletePack(Entry As PackItem)
         If MyMsgBox("确定要删除资源包「" & Entry.DisplayName & "」吗？" & vbCrLf & "此操作不可撤销。",
                     "删除资源包", "删除", "取消", IsWarn:=True) <> 1 Then Return
-        Try
-            If Entry.IsFolder Then
-                DirectoryUtils.Delete(Entry.PackPath, True)
-            Else
-                FileUtils.Delete(Entry.PackPath, True)
-            End If
-        Catch ex As Exception
-            Logger.Error(ex, "删除资源包失败", LogBehavior.Alert)
+        If Not ModPackFolder.DeletePackItem(Entry, "资源包") Then
+            Hint("删除失败，详情见日志：" & Entry.DisplayName, HintType.Red)
             Return
-        End Try
+        End If
         Logger.Info("已删除资源包：" & Entry.PackPath)
         Hint("已删除：" & Entry.DisplayName, HintType.Green)
         RefreshList()
@@ -422,6 +360,12 @@ Public Class PageInstanceResourcePack
     Private Sub BtnRefresh_Click(sender As Object, e As EventArgs) Handles BtnRefresh.Click
         Hint("正在刷新……", Log:=False)
         RefreshList()
+    End Sub
+
+    ''' <summary>下载 CFPA 的自动构建汉化资源包，放进当前版本的 resourcepacks。</summary>
+    Private Sub BtnFetchHanhua_Click(sender As Object, e As EventArgs) Handles BtnFetchHanhua.Click
+        If PageInstanceLeft.Instance Is Nothing Then Return
+        ModHanhua.Start(PageInstanceLeft.Instance)
     End Sub
 
 #End Region

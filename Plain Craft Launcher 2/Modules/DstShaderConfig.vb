@@ -496,6 +496,7 @@ Public Module DstShaderConfig
                 Try
                     Result.Add(New KeyValuePair(Of String, String)(FilePath, FileUtils.ReadAsString(FilePath)))
                 Catch ex As Exception
+                    Logger.Warn(ex, $"读取光影配置文件失败：{FilePath}")
                 End Try
             Next
             Return Result
@@ -513,6 +514,7 @@ Public Module DstShaderConfig
                             End Using
                         End Using
                     Catch ex As Exception
+                        Logger.Warn(ex, $"读取压缩包内的光影配置失败：{Entry.FullName}")
                     End Try
                 Next
             End Using

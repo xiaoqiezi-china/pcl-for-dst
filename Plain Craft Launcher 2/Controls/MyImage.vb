@@ -91,7 +91,8 @@ Public Class MyImage
                 Logger.Warn(ex, $"加载图片失败（{value}）")
                 Try
                     If value.StartsWithF(PathTemp, True) Then FileUtils.Delete(value)
-                Catch
+                Catch ex2 As Exception
+                    Logger.Warn(ex2, $"清理临时图片失败：{value}")
                 End Try
             End Try
         End Set
@@ -134,7 +135,8 @@ Public Class MyImage
             Catch ex As Exception
                 Try
                     If TempPath IsNot Nothing Then FileUtils.Delete(TempPath)
-                Catch
+                Catch ex2 As Exception
+                    Logger.Warn(ex2, $"清理临时图片失败：{TempPath}")
                 End Try
                 '加载本地备用图片
                 If IsLocalFallback Then
