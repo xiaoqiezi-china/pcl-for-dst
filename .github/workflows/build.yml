@@ -1,9 +1,13 @@
 name: Build
 on:
   push:
+    # 注意：一旦写了 paths，tag 推送就会被过滤掉（tag 不带文件变更），
+    # 而发版正是靠 push tag 触发的，所以 tags 必须单独列出来。
     paths:
       - 'Plain Craft Launcher 2/**'
       - '.github/workflows/**'
+    tags:
+      - 'v*'
   pull_request:
     paths:
       - 'Plain Craft Launcher 2/**'
