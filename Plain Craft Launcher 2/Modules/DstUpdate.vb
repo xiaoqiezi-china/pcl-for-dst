@@ -23,6 +23,10 @@ Friend Module DstUpdate
         Public Property ClientId As String = ""
         ''' <summary>服务端下发的 CurseForge Key，可能为空。</summary>
         Public Property CurseForgeKey As String = ""
+        ''' <summary>更新包下载地址（来自 GitHub Release）。</summary>
+        Public Property DownloadUrl As String = ""
+        ''' <summary>Release 里的更新说明。</summary>
+        Public Property Notes As String = ""
     End Class
 
 
@@ -181,22 +185,40 @@ Friend Module DstUpdate
         Sub()
             Dim Info As New DstUpdateInfo
             Try
-                Dim Vars As JObject = FetchVars()
-                Info.RemoteVersion = PickVar(Vars, "dclversion", "version")
+                '版本与下载地址一律来自 GitHub Release，
+                '不再依赖预设服务器：那个地址是用户可选的第三方，
+                '让它决定装哪个启动器风险太大。
+                Dim Release As ModUpdateSource.ReleaseInfo = ModUpdateSource.FetchLatest()
+                If Release.Ok Then
+                    Info.RemoteVersion = Release.Version
+                    Info.DownloadUrl = Release.AssetUrl
+                    Info.Notes = NormalizeAnnounce(Release.Notes)
+                Else
+                    Info.Err = Release.Err
+                End If
+                '预设服务器仅用于下发凭据与公告，且失败不影响更新检查
+                Dim Vars As JObject = Nothing
+                Try
+                    Vars = FetchVars()
+                Catch ex As Exception
+                    Logger.Info("获取预设服务变量失败，不影响更新：" & ex.Message)
+                End Try
                 '公告里的换行可能写成字面的反斜杠加 n，在这里统一解开，
                 '这样所有展示公告的地方（更新检查、启动弹窗、设置页）拿到的都是可直接显示的文本
-                Info.Announce = NormalizeAnnounce(PickVar(Vars, "dclupgradeinfo", "dclupgradinfo", "upgradeinfo", "upgradenote"))
-                Dim CriticalText As String = PickVar(Vars, "dclcritical", "critical", "important")
+                If Vars IsNot Nothing Then
+                    Info.Announce = NormalizeAnnounce(PickVar(Vars, "dclupgradeinfo", "dclupgradinfo", "upgradeinfo", "upgradenote"))
+                End If
+                Dim CriticalText As String = If(Vars Is Nothing, "", PickVar(Vars, "dclcritical", "critical", "important"))
                 Info.Critical = CriticalText.Trim().ToLower() = "1" OrElse CriticalText.Trim().ToLower() = "true"
                 '服务端把凭据也放在 getvar 里下发，这样更新启动器后不用重新要 Key
-                Info.ClientId = PickVar(Vars, "clientid", "clientId", "dclclientid")
-                Info.CurseForgeKey = PickVar(Vars, "cfapikey", "curseforgekey", "dclcfapikey")
+                Info.ClientId = If(Vars Is Nothing, "", PickVar(Vars, "clientid", "clientId", "dclclientid"))
+                Info.CurseForgeKey = If(Vars Is Nothing, "", PickVar(Vars, "cfapikey", "curseforgekey", "dclcfapikey"))
                 '服务端下发的凭据写进 config.ini：
                 '优先于编译期内置，但低于用户在设置里手填的值（那一层由 MsClientIdResolve 处理）
                 If Info.ClientId <> "" Then ModConfigFile.Write(ModConfigFile.SectionCredential, "ClientId", Info.ClientId)
                 If Info.CurseForgeKey <> "" Then ModConfigFile.Write(ModConfigFile.SectionCredential, "CurseForgeKey", Info.CurseForgeKey)
                 If Info.RemoteVersion = "" Then
-                    Info.Err = "没有获取到版本号"
+                    If Info.Err = "" Then Info.Err = "没有获取到版本号"
                 Else
                     Dim Cmp As Integer = CompareVersion(Info.RemoteVersion, VersionBaseName)
                     Info.HasNew = Cmp > 0
@@ -220,7 +242,7 @@ Friend Module DstUpdate
             End If
             Dim Text As String = $"当前版本：{VersionDisplay}" & vbCrLf &
                                  $"服务器版本：{Info.RemoteVersion}" & vbCrLf & vbCrLf &
-                                 If(Info.Announce = "", "（服务器未提供更新说明）", Info.Announce)
+                                 If(Info.Notes = "", If(Info.Announce = "", "（未提供更新说明）", Info.Announce), Info.Notes)
             If Not Info.HasNew Then
                 MyMsgBox(Text & vbCrLf & vbCrLf & "已经是最新版本。", "更新检查", "关闭")
                 Return
@@ -273,7 +295,7 @@ Friend Module DstUpdate
     Private Sub ShowPrompt(Info As DstUpdateInfo)
         Dim Text As String = $"当前版本：{VersionDisplay}" & vbCrLf &
                              $"服务器版本：{Info.RemoteVersion}" & vbCrLf & vbCrLf &
-                             If(Info.Announce = "", "（服务器未提供更新说明）", Info.Announce)
+                             If(Info.Notes = "", If(Info.Announce = "", "（未提供更新说明）", Info.Announce), Info.Notes)
         If MyMsgBox(Text, "发现新版本", "下载并安装", "稍后再说") = 1 Then
             DownloadLauncherUpdate(Info.RemoteVersion)
         End If
@@ -283,21 +305,30 @@ Friend Module DstUpdate
 
 #Region "启动器自更新"
 
-    ''' <summary>下载并安装启动器更新（索引固定为 dcl）。</summary>
+    ''' <summary>
+    ''' 下载并安装启动器自身的更新。
+    ''' <para>
+    ''' 更新包一律来自 GitHub Release，不走预设服务器。
+    ''' 预设服务器仍然负责服务器列表与整合包下载，但它不能决定
+    ''' 用户装哪个启动器，两者职责分开。
+    ''' </para>
+    ''' </summary>
     Public Sub DownloadLauncherUpdate(RemoteVersion As String)
         RunInThread(
         Sub()
             Try
-                '下载接口直接回流文件（octet-stream），不是返回 JSON 地址
                 Dim LocalFile As String = PathTemp & "Update\DST-" & RemoteVersion & ".bin"
                 DirectoryUtils.Create(PathUtils.RemoveLastPart(LocalFile))
                 RunInUi(Sub() Hint("正在下载更新……", HintType.Blue))
-                Dim Suggested As String = DstBot.DownloadToFile(PathDownload & "?index=dcl", LocalFile)
-                If Not FileUtils.Exists(LocalFile) Then Throw New Exception("下载后未找到更新包")
+                '地址来自 Release；传入参数只作兼容，不再用于拼接服务器 URL
+                Dim Release As ModUpdateSource.ReleaseInfo = ModUpdateSource.FetchLatest(Force:=True)
+                If Not Release.Ok Then Throw New Exception(If(Release.Err = "", "没有取到下载地址", Release.Err))
+                Dim Used As String = ModUpdateSource.Download(Release.AssetUrl, LocalFile)
+                If Used = "" Then Throw New Exception("所有下载源都不可用，请到发布页手动下载")
                 Dim Size As Long = New IO.FileInfo(LocalFile).Length
-                Logger.Info($"更新包已下载：{Size} 字节，服务器给的文件名：{Suggested}")
+                Logger.Info($"更新包已下载：{Size} 字节，来源：{Used}")
                 If Size = 0 Then Throw New Exception("更新包为空")
-                RunInUi(Sub() InstallDownloadedUpdate(LocalFile, Suggested))
+                RunInUi(Sub() InstallDownloadedUpdate(LocalFile, Release.AssetName))
             Catch ex As Exception
                 ex.ThrowIfCanceled()
                 Logger.Warn(ex, "下载启动器更新失败")

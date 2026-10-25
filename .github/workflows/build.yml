@@ -112,3 +112,23 @@ jobs:
       with:
         name: ${{ matrix.configuration }} ${{ env.describe }}
         path: Plain Craft Launcher 2\obj\${{ matrix.configuration }}\Plain Craft Launcher 2.exe
+
+    # 打 tag 才发 Release。启动器的自动更新只认 Release，所以这一步是更新链路的入口。
+    # 只跑 Release 配置，避免 Debug 与 Release 抢同名附件。
+    - name: Publish Release
+      if: startsWith(github.ref, 'refs/tags/') && matrix.configuration == 'Release'
+      shell: pwsh
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        $tag = '${{ github.ref_name }}'
+        $exe = 'Plain Craft Launcher 2\obj\Release\Plain Craft Launcher 2.exe'
+        if (-not (Test-Path $exe)) { throw '找不到 Release 产物' }
+        # 附件名固定，客户端按 .exe 后缀挑第一个，不依赖具体命名
+        Copy-Item $exe 'DST Craft Launcher.exe' -Force
+        gh release view $tag 2>$null
+        if ($LASTEXITCODE -ne 0) {
+          gh release create $tag 'DST Craft Launcher.exe' --title $tag --generate-notes
+        } else {
+          gh release upload $tag 'DST Craft Launcher.exe' --clobber
+        }

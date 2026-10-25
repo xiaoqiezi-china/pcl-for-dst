@@ -223,6 +223,7 @@
     <Compile Include="Modules\Resource\ModPersonalPack.vb" />
     <Compile Include="Modules\Config\ModConfigFile.vb" />
     <Compile Include="Modules\Config\ModPresetSource.vb" />
+    <Compile Include="Modules\Config\ModUpdateSource.vb" />
     <Compile Include="Modules\Resource\ModHanhua.vb" />
     <Compile Include="Modules\Resource\ModPackState.vb" />
     <Compile Include="Modules\Resource\ModPackFolder.vb" />
