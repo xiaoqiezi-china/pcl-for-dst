@@ -101,10 +101,19 @@ Public Class PageSetupDst
         AniControlEnabled += 1
         Try
             CmbDstPreset.Items.Clear()
-            '第一项固定是「不使用」：用户可能只想用自己的服务器，
+            '编译期内置的预设排第一：发行版带了自己的服务器，用户开箱就该用它。
+            '它的 id 固定为 BuiltinPresetId，地址来自 config.ini 里已释放的那份。
+            If BuiltinPresetId <> "" Then
+                CmbDstPreset.Items.Add(New MyComboBoxItem With {
+                    .Content = "本地预设",
+                    .Tag = PresetTagPrefix & BuiltinPresetId})
+            End If
+            '再放「不使用」：用户可能只想用自己的服务器，
             '不该被逼着从列表里选一个。它的 Tag 就是空 id。
             CmbDstPreset.Items.Add(New MyComboBoxItem With {.Content = "不使用预设", .Tag = PresetTagPrefix})
             For Each Item In ModPresetSource.Items
+                '和内置预设同一个 id 的远程项跳过，否则下拉框里会出现两条一样的
+                If BuiltinPresetId <> "" AndAlso Item.Id = BuiltinPresetId Then Continue For
                 CmbDstPreset.Items.Add(New MyComboBoxItem With {
                     .Content = Item.Name,
                     .Tag = PresetTagPrefix & Item.Id})
@@ -144,7 +153,17 @@ Public Class PageSetupDst
         If CmbDstPreset Is Nothing Then Return Nothing
         Dim Item = TryCast(CmbDstPreset.SelectedItem, MyComboBoxItem)
         If Item Is Nothing Then Return Nothing
-        Return ModPresetSource.FindById(CStr(Item.Tag).Substring(PresetTagPrefix.Length))
+        Dim Id As String = CStr(Item.Tag).Substring(PresetTagPrefix.Length)
+        '「本地预设」不在远程列表里，它的地址来自编译期内置（已释放到 config.ini）
+        If BuiltinPresetId <> "" AndAlso Id = BuiltinPresetId Then
+            Return New ModPresetSource.Preset With {
+                .Id = Id,
+                .Name = "本地预设",
+                .Api = DstBotPresetApi,
+                .ApiKey = DstBotPresetToken,
+                .QqGroup = BuiltinGroupId}
+        End If
+        Return ModPresetSource.FindById(Id)
     End Function
 
     Private Sub CmbDstPreset_SelectionChanged(sender As Object, e As SelectionChangedEventArgs) Handles CmbDstPreset.SelectionChanged

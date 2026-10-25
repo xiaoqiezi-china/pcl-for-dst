@@ -117,7 +117,7 @@ Friend Module DstBot
         Dim S As String = Msg
         '已知的内置地址与令牌。发布版这两项是空串，Replace 的 oldValue 为空会抛异常，
         '所以必须先判空——这个函数是在异常处理路径上被调用的，自己再炸一次会直接崩掉启动器。
-        If DstBotPresetApi <> "" Then S = S.Replace(DstBotPresetApi, "帝释天服务")
+        If DstBotPresetApi <> "" Then S = S.Replace(DstBotPresetApi, "预设服务")
         If DstBotPresetToken <> "" Then S = S.Replace(DstBotPresetToken, "***")
         '自定义服务也不能露
         Dim CustomUrl As String = Settings.Get(Of String)("DstBotApiUrl").Trim()
@@ -157,7 +157,7 @@ Friend Module DstBot
         Select Case Key
             Case "servers" : Return "服务器状态"
             Case "report" : Return "群公告"
-            Case "bot" : Return "帝释天机器人"
+            Case "bot" : Return "机器人"
             Case Else : Return Key
         End Select
     End Function
@@ -895,7 +895,7 @@ Friend Module DstBot
     ''' <summary>界面展示用的服务名，预设服务不暴露具体信息。</summary>
     Public ReadOnly Property ServiceName As String
         Get
-            Return If(UseCustom, "自定义服务", "帝释天预设服务")
+            Return If(UseCustom, "自定义服务", "预设服务")
         End Get
     End Property
 
@@ -1384,7 +1384,7 @@ Friend Module DstBot
             Catch ex As Exception
                 ErrRaw = ex.Message
                 StatusLast = If(ex.Message.Contains("429") OrElse ex.Message.Contains("过于频繁"), BotStatus.RateLimited, BotStatus.CheckFailed)
-                Logger.Warn(ex, "拉取帝释天服务器列表失败")
+                Logger.Warn(ex, "拉取服务器列表失败")
             End Try
             RunInUi(
             Sub()
@@ -1752,7 +1752,7 @@ Friend Module DstBot
     ''' 交互式绑定流程：输入 QQ → 发起 → 多群时让用户选一个群再重试。
     ''' </summary>
     Public Sub ShowBindDialog(Optional OnChanged As Action = Nothing)
-        Dim Qq As String = MyMsgBoxInput("绑定 QQ", "输入要绑定的 QQ 号。发起后帝释天机器人会在群里 @" & "你并发送确认消息，5 分钟内回复 OK 即完成绑定。",
+        Dim Qq As String = MyMsgBoxInput("绑定 QQ", "输入要绑定的 QQ 号。发起后机器人会在群里 @" & "你并发送确认消息，5 分钟内回复 OK 即完成绑定。",
                                          QqNumber, HintText:="QQ 号")
         If Qq Is Nothing Then Return
         Qq = Qq.Trim()

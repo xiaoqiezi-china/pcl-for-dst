@@ -184,7 +184,7 @@ Public Module DstShaderConfig
         If String.IsNullOrWhiteSpace(TargetPath) Then Return "没有可写入的路径"
         Try
             Dim Sb As New Text.StringBuilder
-            Sb.AppendLine("# 由帝释天我的世界启动器写入 " & Date.Now.ToString("yyyy-MM-dd HH:mm:ss"))
+            Sb.AppendLine("# 由 DPCL 写入 " & Date.Now.ToString("yyyy-MM-dd HH:mm:ss"))
             Sb.AppendLine("# 该文件与 OptiFine / Iris 的 shaderpacks\<光影包名>.txt 是同一个东西，游戏会直接读取")
             For Each Opt In Cfg.Options
                 Sb.AppendLine(Opt.Name & "=" & If(Opt.Value, ""))

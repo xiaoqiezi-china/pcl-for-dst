@@ -222,9 +222,24 @@ Public Class PageLaunchRight
         DstBot.RefreshServers(Force:=True, OnDone:=AddressOf OnServersRefreshed, SkipRateWait:=True)
     End Sub
 
+    ''' <summary>延迟显示开关变化后重画列表。</summary>
+    Public Shared Sub OnShowPingChanged(Value As Object)
+        Try
+            If FrmLaunchRight IsNot Nothing Then FrmLaunchRight.RefreshServerList()
+        Catch ex As Exception
+            Logger.Warn(ex, "刷新延迟显示失败")
+        End Try
+    End Sub
     Private Sub OnServersLoaded()
         RefreshServerList()
         ScheduleProbeRefresh()
+        '启动刚结束时机身还在忙着加载页面、扫描版本，这时候测出来的延迟会虚高好几倍。
+        '等界面稳定下来再测，用户看到的才是真实值。
+        RunInThread(
+        Sub()
+            Thread.Sleep(3000)
+            RunInUi(Sub() RefreshServerList())
+        End Sub)
     End Sub
 
     Private Sub OnServersRefreshed()
@@ -447,7 +462,8 @@ Public Class PageLaunchRight
             .HorizontalAlignment = HorizontalAlignment.Right,
             .VerticalAlignment = VerticalAlignment.Center
         }
-        RightStack.Children.Add(Chip)
+        '延迟芯片受 DstShowPing 控制：有人觉得挡害，可以在右键菜单里关掉
+        If Settings.Get(Of Boolean)("DstShowPing") Then RightStack.Children.Add(Chip)
         RightStack.Children.Add(Count)
         Grid.SetColumn(RightStack, 2)
         Grid.Children.Add(RightStack)
@@ -510,6 +526,8 @@ Public Class PageLaunchRight
                     For Each One In DstCustomServer.All()
                         Targets.Add(GetCustomServer(One))
                     Next
+                    '关掉延迟显示后不必再测，省一轮无谓的 UDP 探测
+                    If Not Settings.Get(Of Boolean)("DstShowPing") Then Return
                     For Each S In Targets
                         If Not S.Probing Then StartProbeShared(S)
                     Next
@@ -684,6 +702,8 @@ Public Class PageLaunchRight
         Dim MSaveAs As New MyMenuItem With {.Header = "另存为", .IsEnabled = CanDownload}
         Dim MCopyIp As New MyMenuItem With {.Header = "复制 IP"}
         Dim MRefresh As New MyMenuItem With {.Header = "刷新"}
+        Dim MPing As New MyMenuItem With {
+            .Header = If(Settings.Get(Of Boolean)("DstShowPing"), "隐藏延迟", "显示延迟")}
         AddHandler MInstall.Click, Sub() DownloadInstancePack(Server)
         AddHandler MSaveAs.Click, Sub() SaveInstancePackAs(Server)
         AddHandler MCopyIp.Click, Sub() CopyServerIp(Server)
@@ -692,6 +712,11 @@ Public Class PageLaunchRight
         Menu.Items.Add(MSaveAs)
         Menu.Items.Add(MCopyIp)
         Menu.Items.Add(MRefresh)
+        AddHandler MPing.Click, Sub()
+            Settings.Set("DstShowPing", Not Settings.Get(Of Boolean)("DstShowPing"))
+            RefreshServerList()
+        End Sub
+        Menu.Items.Add(MPing)
         '自定义服务器多一个「删除」，机器人下发的服务器不能删
         If Server.IsCustom Then
             Menu.Items.Add(New Separator)

@@ -74,6 +74,8 @@ Friend Module ModConfigFile
             Sb.AppendLine("PresetId=")
             Sb.AppendLine("; 机器人所在的群号，随预设一起下发；留空则由用户在设置里挑")
             Sb.AppendLine("GroupId=")
+            Sb.AppendLine("; 常规模式初始值。预设版写 False（直连），开源版写 True")
+            Sb.AppendLine("Offline=")
             Dim Initial As String = Sb.ToString()
             '闭源发布版会带一份初始数据，由这里填进去；开源版这段是空操作
             Initial = MergeBuiltinDefaults(Initial)
@@ -94,6 +96,8 @@ Friend Module ModConfigFile
         Result = ReplaceValue(Result, SectionCloud, "ApiKey", DstBotPresetToken)
         Result = ReplaceValue(Result, SectionCloud, "PresetId", BuiltinPresetId)
         Result = ReplaceValue(Result, SectionCloud, "GroupId", BuiltinGroupId)
+        '有内置预设就写 False（开箱直连），没有则写 True（默认常规模式）
+        Result = ReplaceValue(Result, SectionCloud, "Offline", If(DstBotPresetApi = "", "True", "False"))
         Return Result
     End Function
 

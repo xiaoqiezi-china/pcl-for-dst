@@ -40,7 +40,7 @@
                                     HorizontalAlignment="Left" Margin="0,12,0,0" />
                 </StackPanel>
             </local:MyCard>
-            <local:MyCard Margin="0,0,0,15" Title="帝释天机器人" x:Name="CardDstBot">
+            <local:MyCard Margin="0,0,0,15" Title="机器人" x:Name="CardDstBot">
                 <Grid Margin="25,40,25,20">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" SharedSizeGroup="DstBotName" />
@@ -53,7 +53,7 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <TextBlock Text="服务" VerticalAlignment="Center" Margin="0,0,20,0" />
-                    <TextBlock x:Name="LabBotService" Grid.Column="1" VerticalAlignment="Center" Text="帝释天预设服务" />
+                    <TextBlock x:Name="LabBotService" Grid.Column="1" VerticalAlignment="Center" Text="预设服务" />
                     <TextBlock Grid.Row="1" Text="群" VerticalAlignment="Center" Margin="0,0,20,0" />
                     <TextBlock x:Name="LabBotGroup" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Text="—" />
                     <TextBlock x:Name="LabBotBind" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center"

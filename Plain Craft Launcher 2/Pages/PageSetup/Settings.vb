@@ -5,12 +5,20 @@ Public Class Settings
     ''' <summary>
     ''' 常规模式的初始值。
     ''' <para>
-    ''' 有内置预设的发行版（DstBotPresetApi 非空）默认直连，开箱即可看到服务器；
-    ''' 没有预设的开源构建则默认常规模式，避免一启动就卡在连不上的探测上。
-    ''' 用户随时可以在设置里改。
+    ''' 优先看 config.ini 里的 Offline：预设版释放时写 False（开箱直连），
+    ''' 开源版写 True。这样发布版接手预设版留下的配置时，也能正确进入直连状态，
+    ''' 而不是因为「自己没有内置预设」就退回常规模式。
+    ''' </para>
+    ''' <para>
+    ''' 配置里没写时才退回编译期判断。用户手动改过的话，设置项本身会覆盖这个默认值。
     ''' </para>
     ''' </summary>
     Private Shared Function DpclDefaultOffline() As Boolean
+        Try
+            Dim FromFile As String = ModConfigFile.Read(ModConfigFile.SectionCloud, "Offline").Trim()
+            If FromFile <> "" Then Return FromFile.Equals("True", StringComparison.OrdinalIgnoreCase)
+        Catch
+        End Try
         Return DstBotPresetApi = ""
     End Function
     ''' <summary>标题栏默认文本。</summary>
@@ -197,6 +205,7 @@ Public Class Settings
         New Setting("DstHomeShowServers", True),
         New Setting("DstHomeShowReport", True),
         New Setting("DstHomeShowBot", True),
+        New Setting("DstShowPing", True, OnChanged:=AddressOf PageLaunchRight.OnShowPingChanged),
         New Setting("DstBotToken", "", Source:=Sources.Registry, Encrypted:=True),
         New Setting("DstBotUseCustom", False),
         New Setting("DstQqNumber", ""),
