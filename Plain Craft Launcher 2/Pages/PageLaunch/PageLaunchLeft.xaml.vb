@@ -313,17 +313,7 @@ Public Class PageLaunchLeft
         End If
         'QQ 形态优先级最高，不受版本级登录设置的干扰
         If Settings.Get(Of Boolean)("DstQqMode") Then LoginPageType = 2
-        'DPCL 不带任何在线服务，QQ 形态一律不可用：
-        '即使旧配置里还留着 VersionServerLogin=2，也要回到正版页
-#If DPCL_BUILD Then
-        If LoginPageType = 2 Then
-            LoginPageType = 0
-            '版本级设置也要改回来，否则下次进这个版本又会跳回 QQ 页
-            If McInstanceSelected IsNot Nothing Then Settings.Set("VersionServerLogin", 0, Instance:=McInstanceSelected)
-            Settings.Set("LoginPageType", 0)
-        End If
-        Settings.Set("DstQqMode", False)
-#End If
+
         Select Case LoginPageType
             Case 2 'QQ 绑定形态
                 Type = PageType.Qq

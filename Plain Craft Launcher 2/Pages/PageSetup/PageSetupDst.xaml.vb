@@ -61,9 +61,11 @@ Public Class PageSetupDst
     Private Sub RefreshState()
         If LabDstStatus Is Nothing Then Return
         '常规模式只影响首页展示，不影响这里看服务状态：
-        '用户可能就是想关掉常规模式去连服务，隐藏掉这些反而没法判断
+        '用户要在这里配置服务器，隐藏掉这些反而没法判断连没连上
         Dim Offline As Boolean = DstBot.IsOffline
         LabCloudOffline.Visibility = If(Offline, Visibility.Visible, Visibility.Collapsed)
+        '这句提示要写清楚「离线只是首页行为」，否则和下面的连接信息读起来自相矛盾
+        LabCloudOffline.Text = "启动器处于常规模式，首页只显示本地内容；下面的连接状态仍然有效，配置好服务后取消勾选即可使用。"
         PanCloudOnline.Visibility = Visibility.Visible
         BtnDstTest.Visibility = Visibility.Visible
         BtnDstJoinGroup.Visibility = Visibility.Visible

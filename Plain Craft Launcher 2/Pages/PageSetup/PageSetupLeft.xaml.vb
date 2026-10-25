@@ -3,10 +3,7 @@ Public Class PageSetupLeft
     Private IsLoad As Boolean = False
     Private IsPageSwitched As Boolean = False '如果在 Loaded 前切换到其他页面，会导致触发 Loaded 时再次切换一次
     Private Sub PageSetupLeft_Loaded(sender As Object, e As RoutedEventArgs) Handles Me.Loaded
-#If DPCL_BUILD Then
-        'DPCL 是纯增强版，不含任何在线服务，机器人页整块不露出
-        ItemDst.Visibility = Visibility.Collapsed
-#End If
+
         '是否处于隐藏的子页面
         Dim IsHiddenPage As Boolean = False
         If ItemLaunch.Checked AndAlso Settings.Get(Of Boolean)("UiHiddenSetupLaunch") Then IsHiddenPage = True

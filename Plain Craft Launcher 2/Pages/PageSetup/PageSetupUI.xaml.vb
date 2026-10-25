@@ -765,8 +765,9 @@ Refresh:
             Hint("已切换到常规模式", HintType.Blue, False)
             If FrmLaunchLeft IsNot Nothing Then FrmLaunchLeft.RefreshDependentViewsAfterModeChange()
         Else
-            '取消离线：先探测一次，但不管结果如何都保持用户的选择
-            '以前探测失败会把勾选框强行改回来，等于不让用户关；现在只提醒，不改状态
+            '取消离线：必须先探测成功才允许关闭。
+            '常规模式的意义就是「没有远程服务也能正常用」，如果探测失败还放行，
+            '界面会停在有入口但没数据的状态，比直接退回更难理解。
             RunInThread(
             Sub()
                 Dim Ok As Boolean = DstBot.ProbeOnline()
@@ -775,7 +776,9 @@ Refresh:
                     If Ok Then
                         Hint("已回到在线模式", HintType.Green, False)
                     Else
-                        Hint("远程服务不可用，相关功能暂时没有数据；保持你选的在线模式", HintType.Red)
+                        Hint("远程服务不可用，继续保持常规模式", HintType.Red)
+                        CheckOfflineMode.Checked = True
+                        Settings.Set("DstOfflineMode", True)
                     End If
                     If FrmLaunchLeft IsNot Nothing Then FrmLaunchLeft.RefreshDependentViewsAfterModeChange()
                 End Sub)
