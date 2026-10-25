@@ -5,15 +5,9 @@
 Public Module DstDisclaimer
 
     'VB 不允许 #If 出现在 Const 表达式中间，所以先按构建选好正文再拼
-#If DPCL_BUILD Then
     Private Const DisclaimerBody As String =
-        "本版本不带任何在线服务，默认以常规模式启动；服务器相关功能可以在设置里自行配置。" & vbCrLf & vbCrLf &
+        "启动器默认以常规模式启动，不连接任何在线服务；服务器相关功能可以在设置里自行配置。" & vbCrLf & vbCrLf &
         "启动器自身的更新来自 GitHub，与任何第三方服务器无关。"
-#Else
-    Private Const DisclaimerBody As String =
-        "本启动器与帝释天 QQ 机器人进行联动。连接机器人服务才可以获得云功能。" & vbCrLf & vbCrLf &
-        "您可以在设置中一键关闭大部分改动，使其作为一个定制化主题的完整版 PCL 使用。"
-#End If
 
     Public Const DisclaimerText As String =
         "本启动器基于 PCL 二次修改制作。请勿用于商用，请尊重原作者版权。" & vbCrLf & vbCrLf & DisclaimerBody

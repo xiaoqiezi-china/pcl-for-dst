@@ -109,9 +109,8 @@
     <NoWarn>41999,42016,42017,42018,42019,42020,42021,42022,42032,42036,42314</NoWarn>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <CodeAnalysisRuleSet>BasicDesignGuidelineRules.ruleset</CodeAnalysisRuleSet>
-    <DefineConstants Condition="'$(DpclBuild)' == 'true'">RELEASE,DPCL_BUILD</DefineConstants>
-    <DefineConstants Condition="'$(DpclBuild)' != 'true'">RELEASE</DefineConstants>
-    <DefineConstants Condition="Exists('Modules\ModSecret.Local.vb') AND '$(DpclBuild)' != 'true'">$(DefineConstants),DST_LOCAL</DefineConstants>
+    <DefineConstants>RELEASE</DefineConstants>
+    <DefineConstants Condition="Exists('Modules\ModSecret.Local.vb')">$(DefineConstants),DST_LOCAL</DefineConstants>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
@@ -277,7 +276,7 @@
     <Compile Include="Modules\Minecraft\ModWatcher.vb" />
     <Compile Include="Modules\ModSecret.vb" />
     <Compile Include="Modules\ModTheme.vb" />
-    <Compile Include="Modules\ModSecret.Local.vb" Condition="Exists('Modules\ModSecret.Local.vb') AND '$(DpclBuild)' != 'true'">
+    <Compile Include="Modules\ModSecret.Local.vb" Condition="Exists('Modules\ModSecret.Local.vb')">
       <AutoGen>False</AutoGen>
     </Compile>
     <Compile Include="Modules\DstBot.vb" />

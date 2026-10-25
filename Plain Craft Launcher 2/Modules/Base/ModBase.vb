@@ -5,29 +5,18 @@ Public Module ModBase
 
 #Region "声明"
 
-    '下列版本信息由更新器自动修改。显示用版本名：DPCL 构建从 1.0.0 起算，与 DST 线分开
-#If DPCL_BUILD Then
+    '下列版本信息由更新器自动修改
     Public Const VersionBaseName As String = "1.0.0"
-#Else
-    Public Const VersionBaseName As String = "0.3.3"
-#End If
     Public Const CommitHash As String = "" 'Commit Hash，由 GitHub Workflow 自动替换
-#If DPCL_BUILD Then
-    Public Const VersionCode As Integer = 1000
-#ElseIf RELEASE Then
-    Public Const VersionCode As Integer = 435 '正式版
+#If RELEASE Then
+    Public Const VersionCode As Integer = 1000 '正式版
 #Else
-    Public Const VersionCode As Integer = 436 '快照版
+    Public Const VersionCode As Integer = 1001 '快照版
 #End If
 
-    '帝释天定制版标识
-#If DPCL_BUILD Then
+    '产品标识。DPCL = DST Plain Craft Launcher，两者是同一个启动器
     Public Const LauncherName As String = "DST Plain Craft Launcher"
     Public Const LauncherShortName As String = "DPCL"
-#Else
-    Public Const LauncherName As String = "帝释天我的世界启动器"
-    Public Const LauncherShortName As String = "DST"
-#End If
 
     '版本信息
     Public Const VersionDisplay As String = LauncherShortName & " " & BuildTypeDisplay & " " & VersionBaseName

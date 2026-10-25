@@ -3,20 +3,13 @@ Imports System.Security.Cryptography
 Public Class Settings
 
     ''' <summary>
-    ''' 常规模式的初始值：DPCL 是纯增强版，不含在线服务，所以默认就开。
+    ''' 常规模式的初始值。DPCL 默认不带在线服务的连接，所以一开始就打开；
+    ''' 用户可以在设置里关掉它去连自己的服务器。
     ''' 用常量而不是把 #If 写进数组初始化器，是因为 VB 不允许那样做。
     ''' </summary>
-#If DPCL_BUILD Then
     Private Const DpclDefaultOffline As Boolean = True
-#Else
-    Private Const DpclDefaultOffline As Boolean = False
-#End If
-    ''' <summary>标题栏默认文本：DPCL 用自己的名字，DST 线仍显示 DST。</summary>
-#If DPCL_BUILD Then
+    ''' <summary>标题栏默认文本。</summary>
     Private Const DpclDefaultLogoText As String = "DPCL"
-#Else
-    Private Const DpclDefaultLogoText As String = "DST"
-#End If
     Public Shared ReadOnly Entries As Dictionary(Of String, Setting) = (New List(Of Setting) From {
         New Setting("Identify", "", Source:=Sources.Registry),
         New Setting("WindowHeight", 550),

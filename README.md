@@ -29,24 +29,14 @@
 
 需要 Visual Studio 生成工具（MSBuild）与 .NET Framework 4.8 开发包。
 
-两条产品线共用同一份源码，靠条件编译区分：
-
 ```bash
-./build.sh        # DST：完整版，包含在线服务与 QQ 机器人
-./build-dpcl.sh   # DPCL：纯增强版，不含任何在线服务
+./build.sh
 ```
 
-| 构建 | 产物 | 版本 | 说明 |
-| --- | --- | --- | --- |
-| DST | `dist/DST Craft Launcher.exe` | 0.3.x | 完整功能，默认在线 |
-| DPCL | `dist-dpcl/DST Plain Craft Launcher.exe` | 1.0.0 | 不含在线服务，默认常规模式 |
-
-DPCL 对应的编译符号是 `DPCL_BUILD`，它会同时关掉对 `DST_LOCAL` 的引用，
-因此该构建不会携带任何内置凭据。
+产物为 `dist/DST Plain Craft Launcher.exe`（单文件，依赖已嵌入）。
 
 > 注意：`Resources.resx` 硬编码引用了 `PCLCS\bin` 下的 DLL，因此**不要覆盖 `OutDir`**，
-> 否则 PCLCS 的产物不会落在它期望的位置，编译会失败。两个脚本都已按默认输出处理。
-
+> 否则 PCLCS 的产物不会落在它期望的位置，编译会失败。脚本已按默认输出处理。
 
 ## 凭据
 
@@ -71,7 +61,7 @@ Friend Module ModSecretLocal
 End Module
 ```
 
-文件存在时工程会自动定义 `DST_LOCAL`；`DPCL_BUILD` 下该文件不参与编译。
+文件存在时工程会自动定义 `DST_LOCAL`。
 
 
 ## 自动更新
@@ -87,7 +77,7 @@ End Module
 > 那是使用者自选、可随时更换的地址，早期只是开发期临时方案，
 > 让它决定「装哪个启动器」风险过大。
 
-只有一条产品线：DPCL 与 DST 是同一个启动器的两种打包，共享同一份更新信息。
+DPCL 即 DST Plain Craft Launcher，是本仓库唯一的产品线。
 
 发版流程：打 tag 并推送，CI 会构建两种打包并一起挂到该 tag 的 Release 上。
 

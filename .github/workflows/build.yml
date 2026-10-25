@@ -106,11 +106,6 @@ jobs:
     - name: Build
       run: msbuild "Plain Craft Launcher 2\Plain Craft Launcher 2.vbproj" -p:Configuration=${{ matrix.configuration }}
 
-    # DPCL 是另一条产品线（纯增强版、不含在线服务），走完全独立的编译符号与产物名。
-    # 它同样要被 CI 覆盖：这条线平时改得少，一旦坏了没人会立刻发现。
-    - name: Build DPCL
-      run: msbuild "Plain Craft Launcher 2\Plain Craft Launcher 2.vbproj" -p:Configuration=${{ matrix.configuration }} -p:DpclBuild=true -p:OutputPath=bin-dpcl/
-
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v7
       with:
@@ -126,19 +121,14 @@ jobs:
         GH_TOKEN: ${{ github.token }}
       run: |
         $tag = '${{ github.ref_name }}'
-        # 只有一条产品线：DPCL 与 DST 是同一个启动器的两种打包，
-        # 都挂到同一个 Release 上，客户端按 .exe 后缀挑第一个。
-        $dst  = 'Plain Craft Launcher 2\obj\Release\Plain Craft Launcher 2.exe'
-        $dpcl = 'Plain Craft Launcher 2\bin-dpcl\Plain Craft Launcher 2.exe'
-        foreach ($f in @($dst, $dpcl)) {
-          if (-not (Test-Path $f)) { throw "找不到 Release 产物：$f" }
-        }
-        Copy-Item $dst  'DST Craft Launcher.exe' -Force
-        Copy-Item $dpcl 'DST Plain Craft Launcher.exe' -Force
-        $files = @('DST Craft Launcher.exe', 'DST Plain Craft Launcher.exe')
+        # 只发一个附件。名字用连字符不带空格：GitHub 会把附件名里的空格换成点号，
+        # 虽然客户端按 .exe 后缀匹配不受影响，但干净的命名更好认。
+        $exe = 'Plain Craft Launcher 2\obj\Release\Plain Craft Launcher 2.exe'
+        if (-not (Test-Path $exe)) { throw "找不到 Release 产物：$exe" }
+        Copy-Item $exe 'DPCL.exe' -Force
         gh release view $tag 2>$null
         if ($LASTEXITCODE -ne 0) {
-          gh release create $tag $files --title $tag --generate-notes
+          gh release create $tag 'DPCL.exe' --title $tag --generate-notes
         } else {
-          gh release upload $tag $files --clobber
+          gh release upload $tag 'DPCL.exe' --clobber
         }

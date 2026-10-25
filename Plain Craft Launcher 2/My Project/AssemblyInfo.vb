@@ -51,11 +51,6 @@ Imports System.Runtime.InteropServices
 ' 可以指定所有值，也可以使用以下所示的 "*" 预置版本号和修订号
 ' 方法是按如下所示使用“*”
 
-#If DPCL_BUILD Then
 <Assembly: AssemblyVersion("1.0.0.0")>
 <Assembly: AssemblyFileVersion("1.0.0.0")>
-#Else
-<Assembly: AssemblyVersion("0.3.3.0")>
-<Assembly: AssemblyFileVersion("0.3.3.0")>
-#End If
 <Assembly: NeutralResourcesLanguage("")>
