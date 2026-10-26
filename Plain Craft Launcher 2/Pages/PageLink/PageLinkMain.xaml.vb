@@ -596,7 +596,18 @@ Public Class PageLinkMain
         UpdateLoadingPage("正在获取节点列表……", "获取节点列表")
         Dim RawPeers As List(Of String)
         Dim CustomPeers As String = Settings.Get(Of String)("LinkCustomPeer")
-        If String.IsNullOrWhiteSpace(CustomPeers) Then
+        '邀请码里带了房主实际使用的节点地址时，以它为准。
+        '本机的「自定义节点」是用户自己填的，可能和房主填的不一致；
+        '以前这里优先用本机设置，两边连到不同节点，互相就看不见了。
+        '（服务端不走这条路：它自己就是要发地址的一方）
+        Dim AddressFromCode As String = If(IsServerSide, "", DiscoverNodeAddress.Trim())
+        If AddressFromCode <> "" Then
+            If Not String.IsNullOrWhiteSpace(CustomPeers) Then
+                Logger.Info($"邀请码里带了节点地址，忽略本机自定义节点设置：{CustomPeers}")
+            End If
+            RawPeers = GetTargetPeers()
+        ElseIf String.IsNullOrWhiteSpace(CustomPeers) Then
+            '没有地址可依，房主又是用自定义节点建的房，这时只能让用户自己填
             If DiscoverNodeID = -2 AndAlso Not IsServerSide Then
                 Panic("未填写自定义节点设置", $"$你必须在 {vbLQ}自定义节点{vbRQ} 设置中填写与房主相同的内容，{vbCrLf}才能进入该房间！")
                 Return
@@ -756,14 +767,19 @@ Public Class PageLinkMain
                     Dim Known As ModLinkNodes.KnownResult = ModLinkNodes.CheckKnown(AddressFromCode)
                     Select Case Known
                         Case ModLinkNodes.KnownResult.Unknown
-                            Logger.Warn($"邀请码中的节点不在已知清单里：{AddressFromCode}")
+                            '地址能解析出来，只是不在公开清单里——多数是房主自建的节点。
+                            '不由我们替用户决定，摆清楚风险让他自己选。
+                            Logger.Warn($"邀请码中的节点不在公开清单里，交给用户确认：{AddressFromCode}")
                             Dim Choice As Integer = MyMsgBox(
-                                "房主使用的联机节点不在公开节点清单中：" & vbCrLf &
+                                "这个房间使用的联机节点不在公开节点清单中：" & vbCrLf &
                                 AddressFromCode & vbCrLf & vbCrLf &
-                                "这通常是房主自建的节点。未知节点可能记录你的连接信息，" & vbCrLf &
-                                "或者把流量引向别处。" & vbCrLf & vbCrLf &
-                                "确认要继续连接吗？", "未知节点", "继续连接", "取消", IsWarn:=True)
-                            If Choice <> 1 Then Throw New OperationCanceledException
+                                "它可能是房主自建的节点。连接未知节点意味着你的流量会经过它，" & vbCrLf &
+                                "对方有可能看到你的连接信息。" & vbCrLf & vbCrLf &
+                                "信任这个节点并继续连接吗？", "未知节点", "信任并连接", "取消", IsWarn:=True)
+                            If Choice <> 1 Then
+                                Logger.Info("用户取消了连接未知节点")
+                                Throw New OperationCanceledException
+                            End If
                         Case ModLinkNodes.KnownResult.Unavailable
                             '清单没拉到，无从判断。不拦，但留个记录便于排查。
                             Logger.Warn($"节点清单不可用，无法校验邀请码中的地址是否公开：{AddressFromCode}")
