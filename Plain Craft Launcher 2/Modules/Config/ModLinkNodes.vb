@@ -80,6 +80,7 @@ Friend Module ModLinkNodes
             SaveBackup(FromCloud)
             Cached = FromCloud
             CachedAt = Date.Now
+            CachedSource = CacheSources.Cloud
             Logger.Info($"联机节点：已从云端获取 {FromCloud.Count} 个")
             Return FromCloud
         End If
@@ -88,6 +89,7 @@ Friend Module ModLinkNodes
         If FromBackup IsNot Nothing AndAlso FromBackup.Count > 0 Then
             Cached = FromBackup
             CachedAt = Date.Now
+            CachedSource = CacheSources.Backup
             Logger.Warn($"联机节点：云端不可用，使用本地备份的 {FromBackup.Count} 个")
             Return FromBackup
         End If
@@ -100,9 +102,60 @@ Friend Module ModLinkNodes
         Next
         Cached = Result
         CachedAt = Date.Now
+        CachedSource = CacheSources.Fallback
         Logger.Warn($"联机节点：云端与备份都不可用，使用内置的 {Result.Count} 个")
         Return Result
     End Function
+
+    ''' <summary>
+    ''' 判断一个地址是否在云端清单里。
+    ''' <para>
+    ''' 邀请码会带上房主实际使用的节点地址。地址如果在公开清单里，
+    ''' 说明是大家共用的公益节点，直接连；不在清单里就是别人自建的，
+    ''' 由调用方决定要不要提醒风险。
+    ''' </para>
+    ''' <para>
+    ''' 必须在工作线程调用。清单拉不到时返回 <see cref="KnownResult.Unknown"/>，
+    ''' 而不是「不在清单里」——拉不到清单是我们自己的问题，
+    ''' 不该因此把正常节点报成可疑节点。
+    ''' </para>
+    ''' </summary>
+    Public Enum KnownResult
+        ''' <summary>在云端清单里。</summary>
+        Known
+        ''' <summary>清单拉到了，但里面没有这个地址。</summary>
+        Unknown
+        ''' <summary>清单没拉到，无法判断。</summary>
+        Unavailable
+    End Enum
+
+    Public Function CheckKnown(Address As String) As KnownResult
+        If String.IsNullOrWhiteSpace(Address) Then Return KnownResult.Unavailable
+        Dim Nodes As List(Of LinkNode)
+        Try
+            Nodes = Fetch()
+        Catch ex As Exception
+            Logger.Warn(ex, "判断节点是否在清单里时拉取失败")
+            Return KnownResult.Unavailable
+        End Try
+        If Nodes Is Nothing OrElse Nodes.Count = 0 Then Return KnownResult.Unavailable
+        '只认云端拉到的清单。Fetch 在云端失败时会退到本地备份和内置兜底，
+        '那份数据可能早就过期了，不能用来判定「这个地址是可信的」。
+        If CachedSource <> CacheSources.Cloud Then Return KnownResult.Unavailable
+        For Each Node In Nodes
+            If String.Equals(Node.Address, Address.Trim(), StringComparison.OrdinalIgnoreCase) Then Return KnownResult.Known
+        Next
+        Return KnownResult.Unknown
+    End Function
+
+    ''' <summary>当前内存缓存里的清单是从哪来的。</summary>
+    Private Enum CacheSources
+        None
+        Cloud
+        Backup
+        Fallback
+    End Enum
+    Private CachedSource As CacheSources = CacheSources.None
 
     ''' <summary>拉云端清单；逐个尝试候选地址，全失败返回 Nothing。</summary>
     Private Function TryFetchCloud() As List(Of LinkNode)

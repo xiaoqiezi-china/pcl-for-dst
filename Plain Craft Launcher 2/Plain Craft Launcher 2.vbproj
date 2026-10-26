@@ -223,6 +223,7 @@
     <Compile Include="Modules\Config\ModConfigFile.vb" />
     <Compile Include="Modules\Config\ModPresetSource.vb" />
     <Compile Include="Modules\Config\ModLinkNodes.vb" />
+    <Compile Include="Modules\Config\ModInviteCode.vb" />
     <Compile Include="Modules\Config\ModUpdateSource.vb" />
     <Compile Include="Modules\Resource\ModHanhua.vb" />
     <Compile Include="Modules\Resource\ModPackState.vb" />

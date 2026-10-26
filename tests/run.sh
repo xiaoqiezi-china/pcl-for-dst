@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 跑 NBT / 路径工具的回归测试。
+# 跑纯逻辑模块的回归测试。
 #
 # 这些模块不依赖 WPF，所以直接用 vbc 编成控制台程序即可，
 # 不需要引入测试框架，也不需要启动启动器。
@@ -27,16 +27,32 @@ mkdir -p "$OUT"
 export MSYS_NO_PATHCONV=1
 export MSYS2_ARG_CONV_EXCL='*'
 
-"$VBC" /nologo /target:exe /out:"$OUT/NbtTests.exe" \
-    /r:System.dll /r:System.Core.dll \
-    /imports:System,System.IO,System.IO.Compression,System.Text,System.Collections.Generic \
+# 每个测试程序单独编译：它们的入口各自是一个 Module 的 Main，
+# 混在一个 exe 里会撞入口点。加一个就跑一组，互不影响。
+run_tests() {
+    local Name="$1"
+    shift
+    if ! "$VBC" /nologo /target:exe /out:"$OUT/$Name.exe" \
+        /r:System.dll /r:System.Core.dll \
+        /imports:System,System.IO,System.IO.Compression,System.Text,System.Text.RegularExpressions,System.Collections.Generic \
+        "$@" 2>&1 | grep -E "error|warning"; then
+        :
+    fi
+    if [ "${PIPESTATUS[0]}" != "0" ]; then
+        echo "测试代码编译失败：$Name" >&2
+        exit 1
+    fi
+    "$OUT/$Name.exe" || return 1
+}
+
+FAILED=0
+run_tests NbtTests \
     "$SRC/Modules/DstNbt.vb" \
     "$SRC/Modules/DstNbtPath.vb" \
-    tests/NbtTests.vb 2>&1 | grep -E "error|warning"
-RC=${PIPESTATUS[0]}
-if [ "$RC" != "0" ]; then
-    echo "测试代码编译失败" >&2
-    exit 1
-fi
+    tests/NbtTests.vb || FAILED=1
 
-"$OUT/NbtTests.exe"
+run_tests InviteCodeTests \
+    "$SRC/Modules/Config/ModInviteCode.vb" \
+    tests/InviteCodeTests.vb || FAILED=1
+
+exit $FAILED

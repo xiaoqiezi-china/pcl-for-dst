@@ -5,7 +5,7 @@ Imports System.Reflection
 Imports PCL
 
 Public Class PageLinkMain
-    Private Const INVITE_CODE_VERSION As Integer = 3
+    Private Const INVITE_CODE_VERSION As Integer = 4
 
     '===============================
     '  状态机与前端页面
@@ -154,18 +154,18 @@ Public Class PageLinkMain
         Else
             DiscoverNodeID = Code.Substring(20, 3).Upper.ConvertRadix(16, 10)
         End If
-        '版本 3 起：第 24 位之后是节点地址（形如 tcp://host:port）
+        '版本 4 起：第 24 位之后是编码过的节点地址（见 ModInviteCode）。
+        '版本 3 的明文地址仍要认，老邀请码不能失效。
         DiscoverNodeAddress = ""
         If Code.Length > 24 AndAlso Code(23) = "-"c Then
             Dim Tail As String = Code.Substring(24).Trim()
-            If Tail.StartsWith("TCP://") OrElse Tail.StartsWith("UDP://") OrElse
-               Tail.StartsWith("WS://") OrElse Tail.StartsWith("WSS://") Then
-                'FixCodeFormat 会把整串转成大写，这里还原协议前缀的小写形式
-                Dim SchemeEnd As Integer = Tail.IndexOf("://", StringComparison.Ordinal)
-                If SchemeEnd > 0 Then
-                    Tail = Tail.Substring(0, SchemeEnd).ToLowerInvariant() & Tail.Substring(SchemeEnd)
+            If ModInviteCode.IsPlainAddress(Tail) Then
+                DiscoverNodeAddress = ModInviteCode.NormalizePlainAddress(Tail)
+            Else
+                DiscoverNodeAddress = ModInviteCode.Decode(Tail)
+                If DiscoverNodeAddress = "" Then
+                    Logger.Warn($"邀请码里的节点信息无法解析，将回退到按节点 ID 选择：{Tail}")
                 End If
-                DiscoverNodeAddress = Tail
             End If
         End If
         Logger.Info($"尝试加入房间，网络名 {NetworkName}，网络密码 {NetworkSecret}，端口 {ServerPort}，发现节点 {DiscoverNodeID}，节点地址 {If(DiscoverNodeAddress = "", "(未提供)", DiscoverNodeAddress)}")
@@ -413,16 +413,25 @@ Public Class PageLinkMain
         Hint("已复制邀请码！", HintType.Green)
     End Sub
     ''' <summary>
-    ''' 生成邀请码。版本 3 起在末尾追加房主实际使用的节点地址，
+    ''' 生成邀请码。版本 4 起在末尾追加房主实际使用的节点地址，
     ''' 这样成员不必依赖「节点 ID 到地址」的映射——那份清单是动态的，
     ''' 房主和成员拉到的版本可能不同，ID 就会指向不同地址。
+    ''' <para>
+    ''' 地址不是明文拼进去的，而是先打包成二进制再转 Base32（见 <see cref="ModInviteCode"/>）。
+    ''' 邀请码会被到处转发，明文写 tcp://host:port 等于把房主走的节点公开，
+    ''' 编码后就是一串普通的大写字母数字，和前半段看起来没区别。
+    ''' </para>
     ''' </summary>
     Private Function GetInviteCode() As String
         Dim Base As String = $"{NetworkName}-{NetworkSecret}-{INVITE_CODE_VERSION.ToString.PadLeft(2, "0"c)}{ _
             If(DiscoverNodeID = -1, 0, DiscoverNodeID).ConvertRadix(16).PadLeft(3, "0"c)}"
-        '把地址接在后面；地址本身不含空格，直接拼即可
-        If Not String.IsNullOrWhiteSpace(DiscoverNodeAddress) Then
-            Base &= "-" & DiscoverNodeAddress.Trim()
+        Dim Blob As String = ModInviteCode.Encode(DiscoverNodeAddress)
+        If Blob <> "" Then
+            Base &= "-" & Blob
+        ElseIf Not String.IsNullOrWhiteSpace(DiscoverNodeAddress) Then
+            '编不出来说明地址本身有问题，这时候宁可让成员按 ID 兜底，
+            '也不要把畸形地址写进邀请码
+            Logger.Warn($"节点地址无法编码进邀请码，将回退到按节点 ID 选择：{DiscoverNodeAddress}")
         End If
         Return Base
     End Function
@@ -597,6 +606,15 @@ Public Class PageLinkMain
             If DiscoverNodeID <> -2 AndAlso Not IsServerSide Then Hint("房主可能没有使用自定义节点设置，请确认你们的自定义节点设置是否一致！")
             RawPeers = CustomPeers.Split("，,".ToCharArray).Select(Function(p) p.Trim).Where(Function(p) Not String.IsNullOrEmpty(p)).ToList()
             Logger.Info($"使用自定义节点：{CustomPeers}")
+            '自定义节点是用户自己填的，同样要随邀请码发出去：
+            '否则房主用自定义节点建房时，邀请码里没有地址段，
+            '成员只能按节点 ID 去公开清单里找，必然找不到。
+            '取第一个作为发现节点——其余地址只用来直连，成员不需要知道。
+            If IsServerSide AndAlso RawPeers.Count > 0 Then
+                DiscoverNodeAddress = RawPeers(0)
+                DiscoverNodeID = 0 '自定义节点不在公开清单里，没有 ID
+                Logger.Info($"房主使用自定义节点，邀请码将带上地址：{DiscoverNodeAddress}")
+            End If
         End If
         Task.Progress = 0.13
         '获取空闲端口
@@ -731,16 +749,26 @@ Public Class PageLinkMain
                 '这样不依赖「节点 ID → 地址」的映射，避免双方清单版本不同导致连错节点。
                 Selected = Nodes.FirstOrDefault(Function(N) String.Equals(N.Address, AddressFromCode, StringComparison.OrdinalIgnoreCase))
                 If Selected Is Nothing Then
-                    '地址不在清单里：可能是新加的节点，也可能是别人自建后分享的。
-                    '不直接拒绝，但要提醒用户这个地址来路不明。
-                    Logger.Warn($"邀请码中的节点不在已知清单里：{AddressFromCode}")
-                    Dim Choice As Integer = MyMsgBox(
-                        "房主使用的联机节点不在已知节点清单中：" & vbCrLf &
-                        AddressFromCode & vbCrLf & vbCrLf &
-                        "未知节点可能记录你的连接信息，或者把流量引向别处。" & vbCrLf &
-                        "确认要继续连接吗？", "未知节点", "继续连接", "取消", IsWarn:=True)
-                    If Choice <> 1 Then Throw New OperationCanceledException
-                    '仍按地址直连
+                    '清单里没有这个地址。是「清单拉到了但确实没有」，
+                    '还是「清单压根没拉到」，风险不一样，要分开处理：
+                    '前者说明房主用了自建节点，提醒一下；后者是我们自己的问题，
+                    '不能因此把正常节点报成可疑节点。
+                    Dim Known As ModLinkNodes.KnownResult = ModLinkNodes.CheckKnown(AddressFromCode)
+                    Select Case Known
+                        Case ModLinkNodes.KnownResult.Unknown
+                            Logger.Warn($"邀请码中的节点不在已知清单里：{AddressFromCode}")
+                            Dim Choice As Integer = MyMsgBox(
+                                "房主使用的联机节点不在公开节点清单中：" & vbCrLf &
+                                AddressFromCode & vbCrLf & vbCrLf &
+                                "这通常是房主自建的节点。未知节点可能记录你的连接信息，" & vbCrLf &
+                                "或者把流量引向别处。" & vbCrLf & vbCrLf &
+                                "确认要继续连接吗？", "未知节点", "继续连接", "取消", IsWarn:=True)
+                            If Choice <> 1 Then Throw New OperationCanceledException
+                        Case ModLinkNodes.KnownResult.Unavailable
+                            '清单没拉到，无从判断。不拦，但留个记录便于排查。
+                            Logger.Warn($"节点清单不可用，无法校验邀请码中的地址是否公开：{AddressFromCode}")
+                    End Select
+                    '按地址直连
                     Selected = New ModLinkNodes.LinkNode With {
                         .Id = DiscoverNodeID,
                         .Address = AddressFromCode,
@@ -845,17 +873,43 @@ Public Class PageLinkMain
 
     ''' <summary>
     ''' 清掉上次异常退出留下的 TUN 网卡。
+    ''' <para>
     ''' EasyTier 在 Windows 上被强杀时不会删网卡，下次启动复用同名网卡，
-    ''' 再添加同一个 IPv4 就会报「对象已存在 (5010)」。
+    ''' 再添加同一个 IPv4 就会报「对象已存在 (5010)」，整个联机直接起不来。
+    ''' </para>
+    ''' <para>
+    ''' 这里必须用 pnputil 删设备，不能用 Remove-NetAdapter：
+    ''' 后者在部分系统上根本不存在（Windows 自带的 NetAdapter 模块只有
+    ''' Get/Set/Disable 那一批，没有 Remove），之前用它导致清理一直静默失败。
+    ''' 网卡是 Wintun 虚拟设备，按 PnP 实例 ID 删才删得掉。
+    ''' </para>
     ''' </summary>
     Private Sub CleanupLeftoverTun()
         Try
-            Dim Names As List(Of String) = RunPowerShell("Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'et_*' } | Select-Object -ExpandProperty Name")
-            For Each Name As String In Names
-                Dim Clean As String = Name.Trim()
-                If Clean = "" Then Continue For
-                Logger.Info($"清理残留联机网卡：{Clean}")
-                RunPowerShell($"Remove-NetAdapter -Name '{Clean}' -Confirm:$false -ErrorAction SilentlyContinue")
+            '先杀掉还活着的联机模块，否则它会立刻把网卡重新建出来
+            Try
+                For Each Proc In Process.GetProcessesByName("联机模块")
+                    Try
+                        Logger.Info($"结束残留的联机模块进程：{Proc.Id}")
+                        Proc.Kill()
+                        Proc.WaitForExit(3000)
+                    Catch ex As Exception
+                        Logger.Warn(ex, $"结束联机模块进程 {Proc.Id} 失败")
+                    End Try
+                Next
+            Catch ex As Exception
+                Logger.Warn(ex, "枚举联机模块进程失败")
+            End Try
+            '按 PnP 实例 ID 删掉残留的 Wintun 设备
+            Dim Names As List(Of String) = RunPowerShell(
+                "Get-NetAdapter -ErrorAction SilentlyContinue | " &
+                "Where-Object { $_.Name -like 'et_*' } | " &
+                "Select-Object -ExpandProperty PnPDeviceID")
+            For Each Raw As String In Names
+                Dim Id As String = Raw.Trim()
+                If Id = "" OrElse Not Id.StartsWith("SWD\Wintun", StringComparison.OrdinalIgnoreCase) Then Continue For
+                Logger.Info($"清理残留联机网卡：{Id}")
+                RunPowerShell($"pnputil /remove-device '{Id}'")
             Next
         Catch ex As Exception
             Logger.Warn(ex, "清理残留联机网卡失败")
@@ -1208,28 +1262,10 @@ Public Class PageLinkMain
                 HintFinish.Visibility = Visibility.Collapsed
                 If IsServerSide Then Return '服务端没有需要显示的提示
                 If Connecting Then Return '连接稳定过程中不显示提示
-                '中继提示
                 Dim Server As Peer = GetTargetPeer()
                 If Server Is Nothing Then Return
-                If Server.Relay Then
-                    If NATType >= NATTypes.Symmetric AndAlso Server.NATType >= NATTypes.Symmetric Then
-                        HintFinish.Text = "你和房主的网络环境都不太好，"
-                    ElseIf NATType >= NATTypes.Symmetric Then
-                        HintFinish.Text = "你的网络环境不太好，"
-                    ElseIf Server.NATType >= NATTypes.Symmetric Then
-                        HintFinish.Text = "房主的网络环境不太好，"
-                    Else
-                        HintFinish.Text = "你或者房主的网络环境不太好，"
-                    End If
-                    If String.IsNullOrWhiteSpace(Settings.Get(Of String)("LinkCustomPeer")) Then
-                        HintFinish.Text &= "正使用社区节点进行中继。"
-                    Else
-                        HintFinish.Text &= "正通过自定义节点进行中继。"
-                    End If
-                    HintFinish.Visibility = Visibility.Visible
-                    HintFinish.Theme = MyHint.Themes.Yellow
-                    Return
-                End If
+                '中继提示不再显示：现在没有可直连的公网节点，所有连接都要经社区节点中转，
+                '这条提示会一直挂着，等于常驻噪声。中继本身在延迟栏里看得见。
                 '环境比房主更好的提示
                 If NATType >= NATTypes.PortRestricted Then Return '自身的 NAT 为 2 或更好
                 If Server.NATType < NATTypes.PortRestricted Then Return '房主的 NAT 为 3 或更差
