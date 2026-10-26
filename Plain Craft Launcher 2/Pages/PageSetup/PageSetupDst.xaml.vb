@@ -85,12 +85,13 @@ Public Class PageSetupDst
 
     Private Const PresetTagPrefix As String = "preset:"
 
-    Private Sub RefreshPresetList()
+    ''' <param name="ForceRefresh">True 表示无视缓存重新拉取（「刷新」按钮）。</param>
+    Private Sub RefreshPresetList(Optional ForceRefresh As Boolean = False)
         If CmbDstPreset Is Nothing Then Return
         LabDstPresetState.Text = "正在获取预设列表……"
         RunInThread(
         Sub()
-            Dim Ok As Boolean = ModPresetSource.Fetch()
+            Dim Ok As Boolean = ModPresetSource.Fetch(ForceRefresh)
             If Not Ok Then ModPresetSource.LoadFromBackup()
             RunInUi(Sub() ApplyPresetList())
         End Sub)
@@ -206,7 +207,8 @@ Public Class PageSetupDst
     End Sub
 
     Private Sub BtnDstPresetRefresh_Click(sender As Object, e As EventArgs) Handles BtnDstPresetRefresh.Click
-        RefreshPresetList()
+        '手动刷新必须无视缓存，否则用户点了「刷新」还是看到旧列表，会以为按钮没反应
+        RefreshPresetList(ForceRefresh:=True)
     End Sub
 
     '==== 服务器设置：模式切换 ====

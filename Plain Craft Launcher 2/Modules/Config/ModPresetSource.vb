@@ -25,10 +25,12 @@ Friend Module ModPresetSource
     ''' 被替换就意味着流量会去别的服务器，所以镜像只是「能用」的折中，不是可信来源。
     ''' </para>
     ''' </summary>
+    Private Const RawUrl As String =
+        "https://raw.githubusercontent.com/xiaoqiezi-china/pcl-for-dst/refs/heads/main/yushe.json"
     Public ReadOnly PresetUrls As String() = {
-        "https://ghfast.top/https://raw.githubusercontent.com/xiaoqiezi-china/pcl-for-dst/refs/heads/main/yushe.json",
-        "https://gh-proxy.com/https://raw.githubusercontent.com/xiaoqiezi-china/pcl-for-dst/refs/heads/main/yushe.json",
-        "https://raw.githubusercontent.com/xiaoqiezi-china/pcl-for-dst/refs/heads/main/yushe.json"}
+        "https://gh-proxy.com/" & RawUrl,
+        "https://ghfast.top/" & RawUrl,
+        RawUrl}
     ''' <summary>国内备用源。留空表示没配置，界面上会显示为未启用。</summary>
     Public Const GiteeUrl As String = ""
 
@@ -83,9 +85,16 @@ Friend Module ModPresetSource
     ''' 从远端拉取预设列表。成功则刷新缓存并写一份备份；失败时保留旧缓存不动。
     ''' 必须在工作线程调用。
     ''' </summary>
-    Public Function Fetch() As Boolean
+    ''' <param name="ForceRefresh">
+    ''' 为 True 时在每个候选地址后面挂一个时间戳，绕开 CDN 缓存。
+    ''' 用户点「刷新」就是这个语义：还拿旧内容就不叫刷新了。
+    ''' </param>
+    Public Function Fetch(Optional ForceRefresh As Boolean = False) As Boolean
         Dim LastError As String = ""
-        For Each Url As String In PresetUrls
+        '同一个时间戳给所有候选地址用，保证它们拉的是同一时刻的内容
+        Dim Stamp As String = If(ForceRefresh, $"?t={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}", "")
+        For Each BaseUrl As String In PresetUrls
+            Dim Url As String = BaseUrl & Stamp
             Try
                 Dim Json As String = NetRequestByClient(Url, HttpMethod.Get, Timeout:=15000, MakeLog:=False)
                 '某个源拿到空响应、超大响应、或者解析不出条目，都换下一个源继续试，
