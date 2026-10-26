@@ -54,6 +54,18 @@ Friend Module ModUpdateSource
         "https://gh-proxy.com/"
     }
 
+    ''' <summary>
+    ''' 查询接口用的加速前缀。
+    ''' <para>
+    ''' 只有 gh-proxy 能转发 api.github.com：实测 ghfast 对 API 地址返回 403 Invalid input，
+    ''' 所以这里不能照抄下载用的那组镜像。
+    ''' </para>
+    ''' </summary>
+    Private ReadOnly ApiMirrors As String() = {
+        "",
+        "https://gh-proxy.com/"
+    }
+
     ''' <summary>缓存文件，存上次成功拿到的完整信息。</summary>
     Private ReadOnly Property CacheFile As String
         Get
@@ -128,9 +140,20 @@ Friend Module ModUpdateSource
 
     ''' <summary>走 API 拿完整的 Release 信息。</summary>
     Private Function FetchFromApi() As ReleaseInfo
+        '官方 api.github.com 在国内并不稳定，也不能只靠它：
+        '按官方 → gh-proxy 依次试，第一个拿到的用
+        Dim Result As New ReleaseInfo
+        For Each Mirror As String In ApiMirrors
+            Result = FetchFromApiOnce(If(Mirror = "", ApiReleases, Mirror & ApiReleases))
+            If Result.Ok Then Return Result
+        Next
+        Return Result
+    End Function
+
+    Private Function FetchFromApiOnce(Url As String) As ReleaseInfo
         Dim Result As New ReleaseInfo
         Try
-            Dim Json As String = HttpGetText(ApiReleases)
+            Dim Json As String = HttpGetText(Url)
             If String.IsNullOrWhiteSpace(Json) Then
                 Result.Err = "服务器返回为空"
                 Return Result
