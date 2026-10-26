@@ -19,7 +19,7 @@ Public Class PageSetupDst
         RefreshPresetList()
         '配置好了预设服务器、但应用ID还是空的，说明上次切换预设之后没同步成功
         '（老版本压根不会同步）。进这一页就补一次，省得用户被正版登录的弹窗拦下来。
-        If ModSecret.MsClientIdResolve() = "" AndAlso DstBot.ApiBase <> "" Then SyncCredentialAsync()
+        If ModSecret.MsClientIdResolve() = "" AndAlso DstBot.ApiBase <> "" Then SyncPresetServiceAsync()
     End Sub
 
     Private Sub RefreshAll()
@@ -39,7 +39,15 @@ Public Class PageSetupDst
         RefreshState()
         RefreshGroupList()
         RefreshCacheInfo()
-        DstBot.FetchGroups(OnDone:=AddressOf RefreshGroupList)
+        '群列表拉完要顺带刷一次状态：StatusLast 是异步更新的，
+        '只在页面加载时读一次的话，界面会一直停在加载那一刻的「未配置」
+        DstBot.FetchGroups(OnDone:=AddressOf OnGroupsFetched)
+    End Sub
+
+    ''' <summary>群列表拉取结束后刷新状态与群号显示。</summary>
+    Private Sub OnGroupsFetched()
+        RefreshGroupList()
+        RefreshState()
     End Sub
 
     '==== 源状态 ====
@@ -207,20 +215,29 @@ Public Class PageSetupDst
         DstBot.ApplyPreset(Picked.Api, Picked.ApiKey)
         RefreshState()
         Hint($"已切换到「{Picked.Name}」", HintType.Blue)
-        '预设服务器在 getvar 里下发 ClientId 与 CurseForge Key。
-        '这一步平时只在启动时顺带做一次，换完预设必须主动同步，
-        '否则要重启才生效，用户会以为「选了预设也没用」。
-        SyncCredentialAsync()
+        '换完预设立刻连一次并同步凭据，不等下次启动
+        SyncPresetServiceAsync()
     End Sub
 
-    ''' <summary>后台向预设服务器同步一次凭据，成功后提示。</summary>
-    Private Sub SyncCredentialAsync()
+    ''' <summary>
+    ''' 切换预设之后要做的事：连一次预设服务器，把应用ID同步下来，再把连接状态刷出来。
+    ''' <para>
+    ''' 以前这几件事都只在启动时做一次。用户启动之后才换预设的话，
+    ''' 既拿不到 ClientId（正版登录会提示缺少应用ID），状态也一直停在「未配置」。
+    ''' 常规模式只决定首页显不显示云端内容，不影响这里真的去连。
+    ''' </para>
+    ''' </summary>
+    Private Sub SyncPresetServiceAsync()
+        '1) 与应用ID一起下发的还有 CurseForge Key，两者都写进 config.ini
         RunInThread(
         Sub()
             If DstUpdate.SyncCredentials() Then
                 RunInUi(Sub() Hint("已同步应用ID与 API Key", HintType.Green))
             End If
         End Sub)
+        '2) 真正连一次：FetchGroups 成功会把状态置成「已连接」，失败是「连接失败」，
+        '   两种都比停在「未配置」更能说明问题
+        DstBot.FetchGroups(Force:=True, OnDone:=AddressOf OnGroupsFetched)
     End Sub
 
     Private Sub BtnDstPresetRefresh_Click(sender As Object, e As EventArgs) Handles BtnDstPresetRefresh.Click
