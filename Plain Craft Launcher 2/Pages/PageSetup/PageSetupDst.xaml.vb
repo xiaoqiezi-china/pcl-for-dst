@@ -17,6 +17,9 @@ Public Class PageSetupDst
         Reloaded = True
         RefreshAll()
         RefreshPresetList()
+        '配置好了预设服务器、但应用ID还是空的，说明上次切换预设之后没同步成功
+        '（老版本压根不会同步）。进这一页就补一次，省得用户被正版登录的弹窗拦下来。
+        If ModSecret.MsClientIdResolve() = "" AndAlso DstBot.ApiBase <> "" Then SyncCredentialAsync()
     End Sub
 
     Private Sub RefreshAll()
@@ -204,6 +207,20 @@ Public Class PageSetupDst
         DstBot.ApplyPreset(Picked.Api, Picked.ApiKey)
         RefreshState()
         Hint($"已切换到「{Picked.Name}」", HintType.Blue)
+        '预设服务器在 getvar 里下发 ClientId 与 CurseForge Key。
+        '这一步平时只在启动时顺带做一次，换完预设必须主动同步，
+        '否则要重启才生效，用户会以为「选了预设也没用」。
+        SyncCredentialAsync()
+    End Sub
+
+    ''' <summary>后台向预设服务器同步一次凭据，成功后提示。</summary>
+    Private Sub SyncCredentialAsync()
+        RunInThread(
+        Sub()
+            If DstUpdate.SyncCredentials() Then
+                RunInUi(Sub() Hint("已同步应用ID与 API Key", HintType.Green))
+            End If
+        End Sub)
     End Sub
 
     Private Sub BtnDstPresetRefresh_Click(sender As Object, e As EventArgs) Handles BtnDstPresetRefresh.Click

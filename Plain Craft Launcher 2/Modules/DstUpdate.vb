@@ -86,6 +86,32 @@ Friend Module DstUpdate
         Return New JObject
     End Function
 
+    ''' <summary>
+    ''' 从预设服务器同步一次凭据（ClientId / CurseForge Key），写进 config.ini。
+    ''' <para>
+    ''' 这两个值平时只在启动器的更新检查里顺带拉一次。用户如果是启动之后才切换预设，
+    ''' 要等下次启动才生效——表现就是「明明选了预设服务器，正版登录却提示缺少应用ID」。
+    ''' 换预设时主动同步一次，就不必依赖重启。
+    ''' </para>
+    ''' </summary>
+    Public Function SyncCredentials() As Boolean
+        Try
+            Dim Vars As JObject = FetchVars()
+            If Vars Is Nothing OrElse Vars.Count = 0 Then Return False
+            Dim ClientId As String = PickVar(Vars, "clientid", "clientId", "dclclientid")
+            Dim CfKey As String = PickVar(Vars, "cfapikey", "curseforgekey", "dclcfapikey")
+            If ClientId = "" AndAlso CfKey = "" Then Return False
+            '写进配置而不是内存：下次启动 MsClientIdResolve 直接就能读到
+            If ClientId <> "" Then ModConfigFile.Write(ModConfigFile.SectionCredential, "ClientId", ClientId)
+            If CfKey <> "" Then ModConfigFile.Write(ModConfigFile.SectionCredential, "CurseForgeKey", CfKey)
+            Logger.Info("已从预设服务器同步凭据")
+            Return True
+        Catch ex As Exception
+            Logger.Info("同步预设凭据失败：" & ex.Message)
+            Return False
+        End Try
+    End Function
+
     Private Function ParseVars(Json As String) As JObject
         If String.IsNullOrWhiteSpace(Json) Then Return Nothing
         Dim Trimmed As String = Json.Trim()
