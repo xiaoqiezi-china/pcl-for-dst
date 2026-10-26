@@ -601,7 +601,7 @@ Friend Module ModTheme
         End Sub)
     End Sub
     ''' <summary>
-    ''' 定制版：主题 ID → 调色参数。开源版里这段映射原本被删掉了，这里补回。
+    ''' 主题 ID → 调色参数。
     ''' </summary>
     Private Sub ThemeApplyPalette(Id As Integer)
         ThemeDontClick = 0
@@ -659,7 +659,7 @@ Friend Module ModTheme
     ''' <summary>
     ''' 统一刷新主题的可用状态与当前配色。
     ''' EffectSetup 表示是否需要同步刷新设置页的外观（启动流程里为 False，避免过早访问设置页控件）。
-    ''' 定制版：所有主题一律开放，因此这里只负责把控件状态与配色对齐。
+    ''' 所有主题一律开放，因此这里只负责把控件状态与配色对齐。
     ''' </summary>
     Friend Sub ThemeCheckAll(EffectSetup As Boolean)
         ApplyThemeAvailability()
@@ -761,7 +761,7 @@ Friend Module ModTheme
         BubbleMetaText = New MyColor(255, 255, 255)
     End Sub
 
-    ''' <summary>主题是否可用。定制版全部开放，但仍然走这套判断，方便以后按需收紧。</summary>
+    ''' <summary>主题是否可用。全部开放，但仍然走这套判断，方便以后按需收紧。</summary>
     Friend Function ThemeCheckOne(Id As Integer) As Boolean
         '0~14 是常规色相主题，15 是高对比度，16 是定制
         Return Id >= 0 AndAlso Id <= ThemeCustom
@@ -770,8 +770,8 @@ Friend Module ModTheme
     ''' <summary>
     ''' 尝试解锁主题。
     ''' 返回值表示“本次是否发生了新解锁”，调用方据此弹一次庆祝提示（如启动 99 次解锁铁杆粉、正版登录解锁跳票红）。
-    ''' 定制版所有主题默认可用，因此不存在“新解锁”这回事，恒返回 False；
-    ''' 保留完整签名是为了让上述调用点的代码与上游保持一致，不必改动它们。
+    ''' 所有主题默认可用，因此不存在“新解锁”这回事，恒返回 False；
+    ''' 保留完整签名是为了不改动调用点。
     ''' </summary>
     Friend Function ThemeUnlock(Id As Integer, Optional ShowDoubleHint As Boolean = True, Optional UnlockHint As String = Nothing) As Boolean
         Return False

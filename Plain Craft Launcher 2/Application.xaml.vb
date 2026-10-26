@@ -4,8 +4,7 @@ Imports System.Windows.Threading
 Public Class Application
 
     ''' <summary>
-    ''' 旧版定制版把设置写在 Software\DSTLauncher，现在统一到 Software\PCL 以兼容原版 PCL。
-    ''' 仅当目标键里还没有启动器数据时整块搬一次；
+    ''' 把设置从旧注册表位置搬到 Software\PCL，仅当目标键里还没有数据时整块搬一次；
     ''' 必须连 Identify 一起搬：加密项的解密密钥是 "PCL" &amp; Identify，只搬密文会解不开。
     ''' </summary>
     Private Shared Sub MigrateLegacyRegistry()
@@ -30,8 +29,8 @@ Public Class Application
                             End Try
                         Next
                     Else
-                        '目标键里已经有原版 PCL 的数据：只补搬本定制版独有的 Dst* 设置，
-                        '而且只补目标里没有的，绝不覆盖原版 PCL 的既有配置
+                        '目标键里已经有数据：只补搬 Dst* 设置，
+                        '而且只补目标里没有的，不覆盖既有配置
                         For Each Name As String In Names
                             If Not Name.StartsWithF("Dst", True) Then Continue For
                             Try

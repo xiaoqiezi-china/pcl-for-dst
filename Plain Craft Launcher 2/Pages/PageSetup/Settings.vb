@@ -380,7 +380,7 @@ Public Class Settings
         Dim Value = Entry.GetCache(Instance)
         If Value IsNot Nothing Then Return Value
         '对部分设置强制赋值
-        '原本这里把联机页强制隐藏（上游认为该功能不可用）。联机已经修好，不再强制。
+        '联机页不再强制隐藏。
         Static ForcedSettings As New Dictionary(Of String, Object) From {}
         Dim ForcedSetting As Object = Nothing
         If ForcedSettings.TryGetValue(Key, ForcedSetting) Then

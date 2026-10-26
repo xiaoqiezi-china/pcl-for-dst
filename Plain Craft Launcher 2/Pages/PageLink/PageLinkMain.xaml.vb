@@ -597,8 +597,8 @@ Public Class PageLinkMain
         Dim RawPeers As List(Of String)
         Dim CustomPeers As String = Settings.Get(Of String)("LinkCustomPeer")
         '邀请码里带了房主实际使用的节点地址时，以它为准。
-        '本机的「自定义节点」是用户自己填的，可能和房主填的不一致；
-        '以前这里优先用本机设置，两边连到不同节点，互相就看不见了。
+        '本机的「自定义节点」是用户自己填的，可能和房主填的不一致，
+        '以本机设置为先会导致两边连到不同节点、互相看不见。
         '（服务端不走这条路：它自己就是要发地址的一方）
         Dim AddressFromCode As String = If(IsServerSide, "", DiscoverNodeAddress.Trim())
         If AddressFromCode <> "" Then
@@ -715,8 +715,7 @@ Public Class PageLinkMain
     ''' <summary>
     ''' 选取要连接的节点。
     ''' <para>
-    ''' 原来这里是向 uptime.easytier.cn 要一份带负载的节点列表，那个服务已经下线；
-    ''' 现在改走 <see cref="ModLinkNodes"/>：云端清单 → 本地备份 → 内置兜底，三层都能给出地址。
+    ''' 走 <see cref="ModLinkNodes"/>：云端清单 → 本地备份 → 内置兜底，三层都能给出地址。
     ''' </para>
     ''' <para>
     ''' 发现节点 ID 的语义不变：-1 表示房主自选，0 表示用回退，>0 表示按 ID 指定。
@@ -894,9 +893,8 @@ Public Class PageLinkMain
     ''' 再添加同一个 IPv4 就会报「对象已存在 (5010)」，整个联机直接起不来。
     ''' </para>
     ''' <para>
-    ''' 这里必须用 pnputil 删设备，不能用 Remove-NetAdapter：
-    ''' 后者在部分系统上根本不存在（Windows 自带的 NetAdapter 模块只有
-    ''' Get/Set/Disable 那一批，没有 Remove），之前用它导致清理一直静默失败。
+    ''' 必须用 pnputil 删设备：Remove-NetAdapter 在部分系统上不存在
+    ''' （Windows 自带的 NetAdapter 模块只有 Get/Set/Disable 那一批）。
     ''' 网卡是 Wintun 虚拟设备，按 PnP 实例 ID 删才删得掉。
     ''' </para>
     ''' </summary>
@@ -1146,7 +1144,6 @@ Public Class PageLinkMain
 
     Private Sub RefreshPeer()
         Try
-            '原来这行调用被注释掉了，CliResult 永远是空串，于是每次都抛「CLI 调用失败」
             Dim CliResult As String = RunCli($"-o json -p 127.0.0.1:{RPCPort} peer", 2000)
             '解析
             If Not CliResult.Contains("lat_ms") Then Throw New Exception("CLI 调用失败：" & vbCrLf & CliResult)

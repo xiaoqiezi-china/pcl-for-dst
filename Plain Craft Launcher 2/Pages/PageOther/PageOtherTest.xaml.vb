@@ -42,7 +42,7 @@ Public Class PageOtherTest
         "1+1=3",
         "你好中国！",
         "迎接另一个晨曦",
-        "DPCL 由 MC_xiaoqie 辅助 AI 开发",
+        "遇到问题可以在「更多 → 关于」里找到反馈入口",
         "请勿二次分发 BugJump®️",
         "F2 截图会存进当前版本的 screenshots 文件夹",
         "启动器更新只替换程序本身，PCL 目录里的配置不会被覆盖",

@@ -173,8 +173,7 @@ Friend Module ModPresetSource
         Dim Result As New List(Of Preset)
         If String.IsNullOrWhiteSpace(Json) Then Return Result
         Try
-            '预设文件里允许写 // 注释（第一版就是这么写的），
-            'Newtonsoft 默认不认，先逐行剔掉再解析
+            '预设文件里允许写 // 注释，Newtonsoft 默认不认，先逐行剔掉再解析
             Json = StripComments(Json)
             If String.IsNullOrWhiteSpace(Json) Then Return Result
             Dim Root As JToken

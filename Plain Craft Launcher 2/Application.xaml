@@ -22,7 +22,7 @@
             <FontFamily x:Key="UiFontFamily">Noto Sans SC, Microsoft YaHei UI, Segoe UI</FontFamily>
 
             <!--
-                颜色表：默认值必须是 PCL 浅色（与上游一致）。
+                颜色表：默认值必须是浅色。
                 Indra 外观与深色模式都由 ModTheme.ThemeRefresh 在运行时覆盖，
                 所以在 ThemeRefresh 之前创建的窗口先看到的是这套浅色，不会闪一下深色。
             -->
@@ -48,7 +48,7 @@
             <Color x:Key="ColorObject9">#f5f8fe</Color>
             <Color x:Key="ColorObjectBg0">#96c0f9</Color>
             <Color x:Key="ColorObjectBg1">#bee0eafd</Color>
-            <!-- 以下键是定制版新增的，默认值同样是浅色；深色与 Indra 在 ModTheme 里覆盖 -->
+            <!-- 边框与辅助色，默认值同样是浅色；深色与 Indra 在 ModTheme 里覆盖 -->
             <SolidColorBrush x:Key="ColorBrushBorder">#E0E0E0</SolidColorBrush>
             <!--
                 窗口最外圈那道 1px 轮廓，和内容里的分隔线不是一回事：

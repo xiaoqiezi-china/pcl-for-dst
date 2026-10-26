@@ -20,7 +20,7 @@
 ### 界面
 
 - 深色 / 浅色两套配色，主题全部开放
-- 标题栏「默认」模式显示产品名 DPCL（原版是 PCL 矢量图）
+- 标题栏「默认」模式显示产品名 DPCL
 - 首页服务器卡片支持右键隐藏延迟，省得挡住信息
 - 「你知道吗」改为随机提示语池
 
@@ -39,15 +39,12 @@
 
 ### 联机
 
-原版联机依赖 PCL 官方服务器下发的配置与 EasyTier 节点列表 API，两者均已下线，
-功能失效并被强制隐藏。本版做了这些修复：
-
-- 联机配置改为**编译期内置**，不再依赖远端
-- EasyTier 内核从官方 GitHub Release 下载（v2.6.4），走 PCL 原生下载器，带断点续传与镜像回退
-- 节点清单改为 **GitHub 同步 + 本地备份 + 内置兜底** 三层降级，见 `link-nodes.json`
+- 联机配置**编译期内置**，不依赖远端下发
+- EasyTier 内核从官方 GitHub Release 下载（v2.6.4），走原生下载器，带断点续传与镜像回退
+- 节点清单采用 **GitHub 同步 + 本地备份 + 内置兜底** 三层降级，见 `link-nodes.json`
 - 启动前清理上次异常退出残留的 TUN 网卡，避免「对象已存在 (5010)」
 - 连接前并发探测各节点 TCP 延迟，优先选最快的
-- 解除了开源版的功能限制，联机页恢复正常入口
+- 邀请码会带上房主实际使用的节点地址（编码后写入），未知节点由用户确认后连接
 
 ### 账号与 API
 
@@ -67,18 +64,14 @@
 > 注意：`Resources.resx` 硬编码引用了 `PCLCS\bin` 下的 DLL，因此**不要覆盖 `OutDir`**，
 > 否则 PCLCS 的产物不会落在它期望的位置，编译会失败。脚本已按默认输出处理。
 
-### 一次构建多个变体
-
-`build-all.sh` 会产出四个组合（预设版 / 发布版 × 1.0.0 / 0.9.9），用于发布与更新测试。
-其余脚本按用途拆分：
+### 其他构建脚本
 
 | 脚本 | 产物 |
 | --- | --- |
 | `build.sh` | `dist/`，常规构建 |
-| `build-preset.sh` | `fortrop/`，带内置凭据的预设版 |
-| `build-release.sh` | `release/`，不含任何凭据的发布版 |
-| `build-all.sh` | 预设 / 发布 × 两个版本号 |
-| `build-debug1.sh` / `build-debug2.sh` | 联机与更新测试用的低版本 |
+| `build-preset.sh` | `fortrop/`，内置凭据的版本 |
+| `build-release.sh` | `release/`，不含任何凭据的版本 |
+| `build-all.sh` | 预设版与发布版的全部组合 |
 
 ## 凭据
 
@@ -91,16 +84,12 @@
 `config.ini` 只在首次启动且文件不存在时释放一份模板，之后**更新启动器不会覆盖它**，
 因此升级后凭据仍在。发行版可以预先塞一份带初始数据的 `config.ini` 一起分发。
 
-开发时若要内置凭据，自建 `Modules/ModSecret.Local.vb`（已在 `.gitignore` 中，不会被提交）：
+若要内置凭据，自建 `Modules/ModSecret.Local.vb`（已在 `.gitignore` 中，不会被提交）：
 
 ```vb
 Friend Module ModSecretLocal
     Public Const ClientId As String = "你的 Azure 应用 ID"
     Public Const CurseForgeKey As String = "你的 CurseForge Key"
-    Public Const PresetApi As String = ""
-    Public Const PresetToken As String = ""
-    Public Const PresetId As String = "dst"
-    Public Const PresetGroup As String = ""
 End Module
 ```
 
@@ -122,7 +111,7 @@ End Module
 
 | 文件 | 用途 | 地址 |
 | --- | --- | --- |
-| `yushe.json` | 云预设（服务地址、群号、展示名） | `raw.githubusercontent.com/xiaoqiezi-china/pcl-for-dst/refs/heads/main/yushe.json` |
+| `yushe.json` | 云预设（服务地址、群号、展示名），默认空列表，自行部署服务后填入 | `raw.githubusercontent.com/xiaoqiezi-china/pcl-for-dst/refs/heads/main/yushe.json` |
 | `link-nodes.json` | 联机节点清单 | `raw.githubusercontent.com/xiaoqiezi-china/pcl-for-dst/refs/heads/main/link-nodes.json` |
 
 两者都是「拉取 → 备份到本地 → 失败时读备份」的流程，备份保留最近 5 份。
@@ -138,7 +127,7 @@ End Module
 - 下载走 PCL 原生 `LoaderDownload`，进度显示在任务管理器
 - 下载后按文件头校验，拿到的必须真的是启动器，镜像返回错误页会被丢弃
 
-> 预设服务器（`/v2/api`）仍负责服务器列表与整合包下载，但它**不参与**启动器自身的更新决策。
+> 预设服务器只负责服务器列表与整合包下载，**不参与**启动器自身的更新决策。
 > 那是使用者自选、可随时更换的地址，让它决定「装哪个启动器」风险过大。
 
 发版流程：打 tag 并推送，CI 会构建并挂到该 tag 的 Release 上。
@@ -152,8 +141,8 @@ git tag v1.0.0 && git push origin v1.0.0
 部分整合包（例如 GTNH）依赖专属的主类与 JVM 参数，PCL 暂不支持这类组件。
 安装时启动器会提示并引导改用 [Prism Launcher](https://prismlauncher.org/)。
 
-联机节点清单目前只有两个公开公益节点（同一服务器的 TCP / WSS），延迟差异不明显。
-若要发挥延迟优选的作用，需要往 `link-nodes.json` 里补充不同地区的节点。
+联机节点清单目前只有两个公开公益节点（一个国内、一个海外），覆盖地区有限。
+若要发挥延迟优选的作用，需要往 `link-nodes.json` 里补充更多地区的节点。
 
 ## 署名
 

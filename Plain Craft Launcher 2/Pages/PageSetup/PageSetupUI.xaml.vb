@@ -320,7 +320,7 @@ Refresh:
     End Sub
 
     '主题
-    '定制版：解锁/赞助入口整块移除，主题一律直接可选
+    '解锁/赞助入口整块移除，主题一律直接可选
 
     '主题自定义
     Private Sub RadioLauncherTheme14_Change(sender As Object, e As RouteEventArgs) Handles RadioLauncherTheme14.Changed

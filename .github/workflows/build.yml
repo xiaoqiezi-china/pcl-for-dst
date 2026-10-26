@@ -1,8 +1,7 @@
 name: Build
 on:
   push:
-    # 注意：一旦写了 paths，tag 推送就会被过滤掉（tag 不带文件变更），
-    # 而发版正是靠 push tag 触发的，所以 tags 必须单独列出来。
+    # tag 推送不带文件变更，会被 paths 过滤掉，因此 tags 单独列出。
     paths:
       - 'Plain Craft Launcher 2/**'
       - '.github/workflows/**'
@@ -57,11 +56,8 @@ jobs:
     - name: Replace
       shell: pwsh
       run: |
-        # 用「环境变量调用的默认值」当锚点，而不是整行声明：
-        # 声明行的类型和修饰符会随重构变化（OAuthClientId 就改名成过 BuiltinOAuthClientId），
-        # 锚在 Environment.GetEnvironmentVariable(...) 上更稳。
-        # 这里用 .Replace() 而不是 -replace：锚点是纯字面量不必碰正则；
-        # 而且 -replace 的替换串里 $ 有特殊含义，会把 ${{ ... }} 当成分组引用。
+        # 以 Environment.GetEnvironmentVariable(...) 为锚点，避开声明行的类型与修饰符。
+        # 用 .Replace() 而非 -replace：锚点是字面量，且 -replace 的替换串里 $ 有特殊含义。
         $ErrorActionPreference = 'Stop'
         $utf8 = New-Object System.Text.UTF8Encoding($false)
 
@@ -82,8 +78,7 @@ jobs:
           'Public Const CommitHash As String = "${{ github.sha }}"')
         [System.IO.File]::WriteAllText((Resolve-Path $baseFile), $baseText, $utf8)
 
-        # 踩过的坑：替换匹配不到不会报错，CI 照样「构建成功」但一个凭据都没注入。
-        # 所以必须回读校验，对不上就让构建直接失败。
+        # 替换未命中不会报错，因此回读校验，对不上就让构建失败。
         $expectId = '${{ secrets.CLIENT_ID }}'
         $expectCf = '${{ secrets.CURSEFORGE_API_KEY }}'
         $expectSha = '${{ github.sha }}'
@@ -97,8 +92,7 @@ jobs:
     - name: Restore NuGet Packages
       run: dotnet restore PCLCS\PCLCS.csproj
 
-    # 纯逻辑模块（NBT、路径工具）不依赖 WPF，可以脱离启动器直接跑。
-    # 放在编译之前：逻辑错了就不必浪费时间打包。
+    # 纯逻辑模块不依赖 WPF，可脱离启动器直接跑，放在编译之前。
     - name: Test
       shell: bash
       run: bash tests/run.sh
@@ -121,14 +115,14 @@ jobs:
         GH_TOKEN: ${{ github.token }}
       run: |
         $tag = '${{ github.ref_name }}'
-        # 只发一个附件。名字用连字符不带空格：GitHub 会把附件名里的空格换成点号，
-        # 虽然客户端按 .exe 后缀匹配不受影响，但干净的命名更好认。
+        # 只发一个附件，客户端按 .exe 后缀匹配。
         $exe = 'Plain Craft Launcher 2\obj\Release\Plain Craft Launcher 2.exe'
         if (-not (Test-Path $exe)) { throw "找不到 Release 产物：$exe" }
-        Copy-Item $exe 'DPCL.exe' -Force
+        $asset = 'DST Plain Craft Launcher.exe'
+        Copy-Item $exe $asset -Force
         gh release view $tag 2>$null
         if ($LASTEXITCODE -ne 0) {
-          gh release create $tag 'DPCL.exe' --title $tag --generate-notes
+          gh release create $tag $asset --title $tag --generate-notes
         } else {
-          gh release upload $tag 'DPCL.exe' --clobber
+          gh release upload $tag $asset --clobber
         }

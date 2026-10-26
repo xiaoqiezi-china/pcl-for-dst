@@ -309,9 +309,8 @@ Friend Module ModSecret
     ''' <summary>
     ''' 联机功能的内置配置。
     ''' <para>
-    ''' 原版是从 PCL 官方服务器拉这份配置的，服务器下线后这段就成了死代码：
-    ''' ServerConfig 永远是 Nothing，联机页第一步就抛异常，所以整块功能被隐藏了。
-    ''' 这里改成编译期内置，结构与原版一致，只是数据源换成 EasyTier 官方 Release。
+    ''' 配置编译期内置，不再依赖远端下发：
+    ''' 结构与数据源固定，数据源为 EasyTier 官方 Release。
     ''' </para>
     ''' </summary>
     Public ReadOnly Property BuiltinServerConfig As JObject
