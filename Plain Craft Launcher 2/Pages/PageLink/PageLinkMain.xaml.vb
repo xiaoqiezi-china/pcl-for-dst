@@ -241,6 +241,15 @@ Public Class PageLinkMain
     ''' </para>
     ''' </summary>
     Private Sub PanSelectJoin_Enter() Handles PanSelectJoin.Loaded, Me.PageEnter
+        '联机必须提权：EasyTier 要建虚拟网卡、把自己写进防火墙白名单，两样都要管理员权限。
+        '缺权限时界面一切正常，直到点了创建/加入才失败，用户很难自己想到是权限问题，
+        '所以一进页面就说清楚。每个会话只提醒一次，来回切页面不重复弹。
+        If Not AdminHintShown AndAlso Not WindowsUtils.HasAdminRole() Then
+            AdminHintShown = True
+            Logger.Warn("当前未以管理员身份运行，联机功能将无法正常工作")
+            Hint("联机需要管理员权限，请关闭启动器后右键选择「以管理员身份运行」", HintType.Red)
+        End If
+
         If AutoJoinCode Is Nothing Then Return
         If LinkState = LinkStates.Waiting Then JoinInternal(AutoJoinCode)
         AutoJoinCode = Nothing
@@ -460,6 +469,8 @@ Public Class PageLinkMain
     ''' 服务端映射前的端口号。
     ''' </summary>
     Private ServerPort As Integer
+    ''' <summary>本次运行是否已经提醒过需要管理员权限。</summary>
+    Private AdminHintShown As Boolean = False
     ''' <summary>
     ''' 客户端映射后的端口号。
     ''' </summary>
