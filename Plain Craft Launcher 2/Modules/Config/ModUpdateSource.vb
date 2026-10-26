@@ -248,6 +248,15 @@ Friend Module ModUpdateSource
                 .AssetSha256 = If(Obj("assetSha256"), "").ToString()
             }
             If Result.Version = "" OrElse Result.AssetUrl = "" Then Return Nothing
+            '缓存必须有时效。只按内容判断的话，一旦写过就永远是那条结果，
+            '发了新版启动器也一直提示「已是最新」——之前就是这个毛病。
+            Dim SavedAt As Long = 0
+            If Not Long.TryParse(If(Obj("savedAt"), "0").ToString(), SavedAt) OrElse SavedAt <= 0 Then
+                '没有时间戳的是老格式缓存，直接作废，重新请求一次
+                Return Nothing
+            End If
+            Dim Age As Long = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - SavedAt
+            If Age < 0 OrElse Age > CacheMinutes * 60L Then Return Nothing
             Return Result
         Catch ex As Exception
             Logger.Info("读取更新缓存失败：" & ex.Message)
@@ -262,7 +271,8 @@ Friend Module ModUpdateSource
             Dim Obj As New JObject From {
                 {"version", Info.Version}, {"notes", Info.Notes},
                 {"assetName", Info.AssetName}, {"assetUrl", Info.AssetUrl},
-                {"assetSha256", Info.AssetSha256}}
+                {"assetSha256", Info.AssetSha256},
+                {"savedAt", DateTimeOffset.UtcNow.ToUnixTimeSeconds()}}
             FileUtils.WriteAtomic(CacheFile, Obj.ToString(Newtonsoft.Json.Formatting.Indented))
         Catch ex As Exception
             Logger.Info("写入更新缓存失败：" & ex.Message)
