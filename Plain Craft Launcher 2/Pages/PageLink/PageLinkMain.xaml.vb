@@ -875,6 +875,12 @@ Public Class PageLinkMain
         If Detail.Contains("failed to listen on ") Then
             Detail = $"监听端口失败。{vbCrLf}请点击重试，如果还是出现此错误，可以重启电脑解决。{vbCrLf}{vbCrLf}{Detail}"
         End If
+        '权限不足导致网卡没建成 / 防火墙白名单没写进去：
+        '日志里只有英文和错误码，用户看不出原因，这里换成一句能看懂的话。
+        If ModLinkDiagnostics.IsPermissionDenied(Detail) Then
+            Brief = "联机模块启动失败"
+            Detail = ModLinkDiagnostics.PermissionAdvice() & vbCrLf & vbCrLf & $"近期日志：{vbCrLf}{Detail}"
+        End If
         '显示信息
         If LinkState = LinkStates.Loading Then
             FailReason = Brief
@@ -955,6 +961,9 @@ Public Class PageLinkMain
         Return Result
     End Function
     Private Sub ProcessStart(Arguments As String)
+        '每次启动都清空日志缓冲：它是实例字段，跨房间一直留着，
+        '上一次的报错会混进这一次的「近期日志」，也会让失败原因误判。
+        LogHistory.Clear()
         '先清残留网卡，否则可能因 IP 冲突起不来
         CleanupLeftoverTun()
         Dim Info = New ProcessStartInfo With {

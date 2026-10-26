@@ -55,4 +55,8 @@ run_tests InviteCodeTests \
     "$SRC/Modules/Config/ModInviteCode.vb" \
     tests/InviteCodeTests.vb || FAILED=1
 
+run_tests LinkDiagnosticsTests \
+    "$SRC/Modules/Config/ModLinkDiagnostics.vb" \
+    tests/LinkDiagnosticsTests.vb || FAILED=1
+
 exit $FAILED
