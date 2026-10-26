@@ -340,10 +340,11 @@ Friend Module DstUpdate
                 Dim LocalFile As String = PathTemp & "Update\DST-" & RemoteVersion & "-" & Stamp & ".bin"
                 DirectoryUtils.Create(PathUtils.RemoveLastPart(LocalFile))
 
-                '官方地址在前、镜像在后，NetFile 会依次重试
+                '先测各源速度，从快到慢排；慢的源仍然保留作兜底
+                Dim Ranked As String() = ModUpdateSource.RankSourcesBySpeed(ModUpdateSource.BuildSources(Release.AssetUrl))
                 Dim Download As New LoaderDownload("下载启动器更新",
                     New List(Of NetFile) From {
-                        New NetFile(ModUpdateSource.BuildSources(Release.AssetUrl), LocalFile,
+                        New NetFile(Ranked, LocalFile,
                                     New FileChecker With {.MinSize = 1024 * 1024})}) With {.ProgressWeight = 1}
                 Dim Install As New LoaderTask(Of Integer, Integer)("准备安装",
                     Sub()

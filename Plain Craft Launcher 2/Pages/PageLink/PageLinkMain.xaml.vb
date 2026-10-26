@@ -366,7 +366,7 @@ Public Class PageLinkMain
 
     '复制邀请码
     Private Sub Copy() Handles BtnFinishCopy.Click
-        Dim CodeText As String = $"在 PCL 启动器中输入邀请码【{GetInviteCode()}】，即可加入联机房间！"
+        Dim CodeText As String = $"在 DPCL 启动器中输入邀请码【{GetInviteCode()}】，即可加入联机房间！"
         ClipboardSet(CodeText, False)
         Settings.Set("LinkLastAutoJoinInviteCode", CodeText)
         Hint("已复制邀请码！", HintType.Green)
@@ -476,8 +476,16 @@ Public Class PageLinkMain
         Dim RequiredFiles As New List(Of NetFile)
         Logger.Info($"EasyTier 本地版本：{LocalVersion}，需求版本：{ServerVersion}")
         If LocalVersion < ServerVersion Then
-            RequiredFiles.Add(New NetFile(
-                ServerConfig("Link")("Downloads").Select(Function(UrlEntry) UrlEntry.ToString.Replace("{arch}", Architecture)),
+            '内核有 30 多 MB，源之间的速度差距很明显：先测速再决定用哪个，
+            '否则可能一直卡在最慢的那个上（实测有用户只有 20 KB/s）
+            Dim Candidates As String() = ServerConfig("Link")("Downloads").
+                Select(Function(UrlEntry) UrlEntry.ToString.Replace("{arch}", Architecture)).ToArray()
+            UpdateLoadingPage("正在测试下载源速度……", "测试下载源速度")
+            Dim Ranked As String() = ModUpdateSource.RankSourcesBySpeed(Candidates, 512 * 1024, 6000)
+            For Each Url In Ranked
+                Logger.Info($"下载源排序：{Url}")
+            Next
+            RequiredFiles.Add(New NetFile(Ranked,
                 PathEasyTier & "EasyTier.zip",
                 New FileChecker With {.MinSize = 1024 * 1024 * 2}))
         End If

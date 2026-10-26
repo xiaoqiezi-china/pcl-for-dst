@@ -279,5 +279,75 @@ Friend Module ModUpdateSource
         End Using
     End Function
 
+    ''' <summary>
+    ''' 测一批下载源的速度，按从快到慢返回。
+    ''' <para>
+    ''' 只取每个源的前若干字节，测完就断开——目的是比较谁快，不是下完。
+    ''' 测不出来的源（超时、报错）排到最后，仍然保留作为兜底。
+    ''' </para>
+    ''' </summary>
+    ''' <param name="Urls">候选地址。</param>
+    ''' <param name="ProbeBytes">每个源试探下载的字节数。</param>
+    ''' <param name="TimeoutMs">单个源的超时。</param>
+    Public Function RankSourcesBySpeed(Urls As String(), Optional ProbeBytes As Integer = 256 * 1024, Optional TimeoutMs As Integer = 5000) As String()
+        If Urls Is Nothing OrElse Urls.Length <= 1 Then Return Urls
+        Dim Results As New List(Of KeyValuePair(Of String, Double))
+        Dim LockObj As New Object()
+        Dim Tasks As New List(Of Threading.Tasks.Task)
+        For Each Url In Urls
+            Dim Target As String = Url
+            Tasks.Add(Threading.Tasks.Task.Run(
+                Sub()
+                    Dim Speed As Double = MeasureOne(Target, ProbeBytes, TimeoutMs)
+                    SyncLock LockObj
+                        Results.Add(New KeyValuePair(Of String, Double)(Target, Speed))
+                    End SyncLock
+                End Sub))
+        Next
+        Try
+            Threading.Tasks.Task.WaitAll(Tasks.ToArray, TimeoutMs + 3000)
+        Catch ex As Exception
+            Logger.Warn(ex, "测速过程出错")
+        End Try
+        '按速度降序；测不出来的（0）排最后
+        Dim Sorted = Results.OrderByDescending(Function(P) P.Value).Select(Function(P) P.Key).ToList()
+        '没测出结果的源也要保留，否则会少一条兜底
+        For Each Url In Urls
+            If Not Sorted.Contains(Url) Then Sorted.Add(Url)
+        Next
+        Return Sorted.ToArray()
+    End Function
+
+    ''' <summary>测单个源：返回字节/秒，失败返回 0。</summary>
+    Private Function MeasureOne(Url As String, ProbeBytes As Integer, TimeoutMs As Integer) As Double
+        Try
+            Dim Req As HttpWebRequest = CType(WebRequest.Create(Url), HttpWebRequest)
+            Req.Method = "GET"
+            Req.Timeout = TimeoutMs
+            Req.ReadWriteTimeout = TimeoutMs
+            Req.UserAgent = "PCL-Updater"
+            '只要前一段，服务器支持 Range 就能省流量；不支持也无所谓，读完就断
+            Req.AddRange(0, ProbeBytes - 1)
+            Dim Watch As Stopwatch = Stopwatch.StartNew()
+            Using Resp As HttpWebResponse = CType(Req.GetResponse(), HttpWebResponse)
+                Using Stream As IO.Stream = Resp.GetResponseStream()
+                    Dim Buffer(8191) As Byte
+                    Dim Total As Long = 0
+                    Do While Total < ProbeBytes AndAlso Watch.ElapsedMilliseconds < TimeoutMs
+                        Dim Read As Integer = Stream.Read(Buffer, 0, Buffer.Length)
+                        If Read <= 0 Then Exit Do
+                        Total += Read
+                    Loop
+                    Watch.Stop()
+                    If Total <= 0 OrElse Watch.ElapsedMilliseconds <= 0 Then Return 0
+                    Return Total * 1000.0 / Watch.ElapsedMilliseconds
+                End Using
+            End Using
+        Catch ex As Exception
+            Logger.Info($"测速失败（{Url}）：{ex.Message}")
+            Return 0
+        End Try
+    End Function
+
 End Module
 
