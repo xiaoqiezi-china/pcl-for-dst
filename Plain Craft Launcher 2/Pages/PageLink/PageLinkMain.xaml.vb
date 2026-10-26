@@ -940,9 +940,11 @@ Public Class PageLinkMain
     Private Shared Function RunPowerShell(Script As String) As List(Of String)
         Dim Result As New List(Of String)
         Try
-            Dim Escaped As String = Script.Replace("""", "\""")
+            '脚本用 -EncodedCommand（UTF-16LE 的 Base64）传，不拼进命令行：
+            '免掉引号转义，脚本里写什么都不用改。
+            Dim Encoded As String = Convert.ToBase64String(Encoding.Unicode.GetBytes(Script))
             Dim Info As New ProcessStartInfo("powershell.exe",
-                "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"" & Escaped & "\"") With {
+                "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand " & Encoded) With {
                 .UseShellExecute = False,
                 .RedirectStandardOutput = True,
                 .CreateNoWindow = True,
