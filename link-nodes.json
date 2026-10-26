@@ -10,16 +10,6 @@
     "note": "腾讯云国内节点，实测 93ms，优先使用"
   },
   {
-    "id": 2,
-    "address": "udp://dreamlife.indevs.in:11010",
-    "allow_relay": true,
-    "tags": [
-      "国内",
-      "公益"
-    ],
-    "note": "同上节点的 UDP 协议，打洞效果通常更好"
-  },
-  {
     "id": 3,
     "address": "tcp://easytier-us.slarker.me:11010",
     "allow_relay": true,
@@ -28,15 +18,5 @@
       "公益"
     ],
     "note": "海外公益节点，实测 266ms，作为国内节点不可用时的兜底"
-  },
-  {
-    "id": 4,
-    "address": "wss://easytier-us.slarker.me:11011",
-    "allow_relay": true,
-    "tags": [
-      "海外",
-      "公益"
-    ],
-    "note": "同上节点的 WSS 协议"
   }
 ]
