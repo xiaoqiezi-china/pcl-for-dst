@@ -350,6 +350,20 @@ Friend Module DstUpdate
                         '下载完先确认拿到的确实是启动器，避免把镜像的错误页当成更新包
                         If Not FileUtils.Exists(LocalFile) Then Throw New Exception("下载后未找到更新文件")
                         If DstUpdate.SniffPackage(LocalFile) = "unknown" Then Throw New Exception("下载到的不是有效的启动器文件")
+                        '关键一步：用 Release 声明的 SHA-256 校验内容。
+                        '前面只看了文件头 4 个字节，任何 1MB 以上的 PE 都能通过，
+                        '而下载会经过第三方镜像，没有摘要就等于信任链断了。
+                        If Release.AssetSha256 <> "" Then
+                            Dim Actual As String = ModUpdateSource.GetFileSha256(LocalFile)
+                            If Not String.Equals(Actual, Release.AssetSha256, StringComparison.OrdinalIgnoreCase) Then
+                                Logger.Warn($"更新包校验失败：期望 {Release.AssetSha256}，实际 {Actual}")
+                                Throw New Exception("更新包校验失败，文件可能已损坏或被篡改，请到发布页手动下载")
+                            End If
+                            Logger.Info($"更新包 SHA-256 校验通过：{Actual}")
+                        Else
+                            '没有摘要时不能静默放行，至少留下记录
+                            Logger.Warn("该 Release 未提供 SHA-256 摘要，跳过完整性校验")
+                        End If
                         RunInUi(Sub() InstallDownloadedUpdate(LocalFile, Release.AssetName))
                     End Sub) With {.ProgressWeight = 0.1}
 
@@ -435,10 +449,23 @@ Friend Module DstUpdate
         Dim DestFile As String = Root & "package.zip"
         IO.File.Copy(Package, DestFile, True)
         Using Archive = FileUtils.OpenZip(DestFile)
+            Dim RootFull As String = IO.Path.GetFullPath(Root)
             For Each Entry As IO.Compression.ZipArchiveEntry In Archive.Entries
                 Dim Rel As String = Entry.FullName.Replace("/"c, "\"c)
                 If Rel.EndsWith("\", StringComparison.Ordinal) Then Continue For
-                Dim Full As String = Root & Rel
+                '防 zip slip：包内条目可能带 ..\..\ 试图写到解压目录之外，
+                '归一化后必须仍然落在 Root 之下，否则直接跳过。
+                Dim Full As String
+                Try
+                    Full = IO.Path.GetFullPath(IO.Path.Combine(RootFull, Rel))
+                Catch ex As Exception
+                    Logger.Warn(ex, $"跳过路径非法的压缩包条目：{Entry.FullName}")
+                    Continue For
+                End Try
+                If Not Full.StartsWith(RootFull, StringComparison.OrdinalIgnoreCase) Then
+                    Logger.Warn($"跳过越界的压缩包条目：{Entry.FullName}")
+                    Continue For
+                End If
                 DirectoryUtils.Create(PathUtils.RemoveLastPart(Full))
                 Entry.ExtractToFile(Full, True)
             Next

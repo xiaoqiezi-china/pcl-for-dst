@@ -67,6 +67,8 @@ Friend Module ModUpdateSource
         Public Property Notes As String = ""
         Public Property AssetUrl As String = ""
         Public Property AssetName As String = ""
+        ''' <summary>Release 里声明的 SHA-256（小写十六进制）；空串表示该 Release 没提供。</summary>
+        Public Property AssetSha256 As String = ""
         Public Property Err As String = ""
         ''' <summary>只拿到了版本号，附件列表取不到（多半是 API 限流）。</summary>
         Public Property VersionOnly As Boolean = False
@@ -150,6 +152,11 @@ Friend Module ModUpdateSource
                     If Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) Then
                         Result.AssetName = Name
                         Result.AssetUrl = If(Item("browser_download_url"), "").ToString()
+                        'GitHub 给出 sha256:… 形式的摘要，用来校验下载到的文件
+                        Dim Digest As String = If(Item("digest"), "").ToString().Trim()
+                        If Digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase) Then
+                            Result.AssetSha256 = Digest.Substring(7).Trim().ToLowerInvariant()
+                        End If
                         Exit For
                     End If
                 Next
@@ -214,7 +221,8 @@ Friend Module ModUpdateSource
                 .Version = If(Obj("version"), "").ToString(),
                 .Notes = If(Obj("notes"), "").ToString(),
                 .AssetName = If(Obj("assetName"), "").ToString(),
-                .AssetUrl = If(Obj("assetUrl"), "").ToString()
+                .AssetUrl = If(Obj("assetUrl"), "").ToString(),
+                .AssetSha256 = If(Obj("assetSha256"), "").ToString()
             }
             If Result.Version = "" OrElse Result.AssetUrl = "" Then Return Nothing
             Return Result
@@ -230,12 +238,32 @@ Friend Module ModUpdateSource
             DirectoryUtils.Create(PathUtils.RemoveLastPart(CacheFile))
             Dim Obj As New JObject From {
                 {"version", Info.Version}, {"notes", Info.Notes},
-                {"assetName", Info.AssetName}, {"assetUrl", Info.AssetUrl}}
+                {"assetName", Info.AssetName}, {"assetUrl", Info.AssetUrl},
+                {"assetSha256", Info.AssetSha256}}
             FileUtils.WriteAtomic(CacheFile, Obj.ToString(Newtonsoft.Json.Formatting.Indented))
         Catch ex As Exception
             Logger.Info("写入更新缓存失败：" & ex.Message)
         End Try
     End Sub
+
+    ''' <summary>算文件的 SHA-256，返回小写十六进制。失败返回空串。</summary>
+    Public Function GetFileSha256(FilePath As String) As String
+        Try
+            Using Sha As System.Security.Cryptography.SHA256 = System.Security.Cryptography.SHA256.Create()
+                Using Fs As New IO.FileStream(FilePath, IO.FileMode.Open, IO.FileAccess.Read, IO.FileShare.Read)
+                    Dim Hash As Byte() = Sha.ComputeHash(Fs)
+                    Dim Sb As New Text.StringBuilder(Hash.Length * 2)
+                    For Each B As Byte In Hash
+                        Sb.Append(B.ToString("x2"))
+                    Next
+                    Return Sb.ToString()
+                End Using
+            End Using
+        Catch ex As Exception
+            Logger.Warn(ex, $"计算文件 SHA-256 失败：{FilePath}")
+            Return ""
+        End Try
+    End Function
 
     ''' <summary>GET 文本。GitHub API 要求带 User-Agent 与 Accept，否则直接 403。</summary>
     Private Function HttpGetText(Url As String) As String
