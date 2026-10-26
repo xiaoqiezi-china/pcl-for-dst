@@ -1,5 +1,5 @@
 # DST Plain Craft Launcher（DPCL）
-
+当前Readme存在部分失真落后，等待后续重写。
 本仓库是 [Plain Craft Launcher (PCL)](https://github.com/Meloong-Git/PCL) 的**第三方修改版**，
 基于 PCL `2.99.0.0` 源码继续开发，产品名 **DST Plain Craft Launcher**，简称 **DPCL**。
 
