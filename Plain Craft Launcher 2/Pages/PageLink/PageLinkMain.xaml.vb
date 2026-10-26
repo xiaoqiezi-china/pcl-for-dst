@@ -216,6 +216,10 @@ Public Class PageLinkMain
         FailCount = 0
         '加载器与进程状态
         LinkLoader.Start(IsForceRestart:=True)
+        '挂到任务管理器：下载内核有 32MB，用户要能在「下载」里看到进度
+        LoaderTaskbarAdd(LinkLoader)
+        FrmMain.BtnExtraDownload.ShowRefresh()
+        FrmMain.BtnExtraDownload.Ribble()
         '页面切换会由 Loader 调用 MyPageRight 来触发
         'UI 更新
         UpdateProgressBar(0)
@@ -230,8 +234,13 @@ Public Class PageLinkMain
         ProcessStop()
         'UI 更新
         UpdateProgressBar(1)
-        '显示错误信息
+        '显示错误信息。取消时 Error 是 Nothing，这里必须判空，
+        '否则取 GetDisplay 会抛异常，界面停在一片空白
         LabLoadTitle.Text = FailReason
+        If LinkLoader.Error Is Nothing Then
+            LabLoadDesc.Text = "已取消"
+            Return
+        End If
         Dim Brief As String = LinkLoader.Error.GetDisplay(False)
         Dim InnerEx As Exception = LinkLoader.Error
         If InnerEx.Message.StartsWithF("$") Then Brief = InnerEx.Message
@@ -426,9 +435,6 @@ Public Class PageLinkMain
     '1. 获取服务器配置
     Private Sub InitConfig(Task As LoaderTask(Of Integer, Integer))
         UpdateLoadingPage("正在联网获取配置……", "联网获取配置")
-        If VersionBranchMain <> "Official" Then
-            Throw New Exception($"$开源版无法联网获取配置。{vbCrLf}你可以在 PCL 官方版的缓存文件夹下查看 ServerConfig 的当前内容， 并在代码中进行相应修改。")
-        End If
         ServerLoader.WaitForExit(LoaderToSyncProgress:=Task)
         If ServerConfig Is Nothing Then Throw New Exception("无法从服务器获取配置")
         '检查是否已禁用联机功能
@@ -485,14 +491,32 @@ Public Class PageLinkMain
         '解压文件
         UpdateLoadingPage("正在解压联机模块……", "解压联机模块")
         If FileUtils.Exists(PathEasyTier & "EasyTier.zip") Then
-            '解压
+            '解压。这一步原本被注释掉了，导致下面的 First() 在空目录上抛异常
             Dim ExtractPath As String = RequestTaskTempFolder()
-            'FileUtils.ExtractToDirectory(PathEasyTier & "EasyTier.zip", ExtractPath,
-            '    progressHandler:=Sub(Percentage) Task.Progress = Percentage * 0.05)
-            DirectoryUtils.Copy(DirectoryUtils.EnumerateDirectories(ExtractPath, True).First, PathEasyTier)
+            DirectoryUtils.Create(ExtractPath)
+            Dim ExtractProgress As New ProgressProvider()
+            AddHandler ExtractProgress.ProgressChanged,
+                Sub(Sender As (actual As Double, skiped As Double))
+                    Task.Progress = Sender.actual * 0.05
+                End Sub
+            FileUtils.ExtractToDirectory(PathEasyTier & "EasyTier.zip", ExtractPath, p:=ExtractProgress)
+            '压缩包内通常有一层同名目录，把里面的东西搬出来；
+            '也可能直接摊在根目录，两种情况都要能处理
+            Dim SubDirs As List(Of String) = DirectoryUtils.EnumerateDirectories(ExtractPath, False).ToList()
+            If SubDirs.Count = 1 AndAlso DirectoryUtils.EnumerateFiles(ExtractPath, False).Count = 0 Then
+                DirectoryUtils.Copy(SubDirs(0), PathEasyTier)
+            Else
+                DirectoryUtils.Copy(ExtractPath, PathEasyTier)
+            End If
             '重命名
-            FileUtils.Move(PathEasyTier & "easytier-core.exe", PathEasyTier & "联机模块.exe")
-            FileUtils.Move(PathEasyTier & "easytier-cli.exe", PathEasyTier & "联机模块 CLI.exe")
+            If FileUtils.Exists(PathEasyTier & "easytier-core.exe") Then
+                FileUtils.Move(PathEasyTier & "easytier-core.exe", PathEasyTier & "联机模块.exe")
+            Else
+                Throw New Exception("压缩包里没有 easytier-core.exe，下载到的可能不是 EasyTier 内核")
+            End If
+            If FileUtils.Exists(PathEasyTier & "easytier-cli.exe") Then
+                FileUtils.Move(PathEasyTier & "easytier-cli.exe", PathEasyTier & "联机模块 CLI.exe")
+            End If
             '清理
             FileUtils.Delete(PathEasyTier & "EasyTier.zip")
             Settings.Set("LinkEasyTierVersion", ServerVersion)
@@ -597,98 +621,63 @@ Public Class PageLinkMain
             Thread.Sleep(100)
         Next
     End Sub
+
     ''' <summary>
-    ''' 从在线配置和 API 获取需要连接的节点列表，并更新发现节点 ID。
-    ''' 根据发现节点 ID，会有以下行为变化：
-    '''   -1：作为房主，根据负载均衡选择一个发现节点。
-    '''   0：作为加入者，但邀请码未提供发现节点 ID，使用回退发现节点。
-    '''   >0：作为加入者，根据 ID 选择对应的发现节点；如果没有，使用回退发现节点。
+    ''' 选取要连接的节点。
+    ''' <para>
+    ''' 原来这里是向 uptime.easytier.cn 要一份带负载的节点列表，那个服务已经下线；
+    ''' 现在改走 <see cref="ModLinkNodes"/>：云端清单 → 本地备份 → 内置兜底，三层都能给出地址。
+    ''' </para>
+    ''' <para>
+    ''' 发现节点 ID 的语义不变：-1 表示房主自选，0 表示用回退，>0 表示按 ID 指定。
+    ''' </para>
     ''' </summary>
     Private Function GetTargetPeers() As List(Of String)
         Dim FinalPeers As New List(Of String), FinalDiscoverID As Integer = -1
-        Dim FallbackDiscoverID = ServerConfig("Link")("DiscoverPeerId").ToObject(Of Integer)
-        Dim FallbackDiscoverAddress As String = ServerConfig("Link")("DiscoverPeer").ToString()
         Try
-            '从 API 获取节点列表
-            Dim RawNodes As JObject
-            Dim IsFallbackRawList As Boolean = False
-            Try
-                RawNodes = NetRequestByClient("https://uptime.easytier.cn/api/nodes?page=1&per_page=1000", RequireJson:=True).DeserializeJson()
-            Catch exx As Exception
-                Logger.Warn(exx, "从源站获取节点列表失败，将使用 CDN 缓存")
-                RawNodes = NetRequestByClientRetry("https://easytier.meloong.com/?page=1&per_page=1000", RequireJson:=True).DeserializeJson()
-                IsFallbackRawList = True
-            End Try
-            '分析节点列表
-            Dim Nodes As New List(Of JObject) '负载会添加在 load 字段上
-            Dim BlackList As List(Of String) = ServerConfig("Link")("PeersBlackList").Select(Function(p) p.ToString).ToList()
-            For Each Node As JObject In RawNodes("data")("items")
-                '状态检查
-                Dim ID = Node("id").ToObject(Of Integer)
-                If Not Node("is_active").ToObject(Of Boolean) OrElse Not Node("is_approved").ToObject(Of Boolean) Then Continue For
-                If ID = DiscoverNodeID Then GoTo ForcedPass '若为指定的发现节点，忽略后续检查
-                If ID = FallbackDiscoverID Then Continue For '不主动选取回退发现节点
-                If BlackList.Contains(Node("address").ToString) Then Continue For 'ServerConfig 黑名单
-                If Node("usage_percentage").ToObject(Of Double) = 0 AndAlso RandomInteger(1, 100) <> 1 Then Continue For '或许节点有问题才导致是 0 负载，让它只有 1% 概率被选中
-                '标签检查
-                Dim Tags = Node("tags").Select(Function(t) t.ToString).ToList
-                If Not Tags.Contains("国内") OrElse Not Tags.Contains("MC中继") Then Continue For
-                '计算负载并加入列表
-ForcedPass:
-                Dim Load As Double = Node("usage_percentage").ToObject(Of Double) '负载
-                Load *= 110 - Node("health_percentage_24h").ToObject(Of Double) '可用率
-                Node("load") = Load
-                Nodes.Add(Node)
+            Dim Nodes As List(Of ModLinkNodes.LinkNode) = ModLinkNodes.Fetch()
+            If Nodes Is Nothing OrElse Nodes.Count = 0 Then Throw New Exception("没有可用的联机节点")
+
+            '先测一轮延迟，按快的在前排序；测不出来的（-1）排到最后
+            UpdateLoadingPage("正在测试节点延迟……", "测试节点延迟")
+            ModLinkNodes.ProbeLatency(Nodes)
+            Nodes = Nodes.OrderBy(Function(N) If(N.Latency < 0, Integer.MaxValue, N.Latency)).ToList()
+            For Each N In Nodes
+                Logger.Info($"节点 {N.Address} 延迟 {If(N.Latency < 0, "未知", N.Latency & " ms")}")
             Next
-            '排序
-            If Not IsFallbackRawList Then
-                Nodes = Nodes.OrderBy(Function(n) n("load").ToObject(Of Double)).ToList() '按负载从低到高排序
-            Else
-                Nodes = Nodes.Shuffle().ToList() '回退到 CDN 缓存时，由于负载数据可能过期，直接随机选择
-            End If
-            '选取发现节点
-            Dim SelectedDiscoverNode As JObject = Nothing
-            If DiscoverNodeID = -1 Then '-1：作为房主，根据负载均衡选择一个发现节点
-                SelectedDiscoverNode = Nodes.FirstOrDefault(Function(n) Not n("allow_relay").ToObject(Of Boolean))
-            ElseIf DiscoverNodeID > 0 Then '>0：作为加入者，根据 ID 选择对应的发现节点；如果没有，使用回退发现节点
-                SelectedDiscoverNode = Nodes.FirstOrDefault(Function(n) n("id").ToObject(Of Integer) = DiscoverNodeID)
-                If SelectedDiscoverNode Is Nothing Then
+
+            '选取发现节点：优先挑不允许中继的（这类节点更稳），没有就按延迟取第一个
+            Dim Selected As ModLinkNodes.LinkNode = Nothing
+            If DiscoverNodeID = -1 Then
+                Selected = Nodes.FirstOrDefault(Function(N) Not N.AllowRelay)
+            ElseIf DiscoverNodeID > 0 Then
+                Selected = Nodes.FirstOrDefault(Function(N) N.Id = DiscoverNodeID)
+                If Selected Is Nothing Then
                     Logger.Warn($"未找到 ID {DiscoverNodeID} 的发现节点")
                     Panic("房间已过期", "请让房主重新创建房间！")
                     Throw New OperationCanceledException
                 End If
             End If
-            If SelectedDiscoverNode Is Nothing Then '使用回退发现节点
-                SelectedDiscoverNode = New JObject From {{"address", FallbackDiscoverAddress}, {"id", FallbackDiscoverID}}
-                Logger.Warn("将使用回退发现节点")
-            End If
-            FinalPeers.Add(SelectedDiscoverNode("address").ToString())
-            FinalDiscoverID = SelectedDiscoverNode("id").ToObject(Of Integer)
-            Logger.Info($"发现节点：{SelectedDiscoverNode("address")} (ID: {FinalDiscoverID})")
-            '选取中继节点
-            If ModeDebug OrElse Not IsServerSide Then '房主只连接发现节点，不连接中继节点
-                Dim RelayCount As Integer = ServerConfig("Link")("RandomPeer").ToObject(Of Integer)
-                Dim RelayNodes = Nodes.Where(Function(n) n("allow_relay").ToObject(Of Boolean)).ToList()
-                If RelayNodes.Count < RelayCount Then Throw New Exception($"可用的中继节点数量不足，需要 {RelayCount} 个，实际 {RelayNodes.Count} 个")
-                FinalPeers.AddRange(RelayNodes.Take(RelayCount).Select(Function(n) n("address").ToString()))
+            If Selected Is Nothing Then Selected = Nodes(0)
+            FinalPeers.Add(Selected.Address)
+            FinalDiscoverID = Selected.Id
+            Logger.Info($"发现节点：{Selected.Address} (ID: {FinalDiscoverID})")
+
+            '房主只连发现节点，不连中继
+            If ModeDebug OrElse Not IsServerSide Then
+                Dim RelayCount As Integer = 2
+                Dim RelayNodes = Nodes.Where(Function(N) N.AllowRelay AndAlso N IsNot Selected).ToList()
+                FinalPeers.AddRange(RelayNodes.Take(RelayCount).Select(Function(N) N.Address))
             End If
         Catch ex As Exception
             ex.ThrowIfCanceled()
-            Logger.Error(ex, "获取节点列表失败，联机质量可能受到影响", LogBehavior.Toast)
-            FinalPeers.AddRange(ServerConfig("Link")("Peers").Select(Function(p) p.ToString))
-            If FinalDiscoverID <= 0 Then
-                FinalPeers.Add(FallbackDiscoverAddress)
-                FinalDiscoverID = FallbackDiscoverID
-            End If
+            Logger.Error(ex, "获取联机节点失败", LogBehavior.Toast)
         End Try
-        '版本 1 兼容
-        If CType(ServerConfig("Link"), JObject).ContainsKey("EnableForcedPeer") Then
-            FinalPeers.Add("tcp://mc1.easytier.cn:55558")
-            If FinalDiscoverID <= 0 Then FinalDiscoverID = 94
+
+        '一个都没取到就直接把错误抛给上层，让用户看到明确的失败原因
+        If FinalPeers.Count = 0 Then
+            Throw New Exception("联机节点全部不可用，请稍后重试")
         End If
-        '强制添加的节点
-        FinalPeers.AddRange(ServerConfig("Link")("MandatoryPeers").Select(Function(p) p.ToString))
-        '结束
         DiscoverNodeID = FinalDiscoverID
         Return FinalPeers.Distinct.ToList
     End Function
@@ -755,9 +744,51 @@ ForcedPass:
     End Sub
 
     ''' <summary>
-    ''' 启动进程。
+    ''' 清掉上次异常退出留下的 TUN 网卡。
+    ''' EasyTier 在 Windows 上被强杀时不会删网卡，下次启动复用同名网卡，
+    ''' 再添加同一个 IPv4 就会报「对象已存在 (5010)」。
     ''' </summary>
+    Private Sub CleanupLeftoverTun()
+        Try
+            Dim Names As List(Of String) = RunPowerShell("Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'et_*' } | Select-Object -ExpandProperty Name")
+            For Each Name As String In Names
+                Dim Clean As String = Name.Trim()
+                If Clean = "" Then Continue For
+                Logger.Info($"清理残留联机网卡：{Clean}")
+                RunPowerShell($"Remove-NetAdapter -Name '{Clean}' -Confirm:$false -ErrorAction SilentlyContinue")
+            Next
+        Catch ex As Exception
+            Logger.Warn(ex, "清理残留联机网卡失败")
+        End Try
+    End Sub
+
+    ''' <summary>跑一段 PowerShell 并取回标准输出。</summary>
+    Private Shared Function RunPowerShell(Script As String) As List(Of String)
+        Dim Result As New List(Of String)
+        Try
+            Dim Escaped As String = Script.Replace("""", "\""")
+            Dim Info As New ProcessStartInfo("powershell.exe",
+                "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"" & Escaped & "\"") With {
+                .UseShellExecute = False,
+                .RedirectStandardOutput = True,
+                .CreateNoWindow = True,
+                .StandardOutputEncoding = Encoding.UTF8}
+            Using Proc As Process = Process.Start(Info)
+                If Proc Is Nothing Then Return Result
+                Dim Out As String = Proc.StandardOutput.ReadToEnd()
+                Proc.WaitForExit(8000)
+                For Each L In Out.Split(New String() {vbCrLf, vbLf}, StringSplitOptions.RemoveEmptyEntries)
+                    Result.Add(L)
+                Next
+            End Using
+        Catch ex As Exception
+            Logger.Warn(ex, "调用 PowerShell 失败")
+        End Try
+        Return Result
+    End Function
     Private Sub ProcessStart(Arguments As String)
+        '先清残留网卡，否则可能因 IP 冲突起不来
+        CleanupLeftoverTun()
         Dim Info = New ProcessStartInfo With {
             .FileName = PathEasyTier & "联机模块.exe",
             .Arguments = Arguments,
@@ -911,9 +942,42 @@ ForcedPass:
     ''' 若在加载完成后连续获取失败 3 次，则会强制断开连接。
     ''' </summary>
     Private RefreshPeerLoader As New LoaderTask(Of Integer, List(Of Peer))("EasyTier CLI", AddressOf RefreshPeer)
+    ''' <summary>
+    ''' 调 EasyTier CLI 并取回标准输出。超时就杀掉进程返回空串，
+    ''' 让上层按「CLI 调用失败」处理，不至于卡住整个联机流程。
+    ''' </summary>
+    Private Function RunCli(Arguments As String, TimeoutMs As Integer) As String
+        Try
+            Dim Info As New ProcessStartInfo(PathEasyTier & "联机模块 CLI.exe", Arguments) With {
+                .UseShellExecute = False,
+                .RedirectStandardOutput = True,
+                .RedirectStandardError = True,
+                .CreateNoWindow = True,
+                .StandardOutputEncoding = Encoding.UTF8
+            }
+            Using Proc As Process = Process.Start(Info)
+                If Proc Is Nothing Then Return ""
+                Dim Out As String = Proc.StandardOutput.ReadToEnd()
+                If Not Proc.WaitForExit(TimeoutMs) Then
+                    Try
+                        Proc.Kill()
+                    Catch ex As Exception
+                        Logger.Warn(ex, "结束 EasyTier CLI 进程失败")
+                    End Try
+                    Return ""
+                End If
+                Return Out
+            End Using
+        Catch ex As Exception
+            Logger.Warn(ex, "调用 EasyTier CLI 失败")
+            Return ""
+        End Try
+    End Function
+
     Private Sub RefreshPeer()
         Try
-            Dim CliResult = "" 'StartProcessAndGetOutput(PathEasyTier & "联机模块 CLI.exe", $"-o json -p 127.0.0.1:{RPCPort} peer", 2000, Encoding:=Encoding.UTF8, PrintLog:=False)
+            '原来这行调用被注释掉了，CliResult 永远是空串，于是每次都抛「CLI 调用失败」
+            Dim CliResult As String = RunCli($"-o json -p 127.0.0.1:{RPCPort} peer", 2000)
             '解析
             If Not CliResult.Contains("lat_ms") Then Throw New Exception("CLI 调用失败：" & vbCrLf & CliResult)
             If GetUuid() Mod If(ModeDebug, 23, 103) = 0 Then Logger.Info($"CLI 输出抽样：{vbCrLf}{CliResult}")

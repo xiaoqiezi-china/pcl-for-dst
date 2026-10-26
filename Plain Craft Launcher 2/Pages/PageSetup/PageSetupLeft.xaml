@@ -37,7 +37,7 @@
             </local:MyListItem.Buttons>
         </local:MyListItem>
         <local:MyListItem x:Name="ItemDst" IsScaleAnimationEnabled="False" Tag="4" Visibility="Visible" MinPaddingRight="35" Height="36" VerticalAlignment="Top" Title="机器人" Type="RadioBox"
-            LogoScale="0.82" Logo="M512 64C264.6 64 64 229.6 64 434c0 108 48.4 205 126 271l-36 143c-4 16 12 30 27 22l164-88c52 13 106 20 163 20 247.4 0 448-165.6 448-370S759.4 64 512 64zM336 466a56 56 0 1 1 0-112 56 56 0 0 1 0 112zm176 0a56 56 0 1 1 0-112 56 56 0 0 1 0 112zm176 0a56 56 0 1 1 0-112 56 56 0 0 1 0 112z">
+            LogoScale="0.82" Logo="M300 328a60 60 0 1 0 120 0 60 60 0 1 0-120 0z M852 64H172c-17.7 0-32 14.3-32 32v660c0 17.7 14.3 32 32 32h680c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32z m-32 660H204V128h616v596z M604 328a60 60 0 1 0 120 0 60 60 0 1 0-120 0zM854.2 884H169.8c-16.5 0-29.8 14.3-29.8 32v36c0 4.4 3.3 8 7.4 8h729.1c4.1 0 7.4-3.6 7.4-8v-36c0.1-17.7-13.2-32-29.7-32zM664 508H360c-4.4 0-8 3.6-8 8v60c0 4.4 3.6 8 8 8h304c4.4 0 8-3.6 8-8v-60c0-4.4-3.6-8-8-8z">
             <local:MyListItem.Buttons>
                 <x:Array Type="{x:Type local:MyIconButton}">
                     <local:MyIconButton Tag="4" ToolTip="初始化本页设置" ToolTipService.InitialShowDelay="200" Click="Reset" Logo="M530 0c287 0 521 229 521 511s-233 511-521 511c-233 0-436-151-500-368a63 63 0 0 1 44-79 65 65 0 0 1 80 43c48 162 200 276 375 276 215 0 390-171 390-383s-174-383-390-383c-103 0-199 39-270 106l21-5a63 63 0 0 1 33 123l-157 42a65 65 0 0 1-90-42l-49-183a65 65 0 1 1 126-33l6 26A524 524 0 0 1 530 0z" LogoScale="0.9" />

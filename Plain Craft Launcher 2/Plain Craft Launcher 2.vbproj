@@ -222,6 +222,7 @@
     <Compile Include="Modules\Resource\ModPersonalPack.vb" />
     <Compile Include="Modules\Config\ModConfigFile.vb" />
     <Compile Include="Modules\Config\ModPresetSource.vb" />
+    <Compile Include="Modules\Config\ModLinkNodes.vb" />
     <Compile Include="Modules\Config\ModUpdateSource.vb" />
     <Compile Include="Modules\Resource\ModHanhua.vb" />
     <Compile Include="Modules\Resource\ModPackState.vb" />
@@ -362,6 +363,9 @@
     </Compile>
     <Compile Include="Pages\PageInstance\PageInstanceSaves.xaml.vb">
     <DependentUpon>PageInstanceSaves.xaml</DependentUpon>
+  </Compile>
+    <Compile Include="Pages\PageInstance\PageInstanceScreenshot.xaml.vb">
+    <DependentUpon>PageInstanceScreenshot.xaml</DependentUpon>
   </Compile>
     <Compile Include="Pages\PageInstance\PageSaveDetailLeft.xaml.vb">
       <DependentUpon>PageSaveDetailLeft.xaml</DependentUpon>
@@ -675,6 +679,10 @@
     <Page Include="Pages\PageOther\PageOtherHelpDetail.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Pages\PageInstance\PageInstanceScreenshot.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
     </Page>
     <Page Include="Pages\PageInstance\PageInstanceSaves.xaml">
     <Generator>MSBuild:Compile</Generator>

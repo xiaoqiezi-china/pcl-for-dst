@@ -19,6 +19,8 @@ public enum ResourceTypes {
     Plugin = 32,
     /// <summary>地图。</summary>
     Map = 64,
+    /// <summary>游戏截图。仅用于收藏夹，不参与资源搜索。</summary>
+    Screenshot = 128,
     /// <summary>同时包含数据包以及 Mod。</summary>
     ModOrDataPack = Mod | DataPack,
     /// <summary>允许任意种类，或种类未知。</summary>

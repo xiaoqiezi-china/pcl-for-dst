@@ -428,6 +428,7 @@ EndHint:
     Public FrmInstanceResourcePack As PageInstanceResourcePack
     Public FrmInstanceShaderPack As PageInstanceShaderPack
     Public FrmInstanceFavorites As PageInstanceFavorites
+    Public FrmInstanceScreenshot As PageInstanceScreenshot
     Public FrmDownloadModify As PageDownloadModify
 
     '资源信息分页声明

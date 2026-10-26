@@ -304,11 +304,45 @@ Friend Module ModSecret
 
 #Region "联网配置"
 
+#Region "联机配置"
+
     ''' <summary>
-    ''' 联网获取的配置信息。
-    ''' 若获取失败或仍在获取中，可能为 Nothing。
+    ''' 联机功能的内置配置。
+    ''' <para>
+    ''' 原版是从 PCL 官方服务器拉这份配置的，服务器下线后这段就成了死代码：
+    ''' ServerConfig 永远是 Nothing，联机页第一步就抛异常，所以整块功能被隐藏了。
+    ''' 这里改成编译期内置，结构与原版一致，只是数据源换成 EasyTier 官方 Release。
+    ''' </para>
     ''' </summary>
-    Public ServerConfig As JObject
+    Public ReadOnly Property BuiltinServerConfig As JObject
+        Get
+            If _BuiltinServerConfig IsNot Nothing Then Return _BuiltinServerConfig
+            _BuiltinServerConfig = JObject.Parse("{
+                ""Link"": {
+                    ""EasyTierVersion"": 264,
+                    ""Downloads"": [
+                        ""https://github.com/EasyTier/EasyTier/releases/download/v2.6.4/easytier-windows-{arch}-v2.6.4.zip"",
+                        ""https://ghfast.top/https://github.com/EasyTier/EasyTier/releases/download/v2.6.4/easytier-windows-{arch}-v2.6.4.zip"",
+                        ""https://gh-proxy.com/https://github.com/EasyTier/EasyTier/releases/download/v2.6.4/easytier-windows-{arch}-v2.6.4.zip""
+                    ],
+                    ""DiscoverPeer"": ""tcp://easytier-us.slarker.me:11010"",
+                    ""DiscoverPeerId"": 1,
+                    ""RandomPeer"": 2,
+                    ""Peers"": [],
+                    ""PeersBlackList"": [],
+                    ""MandatoryPeers"": [],
+                    ""Argument"": """",
+                    ""MinVersionCode"": 0
+                }
+            }")
+            Return _BuiltinServerConfig
+        End Get
+    End Property
+    Private _BuiltinServerConfig As JObject
+
+#End Region
+    ''' <summary>联网获取的配置；本版没有远端来源，直接用内置的那份。</summary>
+    Public ServerConfig As JObject = BuiltinServerConfig
 
     Public ServerLoader As New LoaderTask(Of Integer, Integer)("PCL 配置更新", Sub() Logger.Info("该版本中不包含更新通知功能……"), Priority:=ThreadPriority.BelowNormal) With
         {.ReloadTimeout = 1000 * 60 * 60} '超时 1 小时

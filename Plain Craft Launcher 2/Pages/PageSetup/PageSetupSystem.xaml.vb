@@ -6,6 +6,7 @@ Public Class PageSetupSystem
         '重复加载部分
         PanBack.ScrollToHome()
         RefreshSecretStatus()
+        ApplyScreenshotFavMode()
 
         If BuildType = BuildTypes.Release Then
             PanDonate.Visibility = Visibility.Collapsed
@@ -154,6 +155,33 @@ Public Class PageSetupSystem
     End Sub
     Private Sub BtnSystemSettingImp_Click(sender As Object, e As MouseButtonEventArgs) Handles BtnSystemSettingImp.Click
         Hint("该功能尚在开发中！")
+    End Sub
+
+#End Region
+
+#Region "截图收藏策略"
+
+    ''' <summary>把设置里的策略套到三个单选框上。</summary>
+    Private Sub ApplyScreenshotFavMode()
+        If RadioShotFavPath Is Nothing Then Return
+        AniControlEnabled += 1
+        Try
+            Select Case Settings.Get(Of Integer)("DstScreenshotFavMode")
+                Case 0 : RadioShotFavPath.Checked = True
+                Case 2 : RadioShotFavPictures.Checked = True
+                Case Else : RadioShotFavLauncher.Checked = True
+            End Select
+        Finally
+            AniControlEnabled -= 1
+        End Try
+    End Sub
+
+    Private Sub ScreenshotFavMode_Check(sender As Object, raiseByMouse As Boolean) Handles RadioShotFavPath.Check,
+            RadioShotFavLauncher.Check, RadioShotFavPictures.Check
+        If AniControlEnabled > 0 Then Return
+        Dim Radio = CType(sender, MyRadioButton)
+        If Not Radio.Checked Then Return
+        Settings.Set("DstScreenshotFavMode", CInt(Val(Radio.Tag)))
     End Sub
 
 #End Region

@@ -91,16 +91,53 @@ Public Class PageGroupStar
         If View Is Nothing Then
             View = New FavoriteListView(PanList)
             AddHandler View.SelectionChanged, Sub() RefreshSelectBar()
-            AddHandler View.EntryActivated, Sub(Entry) OpenDetail(Entry)
-            AddHandler View.EntryRemoved, Sub(Entry)
-                                                ModFavorite.Remove(Entry)
-                                                RefreshList()
-                                                Hint("已取消收藏", HintType.Blue, False)
-                                            End Sub
+            AddHandler View.ScreenshotInfoRequested, Sub(Entry) FavoriteListView.ShowScreenshotInfo(Entry)
+            AddHandler View.EntryActivated,
+                Sub(Entry)
+                    '截图没有资源详情页，双击直接看图
+                    If Entry.ResourceType = CInt(ResourceTypes.Screenshot) Then
+                        Dim Shot As String = Entry.Key.Replace("screenshot:", "")
+                        If Not FileUtils.Exists(Shot) Then
+                            Hint("原文件已不存在", HintType.Red)
+                            Return
+                        End If
+                        Try
+                            Dim Window As New WindowImagePreview(Shot)
+                            Window.ShowDialog()
+                        Catch ex As Exception
+                            Logger.Error(ex, "打开截图预览失败", LogBehavior.Alert)
+                        End Try
+                        Return
+                    End If
+                    OpenDetail(Entry)
+                End Sub
+            AddHandler View.EntryRemoved,
+                Sub(Entry)
+                    '截图条目的删除按钮是「删掉这张图」，社区资源仍是「取消收藏」
+                    If Entry.ResourceType = CInt(ResourceTypes.Screenshot) Then
+                        Dim Shot As String = Entry.Key.Replace("screenshot:", "")
+                        If MyMsgBox("确定要删除这张截图吗？" & vbCrLf &
+                                    "文件会被永久删除，收藏记录也会一并移除。",
+                                    "删除截图", "删除", "取消", IsWarn:=True) <> 1 Then Return
+                        Try
+                            If FileUtils.Exists(Shot) Then FileUtils.Delete(Shot)
+                        Catch ex As Exception
+                            Logger.Error(ex, "删除截图失败", LogBehavior.Alert)
+                            Return
+                        End Try
+                        ModFavorite.Remove(Entry)
+                        RefreshList()
+                        Hint("截图已删除", HintType.Green, False)
+                        Return
+                    End If
+                    ModFavorite.Remove(Entry)
+                    RefreshList()
+                    Hint("已取消收藏", HintType.Blue, False)
+                End Sub
         End If
 
         '按 Tag 决定初始分类
-        Dim Tabs() As MyRadioButton = {BtnFilterMod, BtnFilterModPack, BtnFilterDataPack, BtnFilterResourcePack, BtnFilterShader}
+        Dim Tabs() As MyRadioButton = {BtnFilterMod, BtnFilterModPack, BtnFilterDataPack, BtnFilterResourcePack, BtnFilterShader, BtnFilterScreenshot}
         Dim Hit = Tabs.FirstOrDefault(Function(x) CInt(Val(x.Tag)) = CurrentType)
         If Hit IsNot Nothing Then Hit.SetChecked(True, False, False)
         CheckCloudSync.Checked = ModFavorite.SyncToCloud
@@ -110,7 +147,7 @@ Public Class PageGroupStar
     End Sub
 
     Private Sub Filter_Check(sender As Object, raiseByMouse As Boolean) Handles BtnFilterMod.Check, BtnFilterModPack.Check,
-            BtnFilterDataPack.Check, BtnFilterResourcePack.Check, BtnFilterShader.Check
+            BtnFilterDataPack.Check, BtnFilterResourcePack.Check, BtnFilterShader.Check, BtnFilterScreenshot.Check
         If Not raiseByMouse Then Return
         Dim NewType As Integer = CInt(Val(CType(sender, MyRadioButton).Tag))
         If NewType = CurrentType Then Return
@@ -128,6 +165,12 @@ Public Class PageGroupStar
         If PanList Is Nothing Then Return
         If View Is Nothing Then Return
         View.Reload(CType(CurrentType, ResourceTypes))
+        '截图分类没有资源详情页，那行说明换成收藏策略的提示
+        If LabListHint IsNot Nothing Then
+            LabListHint.Text = If(CurrentType = CInt(ResourceTypes.Screenshot),
+                "收藏时会按设置里的策略处理文件，可在「设置 → 其他 → 截图收藏」中更改。",
+                "左键点击勾选，右键或悬停后的「详情」按钮进入资源详情页。")
+        End If
         RefreshSelectBar()
     End Sub
 

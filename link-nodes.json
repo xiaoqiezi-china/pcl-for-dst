@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "address": "tcp://easytier-us.slarker.me:11010",
+    "allow_relay": true,
+    "tags": [
+      "海外",
+      "公益"
+    ],
+    "note": "公开共享节点，来自 wiki.mynas.chat 的 EasyTier 部署记录"
+  },
+  {
+    "id": 2,
+    "address": "wss://easytier-us.slarker.me:11011",
+    "allow_relay": true,
+    "tags": [
+      "海外",
+      "公益"
+    ],
+    "note": "同上，WSS 协议备用"
+  }
+]

@@ -35,8 +35,31 @@ Public Class PageOtherTest
     Public Shared Function GetRandomCave() As String
         Return "为便于维护，开源内容中不包含百宝箱功能……"
     End Function
+    ''' <summary>启动页「你知道吗」的提示语池。</summary>
+    Private Shared ReadOnly LaunchHints As String() = {
+        "Trop!!!!!!!",
+        "PCL 的原作者是龙腾跃猫",
+        "1+1=3",
+        "你好中国！",
+        "迎接另一个晨曦",
+        "DPCL 由 MC_xiaoqie 辅助 AI 开发",
+        "请勿二次分发 BugJump®️",
+        "F2 截图会存进当前版本的 screenshots 文件夹",
+        "启动器更新只替换程序本身，PCL 目录里的配置不会被覆盖",
+        "整合包装好后，资源包和光影包也可以在版本设置里单独管理",
+        "Java 版本不对是启动失败最常见的原因，换一个试试",
+        "版本隔离打开后，每个实例都有独立的 mods 和存档",
+        "下载太慢时可以在设置里换下载源，不必一直等",
+        "游戏崩溃不一定是启动器的锅，先看看崩溃报告指向哪里",
+        "把常用的资源收藏起来，换整合包时不用重新找",
+        "导出整合包时勾上配置，分享给别人能直接还原",
+        "本地存档可以直接拖进 saves 文件夹，启动器会认出来",
+        "设置里改完记得重启启动器，有些项只在启动时读一次"
+    }
+
+    ''' <summary>随机取一条提示语，供启动页展示。</summary>
     Public Shared Function GetRandomHint() As String
-        Return "为便于维护，开源内容中不包含百宝箱功能……"
+        Return LaunchHints(RandomInteger(0, LaunchHints.Length - 1))
     End Function
     Public Shared Function GetRandomPresetHint() As String
         Return "为便于维护，开源内容中不包含百宝箱功能……"

@@ -23,6 +23,8 @@ Public Class FavoriteListView
     Public Event EntryActivated As Action(Of FavoriteEntry)
     ''' <summary>点条目的取消收藏按钮时触发。</summary>
     Public Event EntryRemoved As Action(Of FavoriteEntry)
+    ''' <summary>点截图条目的「信息」按钮时触发。</summary>
+    Public Event ScreenshotInfoRequested As Action(Of FavoriteEntry)
 
     Public Sub New(Panel As StackPanel)
         Me.Panel = Panel
@@ -121,20 +123,109 @@ Public Class FavoriteListView
         Else
             Item.ShowMeta = False
             If Entry.Logo <> "" Then Item.LogoSource = Entry.Logo
+            '截图收藏走这条分支：没有项目 JSON，文件还可能已经被删掉
+            If Entry.ResourceType = CInt(ResourceTypes.Screenshot) Then
+                Dim Shot As String = Entry.Key.Replace("screenshot:", "")
+                If Not FileUtils.Exists(Shot) Then
+                    Item.Description = "原文件已不存在"
+                    Item.Opacity = 0.5
+                End If
+            End If
         End If
         '左键只负责勾选，与模组管理完全一致：这样点一下就能选，不会被详情页抢走
         AddHandler Item.Click, Sub() ToggleSelect(Entry)
         '右键进详情，同样是模组管理的习惯
         AddHandler Item.MouseRightButtonUp, Sub() RaiseEvent EntryActivated(Entry)
+        '截图条目跟截图管理页保持一致：信息、打开文件夹、删除；
+        '社区资源仍是详情 + 取消收藏
+        If Entry.ResourceType = CInt(ResourceTypes.Screenshot) Then
+            Dim Shot As String = Entry.Key.Replace("screenshot:", "")
+            Dim BtnEdit As New MyIconButton With {
+                .LogoScale = 0.8, .Logo = Logo.IconButtonEdit, .ToolTip = "用画图编辑"}
+            AddHandler BtnEdit.Click,
+                Sub()
+                    If Not FileUtils.Exists(Shot) Then
+                        Hint("原文件已不存在", HintType.Red)
+                        Return
+                    End If
+                    Try
+                        StartProcess("mspaint.exe", """" & Shot & """")
+                    Catch ex As Exception
+                        Logger.Error(ex, "打开画图失败", LogBehavior.Alert)
+                    End Try
+                End Sub
+            Dim BtnInfo As New MyIconButton With {
+                .LogoScale = 0.8, .Logo = Logo.IconButtonInfo, .ToolTip = "截图信息"}
+            AddHandler BtnInfo.Click, Sub() RaiseEvent ScreenshotInfoRequested(Entry)
+            Dim BtnOpen As New MyIconButton With {
+                .LogoScale = 0.8, .Logo = Logo.IconButtonOpen, .ToolTip = "打开所在文件夹"}
+            AddHandler BtnOpen.Click,
+                Sub()
+                    If FileUtils.Exists(Shot) Then
+                        OpenExplorer(Shot)
+                    Else
+                        Hint("原文件已不存在", HintType.Red)
+                    End If
+                End Sub
+            Dim BtnDelete As New MyIconButton With {
+                .LogoScale = 0.8, .Logo = Logo.IconButtonDelete, .ToolTip = "删除这张截图"}
+            AddHandler BtnDelete.Click, Sub() RaiseEvent EntryRemoved(Entry)
+            Item.Buttons = {BtnEdit, BtnInfo, BtnOpen, BtnDelete}
+            Return Item
+        End If
+
         '悬停按钮：详情、取消收藏
-        Dim BtnInfo As New MyIconButton With {
+        Dim BtnInfoRes As New MyIconButton With {
             .LogoScale = 1, .Logo = Logo.IconButtonInfo, .ToolTip = "查看详情"}
-        AddHandler BtnInfo.Click, Sub() RaiseEvent EntryActivated(Entry)
+        AddHandler BtnInfoRes.Click, Sub() RaiseEvent EntryActivated(Entry)
         Dim BtnRemove As New MyIconButton With {
             .LogoScale = 0.62, .Logo = Logo.IconButtonCross, .ToolTip = "取消收藏"}
         AddHandler BtnRemove.Click, Sub() RaiseEvent EntryRemoved(Entry)
-        Item.Buttons = {BtnInfo, BtnRemove}
+        Item.Buttons = {BtnInfoRes, BtnRemove}
         Return Item
+    End Function
+
+    ''' <summary>
+    ''' 截图信息框。内容与截图管理页的「截图信息」一致，
+    ''' 所以放在这里共用，两个收藏夹页面都调它。
+    ''' </summary>
+    Public Shared Sub ShowScreenshotInfo(Entry As FavoriteEntry)
+        If Entry Is Nothing Then Return
+        Dim Shot As String = Entry.Key.Replace("screenshot:", "")
+        RunInThread(
+        Sub()
+            Dim Lines As New List(Of String)
+            Lines.Add("文件名：" & Entry.Title)
+            If Not FileUtils.Exists(Shot) Then
+                Lines.Add("状态：原文件已不存在")
+                Lines.Add("原位置：" & Shot)
+                RunInUi(Sub() MyMsgBox(String.Join(vbCrLf, Lines), "截图信息", "确定"))
+                Return
+            End If
+            Try
+                Dim Info As New IO.FileInfo(Shot)
+                Try
+                    Using Fs As IO.FileStream = IO.File.OpenRead(Shot)
+                        Dim Frame As BitmapFrame = BitmapFrame.Create(Fs, BitmapCreateOptions.DelayCreation, BitmapCacheOption.None)
+                        Lines.Add($"尺寸：{Frame.PixelWidth} × {Frame.PixelHeight}")
+                    End Using
+                Catch ex As Exception
+                    Lines.Add("尺寸：读取失败")
+                End Try
+                Lines.Add("大小：" & FormatSizeText(Info.Length))
+                Lines.Add("修改时间：" & Info.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss"))
+                Lines.Add("位置：" & Shot)
+            Catch ex As Exception
+                Logger.Warn(ex, $"读取截图信息失败：{Shot}")
+            End Try
+            RunInUi(Sub() MyMsgBox(String.Join(vbCrLf, Lines), "截图信息", "确定"))
+        End Sub)
+    End Sub
+
+    Private Shared Function FormatSizeText(Bytes As Long) As String
+        If Bytes < 1024 Then Return Bytes & " B"
+        If Bytes < 1024 * 1024 Then Return Math.Round(Bytes / 1024, 1) & " KB"
+        Return Math.Round(Bytes / 1024 / 1024, 1) & " MB"
     End Function
 
     ''' <summary>把项目信息填进下边栏。任何一项取不到就留空，由控件自己把图标一起隐藏。</summary>

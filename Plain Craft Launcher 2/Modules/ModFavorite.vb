@@ -227,6 +227,59 @@ Friend Module ModFavorite
         Return True
     End Function
 
+    ''' <summary>
+    ''' 收藏一张本地截图。截图不是社区资源，没有 ResourceProject，所以单独走这条路。
+    ''' </summary>
+    ''' <param name="FilePath">收藏后实际保存的路径，可能是复制出去的副本。</param>
+    ''' <param name="Title">显示名，一般是文件名。</param>
+    ''' <param name="Description">尺寸、大小这类副信息。</param>
+    ''' <param name="SourcePath">原图路径。取消收藏时用它来认，因为副本路径每次都不一样。</param>
+    ''' <returns>是否为新加入；已收藏过则返回 False。</returns>
+    Public Function AddScreenshot(FilePath As String, Title As String, Description As String,
+                                  Optional SourcePath As String = "") As Boolean
+        If String.IsNullOrWhiteSpace(FilePath) Then Return False
+        Dim K As String = "screenshot:" & FilePath
+        Dim Src As String = If(SourcePath = "", FilePath, SourcePath)
+        EnsureLoaded()
+        SyncLock Lock
+            '同一张原图只收藏一次，不管副本叫什么名字
+            If Items.Any(Function(E) E.ResourceType = CInt(ResourceTypes.Screenshot) AndAlso
+                            (E.Key = K OrElse E.SubTitle = Src)) Then Return False
+            Items.Add(New FavoriteEntry With {
+                .Key = K,
+                .ResourceType = CInt(ResourceTypes.Screenshot),
+                .Title = Title,
+                .SubTitle = Src,
+                .Description = Description,
+                .Logo = FilePath,
+                .ProjectJson = "",
+                .TimeTicks = Date.Now.Ticks})
+        End SyncLock
+        Save()
+        Return True
+    End Function
+
+    ''' <summary>按原图路径找已收藏的截图条目；没有则返回 Nothing。</summary>
+    Public Function FindScreenshotFavorite(SourcePath As String) As FavoriteEntry
+        If String.IsNullOrWhiteSpace(SourcePath) Then Return Nothing
+        EnsureLoaded()
+        SyncLock Lock
+            Return Items.FirstOrDefault(Function(E) E.ResourceType = CInt(ResourceTypes.Screenshot) AndAlso
+                                                    (E.SubTitle = SourcePath OrElse E.Key = "screenshot:" & SourcePath))
+        End SyncLock
+    End Function
+
+    ''' <summary>这张原图是否已经收藏过。</summary>
+    Public Function IsScreenshotFavorite(SourcePath As String) As Boolean
+        Return FindScreenshotFavorite(SourcePath) IsNot Nothing
+    End Function
+
+    ''' <summary>这条收藏是不是截图。</summary>
+    Public Function IsScreenshot(Entry As FavoriteEntry) As Boolean
+        Return Entry IsNot Nothing AndAlso Entry.ResourceType = CInt(ResourceTypes.Screenshot)
+    End Function
+
+
     Public Sub Remove(Entry As FavoriteEntry)
         If Entry Is Nothing Then Return
         EnsureLoaded()
