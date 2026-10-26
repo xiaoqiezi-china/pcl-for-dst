@@ -15,9 +15,20 @@ Imports System.Text
 ''' </summary>
 Friend Module ModPresetSource
 
-    ''' <summary>预设文件地址。放在独立分支上，与程序代码分开维护。</summary>
-    Public Const PresetUrl As String =
-        "https://raw.githubusercontent.com/xiaoqiezi-china/pcl-for-dst/refs/heads/main/yushe.json"
+    ''' <summary>
+    ''' 预设文件的候选地址，按顺序尝试，第一个能解析出内容的生效。
+    ''' <para>
+    ''' 国内直连 raw.githubusercontent.com 基本必失败（域名解析不了），所以镜像排前面，直连留作兜底。
+    ''' </para>
+    ''' <para>
+    ''' 注意：镜像由第三方转发，理论上可以替换内容。预设文件里带着服务地址与令牌，
+    ''' 被替换就意味着流量会去别的服务器，所以镜像只是「能用」的折中，不是可信来源。
+    ''' </para>
+    ''' </summary>
+    Public ReadOnly PresetUrls As String() = {
+        "https://ghfast.top/https://raw.githubusercontent.com/xiaoqiezi-china/pcl-for-dst/refs/heads/main/yushe.json",
+        "https://gh-proxy.com/https://raw.githubusercontent.com/xiaoqiezi-china/pcl-for-dst/refs/heads/main/yushe.json",
+        "https://raw.githubusercontent.com/xiaoqiezi-china/pcl-for-dst/refs/heads/main/yushe.json"}
     ''' <summary>国内备用源。留空表示没配置，界面上会显示为未启用。</summary>
     Public Const GiteeUrl As String = ""
 
@@ -73,37 +84,42 @@ Friend Module ModPresetSource
     ''' 必须在工作线程调用。
     ''' </summary>
     Public Function Fetch() As Boolean
-        Try
-            Dim Json As String = NetRequestByClient(PresetUrl, HttpMethod.Get, Timeout:=15000, MakeLog:=False)
-            If String.IsNullOrWhiteSpace(Json) Then
-                LastStatus = "服务器返回为空"
-                LastOk = False
-                Return False
-            End If
-            If Json.Length > MaxBytes Then
-                LastStatus = "预设文件过大，已拒绝"
-                LastOk = False
-                Logger.Warn($"预设文件超过 {MaxBytes} 字节，已忽略")
-                Return False
-            End If
-            Dim Parsed As List(Of Preset) = Parse(Json)
-            If Parsed.Count = 0 Then
-                LastStatus = "预设列表为空或格式不正确"
-                LastOk = False
-                Return False
-            End If
-            Items = Parsed
-            SaveBackup(Json)
-            LastStatus = $"已获取 {Parsed.Count} 个预设"
-            LastOk = True
-            Logger.Info($"已获取远程预设 {Parsed.Count} 个")
-            Return True
-        Catch ex As Exception
-            LastStatus = "获取失败：" & ex.Message
-            LastOk = False
-            Logger.Warn(ex, "获取远程预设失败")
-            Return False
-        End Try
+        Dim LastError As String = ""
+        For Each Url As String In PresetUrls
+            Try
+                Dim Json As String = NetRequestByClient(Url, HttpMethod.Get, Timeout:=15000, MakeLog:=False)
+                '某个源拿到空响应、超大响应、或者解析不出条目，都换下一个源继续试，
+                '不能因为第一个源坏了就判定整个功能不可用
+                If String.IsNullOrWhiteSpace(Json) Then
+                    LastError = "服务器返回为空"
+                    Continue For
+                End If
+                If Json.Length > MaxBytes Then
+                    LastError = "预设文件过大，已拒绝"
+                    Logger.Warn($"预设文件超过 {MaxBytes} 字节，已忽略：{Url}")
+                    Continue For
+                End If
+                Dim Parsed As List(Of Preset) = Parse(Json)
+                If Parsed.Count = 0 Then
+                    LastError = "预设列表为空或格式不正确"
+                    Logger.Warn($"预设列表为空或格式不正确：{Url}")
+                    Continue For
+                End If
+                Items = Parsed
+                SaveBackup(Json)
+                LastStatus = $"已获取 {Parsed.Count} 个预设"
+                LastOk = True
+                Logger.Info($"已获取远程预设 {Parsed.Count} 个")
+                Return True
+            Catch ex As Exception
+                ex.ThrowIfCanceled()
+                LastError = "获取失败：" & ex.Message
+                Logger.Warn(ex, $"获取远程预设失败：{Url}")
+            End Try
+        Next
+        LastStatus = LastError
+        LastOk = False
+        Return False
     End Function
 
     ''' <summary>从上次成功的备份里读回预设列表。</summary>
