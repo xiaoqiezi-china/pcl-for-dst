@@ -155,8 +155,6 @@ git tag v1.0.0 && git push origin v1.0.0
 联机节点清单目前只有两个公开公益节点（同一服务器的 TCP / WSS），延迟差异不明显。
 若要发挥延迟优选的作用，需要往 `link-nodes.json` 里补充不同地区的节点。
 
-发布前的检查清单见 [docs/脱敏标准.md](docs/脱敏标准.md)。
-
 ## 署名
 
 - **龙腾猫跃** — Plain Craft Launcher 的开发者 — [赞助](https://meloong.com/afd/a/LTCat)

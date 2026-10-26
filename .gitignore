@@ -358,3 +358,6 @@ ModSecret.Local.vb
 
 # 测试产物
 tests/bin/
+
+# 内部文档（含脱敏流程与检查清单，不对外）
+docs/
