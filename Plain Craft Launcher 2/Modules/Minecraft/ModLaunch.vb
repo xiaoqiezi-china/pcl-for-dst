@@ -883,10 +883,12 @@ LoginFinish:
     Private Function MsLoginStep1New(Data As LoaderTask(Of McLoginMs, McLoginResult)) As (OAuthAccessToken As String, OAuthRefreshToken As String)
         '参考：https://learn.microsoft.com/zh-cn/entra/identity-platform/v2-oauth2-device-code
 
-        '开源版默认不带 ClientId：没配置就别往下走，直接告诉用户去哪里填
+        '没有 ClientId 就别往下走：直接告诉用户缺什么、去哪里补。
+        '不提醒的话，用户只会看到一串 OAuth 报错，以为是软件坏了。
         If MsClientIdResolve() = "" Then
-            Throw New Exception("$还没有配置微软登录的 ClientId，正版登录暂时不可用。" & vbCrLf &
-                                "请到「设置 → 其他 → 账号与 API」填写，或改用离线登录。")
+            MyMsgBox("微软验证需要应用ID，您可以在设置-其他中填写，或设置-机器人选择一个预设服务器来自动获取云同步的应用ID。同步一次后clientID将缓存。",
+                     "缺少应用ID", IsWarn:=True)
+            Throw New OperationCanceledException
         End If
 
         '初始请求
