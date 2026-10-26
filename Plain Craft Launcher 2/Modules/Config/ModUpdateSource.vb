@@ -57,7 +57,7 @@ Friend Module ModUpdateSource
     ''' <summary>缓存文件，存上次成功拿到的完整信息。</summary>
     Private ReadOnly Property CacheFile As String
         Get
-            Return Paths.Base & "PCL\\UpdateCache.json"
+            Return Paths.Base & "PCL\UpdateCache.json"
         End Get
     End Property
 

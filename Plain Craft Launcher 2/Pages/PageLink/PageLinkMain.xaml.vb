@@ -5,7 +5,7 @@ Imports System.Reflection
 Imports PCL
 
 Public Class PageLinkMain
-    Private Const INVITE_CODE_VERSION As Integer = 2
+    Private Const INVITE_CODE_VERSION As Integer = 3
 
     '===============================
     '  状态机与前端页面
@@ -91,6 +91,11 @@ Public Class PageLinkMain
     '  页面 UI
     '===============================
 
+    ''' <summary>左上角「联机设置」：进入节点设置副页面。</summary>
+    Private Sub BtnLinkSettings_Click(sender As Object, e As EventArgs) Handles BtnLinkSettings.Click
+        FrmMain.PageChange(FormMain.PageType.LinkSettings)
+    End Sub
+
     '创建
     Private Sub Create_MouseLeftButtonUp() Handles PanSelectCreate.MouseLeftButtonUp
         '输入端口号
@@ -149,7 +154,21 @@ Public Class PageLinkMain
         Else
             DiscoverNodeID = Code.Substring(20, 3).Upper.ConvertRadix(16, 10)
         End If
-        Logger.Info($"尝试加入房间，网络名 {NetworkName}，网络密码 {NetworkSecret}，端口 {ServerPort}，发现节点 {DiscoverNodeID}")
+        '版本 3 起：第 24 位之后是节点地址（形如 tcp://host:port）
+        DiscoverNodeAddress = ""
+        If Code.Length > 24 AndAlso Code(23) = "-"c Then
+            Dim Tail As String = Code.Substring(24).Trim()
+            If Tail.StartsWith("TCP://") OrElse Tail.StartsWith("UDP://") OrElse
+               Tail.StartsWith("WS://") OrElse Tail.StartsWith("WSS://") Then
+                'FixCodeFormat 会把整串转成大写，这里还原协议前缀的小写形式
+                Dim SchemeEnd As Integer = Tail.IndexOf("://", StringComparison.Ordinal)
+                If SchemeEnd > 0 Then
+                    Tail = Tail.Substring(0, SchemeEnd).ToLowerInvariant() & Tail.Substring(SchemeEnd)
+                End If
+                DiscoverNodeAddress = Tail
+            End If
+        End If
+        Logger.Info($"尝试加入房间，网络名 {NetworkName}，网络密码 {NetworkSecret}，端口 {ServerPort}，发现节点 {DiscoverNodeID}，节点地址 {If(DiscoverNodeAddress = "", "(未提供)", DiscoverNodeAddress)}")
         '启动
         LastCode = Code
         ChangeState(LinkStates.Loading)
@@ -174,6 +193,21 @@ Public Class PageLinkMain
     End Function
     Private Shared Function FixCodeFormat(Code As String) As String
         Code = Code.Between("【", "】").Between("[", "]") '从完整消息中提取
+        Code = Code.Trim()
+        '只把前半段（网络名/密码/版本/ID）转大写做输入修正，
+        '后面的节点地址要保留原样——域名和协议都是小写的，转大写就连不上了
+        Dim AddrStart As Integer = -1
+        For Each Scheme In {"-tcp://", "-udp://", "-ws://", "-wss://"}
+            Dim Hit As Integer = Code.IndexOf(Scheme, StringComparison.OrdinalIgnoreCase)
+            If Hit >= 0 AndAlso Hit > 20 Then
+                AddrStart = Hit
+                Exit For
+            End If
+        Next
+        If AddrStart >= 0 Then
+            Dim Head As String = Code.Substring(0, AddrStart).Upper.Replace("O", "0").Replace("I", "1")
+            Return Head & Code.Substring(AddrStart)
+        End If
         Code = Code.Upper.Replace("O", "0").Replace("I", "1") '输入修正
         '版本 1 兼容
         If Code.Length >= 17 AndAlso (Code.Length < 23 OrElse (Code.Length >= 18 AndAlso Code(17) <> "-"c)) Then
@@ -199,7 +233,14 @@ Public Class PageLinkMain
     End Sub
     '在进入页面时自动尝试加入房间
     Private Shared AutoJoinCode As String = Nothing
-    Private Sub PanSelectJoin_Loaded() Handles PanSelectJoin.Loaded
+    ''' <summary>
+    ''' 每次进入本页都检查一次待加入的邀请码。
+    ''' <para>
+    ''' 不能只挂在 PanSelectJoin.Loaded 上：联机设置是独立副页面，
+    ''' 从设置页返回时主页面早已加载过，Loaded 不会再触发，待加入的邀请码就丢了。
+    ''' </para>
+    ''' </summary>
+    Private Sub PanSelectJoin_Enter() Handles PanSelectJoin.Loaded, Me.PageEnter
         If AutoJoinCode Is Nothing Then Return
         If LinkState = LinkStates.Waiting Then JoinInternal(AutoJoinCode)
         AutoJoinCode = Nothing
@@ -371,9 +412,19 @@ Public Class PageLinkMain
         Settings.Set("LinkLastAutoJoinInviteCode", CodeText)
         Hint("已复制邀请码！", HintType.Green)
     End Sub
+    ''' <summary>
+    ''' 生成邀请码。版本 3 起在末尾追加房主实际使用的节点地址，
+    ''' 这样成员不必依赖「节点 ID 到地址」的映射——那份清单是动态的，
+    ''' 房主和成员拉到的版本可能不同，ID 就会指向不同地址。
+    ''' </summary>
     Private Function GetInviteCode() As String
-        Return $"{NetworkName}-{NetworkSecret}-{INVITE_CODE_VERSION.ToString.PadLeft(2, "0"c)}{ _
+        Dim Base As String = $"{NetworkName}-{NetworkSecret}-{INVITE_CODE_VERSION.ToString.PadLeft(2, "0"c)}{ _
             If(DiscoverNodeID = -1, 0, DiscoverNodeID).ConvertRadix(16).PadLeft(3, "0"c)}"
+        '把地址接在后面；地址本身不含空格，直接拼即可
+        If Not String.IsNullOrWhiteSpace(DiscoverNodeAddress) Then
+            Base &= "-" & DiscoverNodeAddress.Trim()
+        End If
+        Return Base
     End Function
 
     '复制 IP
@@ -418,6 +469,8 @@ Public Class PageLinkMain
     ''' 若必须设定自定义节点则为 -2；若等待选择则为 -1；选择回退节点则为 0；否则为对应节点的 ID。
     ''' </summary>
     Private DiscoverNodeID As Integer = -1
+    ''' <summary>房主实际使用的发现节点地址。版本 3 起随邀请码一起发出去。</summary>
+    Private DiscoverNodeAddress As String = ""
     ''' <summary>
     ''' 网络信息。
     ''' </summary>
@@ -646,6 +699,21 @@ Public Class PageLinkMain
             Dim Nodes As List(Of ModLinkNodes.LinkNode) = ModLinkNodes.Fetch()
             If Nodes Is Nothing OrElse Nodes.Count = 0 Then Throw New Exception("没有可用的联机节点")
 
+            '用户在节点卡片里指定了首选节点时，把它提到最前面；
+            '其余节点仍保留，测速排序只影响备选顺序
+            Dim Preferred As String = Settings.Get(Of String)("LinkPreferredPeer").Trim()
+            If Preferred <> "" Then
+                Dim Hit As ModLinkNodes.LinkNode = Nodes.FirstOrDefault(
+                    Function(N) String.Equals(N.Address, Preferred, StringComparison.OrdinalIgnoreCase))
+                If Hit IsNot Nothing Then
+                    Nodes.Remove(Hit)
+                    Nodes.Insert(0, Hit)
+                    Logger.Info($"使用用户指定的节点：{Preferred}")
+                Else
+                    Logger.Warn($"指定的节点不在清单里，改回自动选择：{Preferred}")
+                End If
+            End If
+
             '先测一轮延迟，按快的在前排序；测不出来的（-1）排到最后
             UpdateLoadingPage("正在测试节点延迟……", "测试节点延迟")
             ModLinkNodes.ProbeLatency(Nodes)
@@ -654,21 +722,45 @@ Public Class PageLinkMain
                 Logger.Info($"节点 {N.Address} 延迟 {If(N.Latency < 0, "未知", N.Latency & " ms")}")
             Next
 
-            '选取发现节点：优先挑不允许中继的（这类节点更稳），没有就按延迟取第一个
+            '选取发现节点
             Dim Selected As ModLinkNodes.LinkNode = Nothing
-            If DiscoverNodeID = -1 Then
+            Dim AddressFromCode As String = DiscoverNodeAddress.Trim()
+
+            If AddressFromCode <> "" Then
+                '成员：邀请码里直接带了房主用的地址，优先用它。
+                '这样不依赖「节点 ID → 地址」的映射，避免双方清单版本不同导致连错节点。
+                Selected = Nodes.FirstOrDefault(Function(N) String.Equals(N.Address, AddressFromCode, StringComparison.OrdinalIgnoreCase))
+                If Selected Is Nothing Then
+                    '地址不在清单里：可能是新加的节点，也可能是别人自建后分享的。
+                    '不直接拒绝，但要提醒用户这个地址来路不明。
+                    Logger.Warn($"邀请码中的节点不在已知清单里：{AddressFromCode}")
+                    Dim Choice As Integer = MyMsgBox(
+                        "房主使用的联机节点不在已知节点清单中：" & vbCrLf &
+                        AddressFromCode & vbCrLf & vbCrLf &
+                        "未知节点可能记录你的连接信息，或者把流量引向别处。" & vbCrLf &
+                        "确认要继续连接吗？", "未知节点", "继续连接", "取消", IsWarn:=True)
+                    If Choice <> 1 Then Throw New OperationCanceledException
+                    '仍按地址直连
+                    Selected = New ModLinkNodes.LinkNode With {
+                        .Id = DiscoverNodeID,
+                        .Address = AddressFromCode,
+                        .AllowRelay = False}
+                End If
+            ElseIf DiscoverNodeID = -1 Then
+                '房主：优先挑不允许中继的（这类节点更稳），没有就按延迟取第一个
                 Selected = Nodes.FirstOrDefault(Function(N) Not N.AllowRelay)
             ElseIf DiscoverNodeID > 0 Then
+                '老版本邀请码：只能按 ID 找
                 Selected = Nodes.FirstOrDefault(Function(N) N.Id = DiscoverNodeID)
                 If Selected Is Nothing Then
-                    Logger.Warn($"未找到 ID {DiscoverNodeID} 的发现节点")
-                    Panic("房间已过期", "请让房主重新创建房间！")
-                    Throw New OperationCanceledException
+                    Logger.Warn($"未找到 ID {DiscoverNodeID} 的发现节点，改用延迟最低的")
+                    Selected = Nodes.FirstOrDefault()
                 End If
             End If
             If Selected Is Nothing Then Selected = Nodes(0)
             FinalPeers.Add(Selected.Address)
             FinalDiscoverID = Selected.Id
+            DiscoverNodeAddress = Selected.Address
             Logger.Info($"发现节点：{Selected.Address} (ID: {FinalDiscoverID})")
 
             '房主只连发现节点，不连中继

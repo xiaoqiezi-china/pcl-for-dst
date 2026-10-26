@@ -1024,6 +1024,10 @@ Public Class FormMain
         ''' 存档详情。这是一个副页面。
         ''' </summary>
         InstanceSaveDetail = 12
+        ''' <summary>
+        ''' 联机设置。这是一个副页面。
+        ''' </summary>
+        LinkSettings = 13
     End Enum
     ''' <summary>
     ''' 次要页面种类。其数值必须与 StackPanel 中的下标一致。
@@ -1081,6 +1085,8 @@ Public Class FormMain
                 Return "播放器设置"
             Case PageType.InstanceSaveDetail
                 Return "存档详情 - " & If(PageInstanceSaveDetail.TargetSave = "", "未知存档", PathUtils.GetLastPart(PageInstanceSaveDetail.TargetSave))
+            Case PageType.LinkSettings
+                Return "联机设置"
             Case Else
                 Return ""
         End Select
@@ -1384,6 +1390,9 @@ Public Class FormMain
                 Case PageType.Link '联机
                     If FrmLinkMain Is Nothing Then FrmLinkMain = New PageLinkMain
                     PageChangeAnim(New MyPageLeft, FrmLinkMain)
+                Case PageType.LinkSettings '联机设置（副页面，没有左栏）
+                    If FrmLinkSettings Is Nothing Then FrmLinkSettings = New PageLinkSettings
+                    PageChangeAnim(New MyPageLeft, FrmLinkSettings)
                 Case PageType.Setup '设置
                     If FrmSetupLeft Is Nothing Then FrmSetupLeft = New PageSetupLeft
                     PageChangeAnim(FrmSetupLeft, FrmSetupLeft.PageGet(SubType))

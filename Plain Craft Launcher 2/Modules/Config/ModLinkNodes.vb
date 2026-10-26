@@ -14,9 +14,20 @@ Imports Newtonsoft.Json.Linq
 ''' </summary>
 Friend Module ModLinkNodes
 
-    ''' <summary>节点清单地址。和预设放同一个仓库，方便一起维护。</summary>
-    Public Const NodesUrl As String =
+    ''' <summary>
+    ''' 节点清单的候选地址，按顺序尝试。
+    ''' <para>
+    ''' raw.githubusercontent.com 在国内经常解析不了（NameResolutionFailure），
+    ''' 所以把加速镜像放前面。实测 ghfast 与 gh-proxy 可用，jsDelivr 在部分网络下也通，
+    ''' 最后才是官方地址。
+    ''' </para>
+    ''' </summary>
+    Public ReadOnly NodesUrls As String() = {
+        "https://ghfast.top/https://raw.githubusercontent.com/xiaoqiezi-china/pcl-for-dst/refs/heads/main/link-nodes.json",
+        "https://gh-proxy.com/https://raw.githubusercontent.com/xiaoqiezi-china/pcl-for-dst/refs/heads/main/link-nodes.json",
+        "https://cdn.jsdelivr.net/gh/xiaoqiezi-china/pcl-for-dst@main/link-nodes.json",
         "https://raw.githubusercontent.com/xiaoqiezi-china/pcl-for-dst/refs/heads/main/link-nodes.json"
+    }
 
     ''' <summary>本地备份目录。</summary>
     Public ReadOnly Property BackupFolder As String
@@ -93,16 +104,22 @@ Friend Module ModLinkNodes
         Return Result
     End Function
 
-    ''' <summary>拉云端清单；失败返回 Nothing。</summary>
+    ''' <summary>拉云端清单；逐个尝试候选地址，全失败返回 Nothing。</summary>
     Private Function TryFetchCloud() As List(Of LinkNode)
-        Try
-            Dim Json As String = NetRequestByClient(NodesUrl, RequireJson:=False)
-            If String.IsNullOrWhiteSpace(Json) OrElse Json.Length > MaxBytes Then Return Nothing
-            Return Parse(Json)
-        Catch ex As Exception
-            Logger.Warn(ex, "拉取联机节点清单失败")
-            Return Nothing
-        End Try
+        For Each Url In NodesUrls
+            Try
+                Dim Json As String = NetRequestByClient(Url, RequireJson:=False)
+                If String.IsNullOrWhiteSpace(Json) OrElse Json.Length > MaxBytes Then Continue For
+                Dim Nodes As List(Of LinkNode) = Parse(Json)
+                If Nodes IsNot Nothing AndAlso Nodes.Count > 0 Then
+                    Logger.Info($"联机节点：从 {Url.Split("/"c)(2)} 获取成功，共 {Nodes.Count} 个")
+                    Return Nodes
+                End If
+            Catch ex As Exception
+                Logger.Warn(ex, $"从 {Url.Split("/"c)(2)} 拉取节点清单失败")
+            End Try
+        Next
+        Return Nothing
     End Function
 
     ''' <summary>解析清单。格式坏的条目跳过，不影响其它条目。</summary>

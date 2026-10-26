@@ -68,6 +68,9 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="1*" />
                 </Grid.RowDefinitions>
+                <local:MyButton x:Name="BtnLinkSettings" Grid.Column="0" Grid.Row="0"
+                                 HorizontalAlignment="Left" VerticalAlignment="Top" Margin="18,18,0,0"
+                                 Text="联机设置" Padding="14,6" />
                 <local:MyCard x:Name="PanSelectCreate" Grid.Column="1" Grid.Row="1" CornerRadius="13" VerticalAlignment="Center">
                     <Grid IsHitTestVisible="False">
                         <Grid.ColumnDefinitions>
