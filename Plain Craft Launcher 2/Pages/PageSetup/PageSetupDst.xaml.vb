@@ -139,9 +139,15 @@ Public Class PageSetupDst
         If LabDstPresetUrl Is Nothing Then Return
         Dim Picked As ModPresetSource.Preset = PickedPreset()
         If Picked Is Nothing Then
+            '「不使用预设」是一种正常选择，不是出错。
+            '列表明明拉到了还说「不可用」，会和上面那行「已获取 N 个预设」直接打架。
             LabDstPresetUrl.Text = "—"
             LabDstPresetQq.Text = "—"
-            LabDstPresetNote.Text = "远程预设列表不可用，可切到「自定义」手动填写地址。"
+            If ModPresetSource.Items.Count > 0 Then
+                LabDstPresetNote.Text = "当前未使用预设。可在上方选一个，或切到「自定义」手动填写地址。"
+            Else
+                LabDstPresetNote.Text = "预设列表不可用，可切到「自定义」手动填写地址。"
+            End If
             Return
         End If
         LabDstPresetUrl.Text = If(Picked.Api = "", "—", Picked.Api)

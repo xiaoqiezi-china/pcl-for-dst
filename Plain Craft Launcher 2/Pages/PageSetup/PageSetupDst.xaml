@@ -78,7 +78,7 @@
                             <local:MyButton x:Name="BtnDstPresetRefresh" Grid.Column="1" Text="刷新" Height="30" MinWidth="72" Margin="10,0,0,0" />
                         </Grid>
                         <local:MyHint x:Name="HintDstTrust" Margin="0,12,0,0" Theme="Yellow"
-                                     Text="请确认下面的服务地址是你信任的服务器。预设来自远程列表，启动器只能保证它没被本地改动，无法替你判断服务器本身是否可信。" />
+                                     Text="请确认下面的服务地址是你信任的服务器。预设的服务地址决定了凭据来源，启动器只能保证它没被本地改动，无法替你判断服务器本身是否可信。" />
                         <Grid Margin="0,12,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="DstSetupName" />
