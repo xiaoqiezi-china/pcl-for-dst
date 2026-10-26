@@ -347,7 +347,7 @@ Friend Module DstUpdate
         RunInThread(
         Sub()
             Try
-                Dim Release As ModUpdateSource.ReleaseInfo = ModUpdateSource.FetchLatest(Force:=True)
+                Dim Release As ModUpdateSource.ReleaseInfo = ModUpdateSource.FetchLatest()
                 If Not Release.Ok Then Throw New Exception(If(Release.Err = "", "没有取到版本信息", Release.Err))
                 'API 被限流时只能拿到版本号，下载地址缺失：引导去发布页
                 If Not Release.CanDownload Then

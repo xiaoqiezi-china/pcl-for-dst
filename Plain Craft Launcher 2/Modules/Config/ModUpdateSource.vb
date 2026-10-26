@@ -66,13 +66,6 @@ Friend Module ModUpdateSource
         "https://gh-proxy.com/"
     }
 
-    ''' <summary>缓存文件，存上次成功拿到的完整信息。</summary>
-    Private ReadOnly Property CacheFile As String
-        Get
-            Return Paths.Base & "PCL\UpdateCache.json"
-        End Get
-    End Property
-
     ''' <summary>一条 Release 信息。</summary>
     Public Class ReleaseInfo
         Public Property Version As String = ""
@@ -99,21 +92,14 @@ Friend Module ModUpdateSource
 
     ''' <summary>
     ''' 查询最新 Release。必须在工作线程调用。
+    ''' <para>
+    ''' 不做任何缓存：更新检查要回答的是「现在有没有新版」，
+    ''' 拿上一次的结果没有意义——发了版用户还是看到旧版本号。
+    ''' 请求失败就如实报错，也不拿旧结果充数。
+    ''' </para>
     ''' </summary>
-    ''' <param name="Force">忽略缓存强制重新请求。</param>
-    Public Function FetchLatest(Optional Force As Boolean = False) As ReleaseInfo
-        If Not Force Then
-            '先用内存缓存
-            Dim Mem As ReleaseInfo = MemoryCache
-            If Mem IsNot Nothing AndAlso Date.Now - MemoryCachedAt < TimeSpan.FromMinutes(CacheMinutes) Then Return Mem
-            '再用磁盘缓存
-            Dim Disk As ReleaseInfo = ReadCache()
-            If Disk IsNot Nothing Then
-                MemoryCache = Disk
-                MemoryCachedAt = Date.Now
-                Return Disk
-            End If
-        End If
+    Public Function FetchLatest() As ReleaseInfo
+        CleanupLegacyCache()
         Dim Result As ReleaseInfo = FetchFromApi()
         'API 拿不到就退一步：只要版本号，至少能提示有新版
         If Not Result.Ok Then
@@ -125,18 +111,27 @@ Friend Module ModUpdateSource
                 Result = VersionOnly
             End If
         End If
-        If Result.Ok Then
-            MemoryCache = Result
-            MemoryCachedAt = Date.Now
-            '只缓存信息完整的，免得把「只知道版本号」也固化下来
-            If Result.CanDownload Then WriteCache(Result)
-        End If
         Return Result
     End Function
 
-    Private MemoryCache As ReleaseInfo = Nothing
-    Private MemoryCachedAt As Date = Date.MinValue
-    Private Const CacheMinutes As Integer = 30
+    ''' <summary>
+    ''' 旧版本会把查询结果写进 PCL\UpdateCache.json，这份缓存已经废了。
+    ''' 见到就删，免得用户以为启动器还在读它。
+    ''' </summary>
+    Private Sub CleanupLegacyCache()
+        Static Done As Boolean = False
+        If Done Then Return
+        Done = True
+        Try
+            Dim Legacy As String = Paths.Base & "PCL\UpdateCache.json"
+            If FileUtils.Exists(Legacy) Then
+                FileUtils.Delete(Legacy)
+                Logger.Info("已删除旧版更新缓存")
+            End If
+        Catch ex As Exception
+            Logger.Info("删除旧版更新缓存失败：" & ex.Message)
+        End Try
+    End Sub
 
     ''' <summary>走 API 拿完整的 Release 信息。</summary>
     Private Function FetchFromApi() As ReleaseInfo
@@ -234,50 +229,6 @@ Friend Module ModUpdateSource
         Next
         Return Result.ToArray()
     End Function
-
-    ''' <summary>读本地缓存。没有或坏了都返回 Nothing。</summary>
-    Private Function ReadCache() As ReleaseInfo
-        Try
-            If Not FileUtils.Exists(CacheFile) Then Return Nothing
-            Dim Obj As JObject = JObject.Parse(FileUtils.ReadAsString(CacheFile))
-            Dim Result As New ReleaseInfo With {
-                .Version = If(Obj("version"), "").ToString(),
-                .Notes = If(Obj("notes"), "").ToString(),
-                .AssetName = If(Obj("assetName"), "").ToString(),
-                .AssetUrl = If(Obj("assetUrl"), "").ToString(),
-                .AssetSha256 = If(Obj("assetSha256"), "").ToString()
-            }
-            If Result.Version = "" OrElse Result.AssetUrl = "" Then Return Nothing
-            '缓存必须有时效。只按内容判断的话，一旦写过就永远是那条结果，
-            '发了新版启动器也一直提示「已是最新」——之前就是这个毛病。
-            Dim SavedAt As Long = 0
-            If Not Long.TryParse(If(Obj("savedAt"), "0").ToString(), SavedAt) OrElse SavedAt <= 0 Then
-                '没有时间戳的是老格式缓存，直接作废，重新请求一次
-                Return Nothing
-            End If
-            Dim Age As Long = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - SavedAt
-            If Age < 0 OrElse Age > CacheMinutes * 60L Then Return Nothing
-            Return Result
-        Catch ex As Exception
-            Logger.Info("读取更新缓存失败：" & ex.Message)
-            Return Nothing
-        End Try
-    End Function
-
-    ''' <summary>写本地缓存，失败就算了，不影响更新流程。</summary>
-    Private Sub WriteCache(Info As ReleaseInfo)
-        Try
-            DirectoryUtils.Create(PathUtils.RemoveLastPart(CacheFile))
-            Dim Obj As New JObject From {
-                {"version", Info.Version}, {"notes", Info.Notes},
-                {"assetName", Info.AssetName}, {"assetUrl", Info.AssetUrl},
-                {"assetSha256", Info.AssetSha256},
-                {"savedAt", DateTimeOffset.UtcNow.ToUnixTimeSeconds()}}
-            FileUtils.WriteAtomic(CacheFile, Obj.ToString(Newtonsoft.Json.Formatting.Indented))
-        Catch ex As Exception
-            Logger.Info("写入更新缓存失败：" & ex.Message)
-        End Try
-    End Sub
 
     ''' <summary>算文件的 SHA-256，返回小写十六进制。失败返回空串。</summary>
     Public Function GetFileSha256(FilePath As String) As String
