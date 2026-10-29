@@ -311,16 +311,23 @@ Public Module ModWatcher
         ''' </summary>
         Private Function TryGetMinecraftWindow() As KeyValuePair(Of IntPtr, String)?
             Dim Result = Nothing
+            '回调必须返回 Boolean：EnumWindows 靠返回值决定要不要继续，
+            '返回 False 就立即中止枚举。
+            '声明成 Sub（无返回值）时，这个返回值没有被显式设置，
+            '实际留下的是回调里最后一次调用的返回值——
+            '正好最后一次是 GetWindowText，标题为空的窗口（如 ForegroundStaging、
+            '输入法窗口）它返回 0，EnumWindows 当场就停。
+            '实测：Sub 声明只枚举到 1~2 个窗口，显式返回 True 能枚举到 468 个。
             EnumWindows(
-                Sub(hwnd As IntPtr, lParam As Integer)
-                    If Result IsNot Nothing Then Return
+                Function(hwnd As IntPtr, lParam As Integer) As Boolean
+                    If Result IsNot Nothing Then Return False '已经找到，停止枚举
                     '检查类名
                     Dim str As New StringBuilder(512)
                     GetClassName(hwnd, str, str.Capacity)
                     Dim ClassName As String = str.ToString
-                    If Not (ClassName = "GLFW30" OrElse ClassName = "SDL_app" OrElse ClassName = "LWJGL" OrElse ClassName = "SunAwtFrame") Then Return
+                    If Not (ClassName = "GLFW30" OrElse ClassName = "SDL_app" OrElse ClassName = "LWJGL" OrElse ClassName = "SunAwtFrame") Then Return True
                     'SDL 会先创建隐藏窗口，待初始化完成后才显示（#9073）
-                    If ClassName = "SDL_app" AndAlso Not IsWindowVisible(hwnd) Then Return
+                    If ClassName = "SDL_app" AndAlso Not IsWindowVisible(hwnd) Then Return True
                     '获取窗口标题名
                     str = New StringBuilder(512)
                     GetWindowText(hwnd, str, str.Capacity)
@@ -328,22 +335,23 @@ Public Module ModWatcher
                     '有的 Mod 可以修改窗口标题，所以不能检测是否为 Minecraft 打头，这并不准确
                     '部分版本会搞个 GLFW message window，高版本还有个 Hidden Utility Window，都要反选
                     If String.IsNullOrWhiteSpace(WindowText) OrElse WindowText = "SDL_app" OrElse WindowText = "PopupMessageWindow" OrElse
-                       WindowText.StartsWithF("GLFW") OrElse WindowText.EndsWithF("Hidden Utility Window") Then Return
+                       WindowText.StartsWithF("GLFW") OrElse WindowText.EndsWithF("Hidden Utility Window") Then Return True
                     '获取窗口关联的进程
                     Dim ProcessId As Integer
                     GetWindowThreadProcessId(hwnd, ProcessId)
                     Try
-                        If Process.GetProcessById(ProcessId).StartTime < GameProcess.StartTime Then Return '需要是此后启动的进程
+                        If Process.GetProcessById(ProcessId).StartTime < GameProcess.StartTime Then Return True '需要是此后启动的进程
                     Catch ex As Exception
                         Logger.Warn(ex, "枚举 Minecraft 窗口进程失败")
-                        Return
+                        Return True
                     End Try
-                    '返回
+                    '找到了，记下来并停止枚举
                     Result = New KeyValuePair(Of IntPtr, String)(hwnd, WindowText)
-                End Sub, 0)
+                    Return False
+                End Function, 0)
             Return Result
         End Function
-        Private Delegate Sub EnumWindowsSub(hwnd As IntPtr, lParam As Integer)
+        Private Delegate Function EnumWindowsSub(hwnd As IntPtr, lParam As Integer) As Boolean
         Private Declare Function EnumWindows Lib "user32" (hWnd As EnumWindowsSub, lParam As Integer) As Boolean
         Private Declare Function GetClassName Lib "user32" Alias "GetClassNameA" (hWnd As Integer, str As StringBuilder, maxCount As Integer) As Integer
         Private Declare Function GetWindowText Lib "user32" Alias "GetWindowTextA" (hWnd As Integer, str As StringBuilder, maxCount As Integer) As Integer
