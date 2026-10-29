@@ -349,10 +349,13 @@ Friend Module ModTheme
                 '\xe5\xae\x9a\xe5\x88\xb6\xe4\xb8\xbb\xe9\xa2\x98\xef\xbc\x9a\xe4\xb9\x9d\xe4\xb8\xaa\xe9\xa2\x9c\xe8\x89\xb2\xe5\x85\xa8\xe7\x94\xb1\xe7\x94\xa8\xe6\x88\xb7\xe6\x8c\x87\xe5\xae\x9a\xef\xbc\x8c\xe4\xb8\x8d\xe5\x86\x8d\xe6\x8c\x89\xe8\x89\xb2\xe7\x9b\xb8\xe7\xae\x97
                 ApplyCustomThemePalette()
             ElseIf Appearance = AppearanceStyle.Indra Then
+                'Indra 的底色（卡片、面板、灰阶）是一整套写死的深灰，不跟主题走；
+                '但强调色应该跟主题色相走，否则设置页里能选主题、界面上却毫无变化。
+                '这里沿用 PCL 深色那套公式，选默认主题时与原来的固定蓝色几乎一致。
                 Color1 = New MyColor(237, 239, 243)
-                Color2 = New MyColor(76, 141, 255)
-                Color3 = New MyColor(108, 163, 255)
-                Color4 = New MyColor(150, 190, 255)
+                Color2 = New MyColor().FromHSL(ColorHue, 78, 66 + Shift)
+                Color3 = New MyColor().FromHSL(ColorHue, 85, 60 + Shift)
+                Color4 = New MyColor().FromHSL(ColorHue, 80, 74 + Shift)
                 Color5 = New MyColor(28, 33, 39)
                 Color6 = New MyColor(22, 26, 31)
                 Color7 = New MyColor(17, 20, 24)
@@ -390,7 +393,7 @@ Friend Module ModTheme
                 TitleTextColor = New MyColor(255, 255, 255)
                 BubbleOtherBack = New MyColor(20, 23, 28)
                 BubbleOtherText = Color1
-                BubbleMineBack = New MyColor(76, 141, 255)
+                BubbleMineBack = Color3
                 BubbleMineText = New MyColor(255, 255, 255)
                 BubbleMetaText = New MyColor(170, 178, 188)
             ElseIf Dark Then

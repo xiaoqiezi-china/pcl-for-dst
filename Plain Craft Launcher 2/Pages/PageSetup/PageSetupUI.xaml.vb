@@ -65,13 +65,13 @@ Public Class PageSetupUI
     End Sub
 
     ''' <summary>
-    ''' Indra 外观是整套写死的深色，深浅开关与主题色对它无效，
-    ''' 置灰可以避免用户以为改了没反应。
+    ''' Indra 下强调色已经跟随主题，所以主题选项两种外观下都保持可用；
+    ''' 深浅开关仍然只对 PCL 外观有意义——Indra 是一整套写死的深色，
+    ''' 放开它只会让用户以为改了没反应，所以继续置灰。
     ''' </summary>
     Private Sub RefreshAppearanceDependentControls()
-        Dim Enabled As Boolean = Appearance = AppearanceStyle.Pcl
-        If CheckDarkMode IsNot Nothing Then CheckDarkMode.IsEnabled = Enabled
-        If PanLauncherTheme IsNot Nothing Then PanLauncherTheme.IsEnabled = Enabled
+        If PanLauncherTheme IsNot Nothing Then PanLauncherTheme.IsEnabled = True
+        If CheckDarkMode IsNot Nothing Then CheckDarkMode.IsEnabled = (Appearance = AppearanceStyle.Pcl)
     End Sub
 
     ''' <summary>

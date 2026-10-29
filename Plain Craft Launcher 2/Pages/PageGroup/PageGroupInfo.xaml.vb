@@ -474,8 +474,96 @@ Public Class PageGroupInfo
                                               e.Handled = True
                                               OpenPreview(Url)
                                           End Sub
+        AttachImageMenu(Wrap, Url)
         Return Wrap
     End Function
+
+    ''' <summary>给消息里的图片挂右键菜单：另存为 / 设置为背景。</summary>
+    Private Sub AttachImageMenu(Target As FrameworkElement, Url As String)
+        Dim Menu As New ContextMenu()
+        Dim ItemSave As New MenuItem With {.Header = "另存为"}
+        AddHandler ItemSave.Click, Sub() SaveImageAs(Url)
+        Dim ItemBack As New MenuItem With {.Header = "设置为背景"}
+        AddHandler ItemBack.Click, Sub() SetImageAsBackground(Url)
+        Menu.Items.Add(ItemSave)
+        Menu.Items.Add(ItemBack)
+        Target.ContextMenu = Menu
+    End Sub
+
+    ''' <summary>从地址里猜扩展名；猜不到按 jpg 处理（WPF 解码不看扩展名）。</summary>
+    Private Function GuessImageExtension(Url As String) As String
+        Try
+            Dim PathOnly As String = Url.Split("?"c)(0)
+            Dim Dot As Integer = PathOnly.LastIndexOf("."c)
+            If Dot >= 0 AndAlso PathOnly.Length - Dot <= 6 Then
+                Dim Ext As String = PathOnly.Substring(Dot + 1).ToLowerInvariant()
+                If Ext.Length >= 2 AndAlso Ext.All(Function(C) Char.IsLetterOrDigit(C)) Then Return Ext
+            End If
+        Catch
+        End Try
+        Return "jpg"
+    End Function
+
+    ''' <summary>另存为：走 PCL 自己的下载任务，进度显示在任务管理器里。</summary>
+    Private Sub SaveImageAs(Url As String)
+        Try
+            Dim Dialog As New Microsoft.Win32.SaveFileDialog With {
+                .Title = "保存图片",
+                .FileName = "群图片-" & Date.Now.ToString("yyyyMMdd-HHmmss") & "." & GuessImageExtension(Url),
+                .Filter = "图片文件|*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp|所有文件|*.*"}
+            If Dialog.ShowDialog() <> True Then Return
+            Dim Target As String = Dialog.FileName
+            RunInThread(
+            Sub()
+                Try
+                    NetDownloadByLoader(Url, Target)
+                    RunInUi(Sub() Hint("已保存：" & PathUtils.GetLastPart(Target), HintType.Green))
+                Catch ex As Exception
+                    Logger.Warn(ex, "保存群图片失败")
+                    RunInUi(Sub() Hint("保存失败：" & ex.Message, HintType.Red))
+                End Try
+            End Sub)
+        Catch ex As Exception
+            Logger.Warn(ex, "打开保存对话框失败")
+        End Try
+    End Sub
+
+    ''' <summary>
+    ''' 设置为背景：把图片存进背景图片文件夹，然后立即应用。
+    ''' <para>
+    ''' 不另做一套背景机制，仍复用设置页那套（PCLPictures + ImgBack）。
+    ''' 只是这里不调随机刷新——「设置为背景」点哪张就该显示哪张。
+    ''' </para>
+    ''' </summary>
+    Private Sub SetImageAsBackground(Url As String)
+        RunInThread(
+        Sub()
+            Try
+                Dim Folder As String = Paths.Base & "PCLPictures"
+                DirectoryUtils.Create(Folder)
+                '同名文件不覆盖：同一秒点两次也不至于互相踩
+                Dim Target As String = Folder & "群图片-" & Date.Now.ToString("yyyyMMdd-HHmmss") & "." & GuessImageExtension(Url)
+                NetDownloadByLoader(Url, Target)
+                RunInUi(
+                Sub()
+                    Try
+                        FrmMain.ImgBack.Background = New MyBitmap(Target)
+                        FrmMain.ImgBack.Visibility = Visibility.Visible
+                        FrmMain.UpdateBackgroundAndTitleBar()
+                        '设置页那块的张数计数跟着走一遍，但不要重新随机选图
+                        PageSetupUI.BackgroundRefresh(True, False)
+                        Hint("已设置为背景", HintType.Green, False)
+                    Catch ex As Exception
+                        Logger.Warn(ex, "应用背景图片失败")
+                        Hint("背景应用失败，图片可能不是标准格式", HintType.Red)
+                    End Try
+                End Sub)
+            Catch ex As Exception
+                Logger.Warn(ex, "下载背景图片失败")
+                RunInUi(Sub() Hint("设置为背景失败：" & ex.Message, HintType.Red))
+            End Try
+        End Sub)
+    End Sub
 
     Private Sub OpenPreview(Url As String)
         Try
