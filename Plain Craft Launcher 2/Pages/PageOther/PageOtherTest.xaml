@@ -186,6 +186,28 @@
                 </Grid>
             </local:MyCard>
 
+            <!-- 下载器：输入直链，交给多线程下载引擎 -->
+            <local:MyCard Margin="0,0,0,15" Title="下载器">
+                <Grid Margin="25,34,25,18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <local:MyTextBox x:Name="TextDlUrl" Grid.Column="0" Height="30" MaxHeight="30"
+                                         HintText="粘贴下载直链，例如 https://example.com/file.zip" />
+                        <local:MyButton x:Name="BtnDlStart" Grid.Column="1" Margin="10,0,0,0" Height="30"
+                                        MinWidth="96" Text="开始下载" ColorType="Highlight" />
+                    </Grid>
+                    <TextBlock x:Name="LabDlState" Grid.Row="1" Margin="0,10,0,0" FontSize="12" Opacity="0.7"
+                               TextWrapping="Wrap" Text="文件会保存到 PCL\Downloads 文件夹，下载进度在任务管理器里查看。" />
+                </Grid>
+            </local:MyCard>
+
         </StackPanel>
     </local:MyScrollViewer>
 </local:MyPageRight>

@@ -573,6 +573,70 @@ Public Class PageOtherTest
             Logger.Warn(ex, "设置音量失败")
         End Try
     End Sub
+    '==== 下载器 ====
+    '最简实现：一个输入框 + 一个按钮，交给 PCL 现成的多线程下载引擎。
+    '不解析文件名以外的信息，也不做队列与断点管理——那些都属于下载页的活。
+
+    Private Sub BtnDlStart_Click(sender As Object, e As EventArgs) Handles BtnDlStart.Click
+        Dim Url As String = If(TextDlUrl.Text, "").Trim()
+        If Url = "" Then
+            Hint("请先输入下载地址", HintType.Red)
+            Return
+        End If
+        If Not (Url.StartsWithF("http://", True) OrElse Url.StartsWithF("https://", True)) Then
+            Hint("地址必须以 http:// 或 https:// 开头", HintType.Red)
+            Return
+        End If
+
+        Dim Folder As String = Paths.Base & "PCLDownloads"
+        Dim Name As String = DlGuessFileName(Url)
+        Dim Target As String = Folder & Name
+        '同名文件加序号，不覆盖
+        If FileUtils.Exists(Target) Then Target = Folder & PathUtils.GetFileNameWithoutExtension(Name) & "-" & Date.Now.ToString("HHmmss") & "." & PathUtils.GetExtension(Name)
+
+        LabDlState.Text = "正在下载：" & Name
+        RunInThread(
+        Sub()
+            Try
+                DirectoryUtils.Create(Folder)
+                'NetFile 第一个参数是地址列表：直接传字符串会被 VB 当成隐式转换，
+                '编译期只给个警告、运行时才炸，所以这里显式包成数组
+                Dim Task As New LoaderDownload("下载 " & Name, New List(Of NetFile) From {New NetFile({Url}, Target)}) With {.ProgressWeight = 1}
+                Task.WaitForExit()
+                RunInUi(
+                Sub()
+                    LabDlState.Text = "已保存到：" & Target
+                    Hint("下载完成：" & Name, HintType.Green)
+                End Sub)
+            Catch ex As Exception
+                Logger.Warn(ex, "下载器下载失败")
+                RunInUi(
+                Sub()
+                    LabDlState.Text = "下载失败：" & ex.Message
+                    Hint("下载失败：" & ex.Message, HintType.Red)
+                End Sub)
+            End Try
+        End Sub)
+    End Sub
+
+    ''' <summary>从地址里猜一个文件名：取最后一段路径，去掉查询串；猜不到就叫 download。</summary>
+    Private Function DlGuessFileName(Url As String) As String
+        Try
+            Dim PathOnly As String = Url.Split("?"c)(0).TrimEnd("/"c)
+            Dim Name As String = PathOnly.Substring(PathOnly.LastIndexOf("/"c) + 1)
+            Name = Uri.UnescapeDataString(Name)
+            '去掉文件名里不能出现在 Windows 路径中的字符
+            For Each Bad As Char In IO.Path.GetInvalidFileNameChars()
+                Name = Name.Replace(Bad, "_"c)
+            Next
+            If Name.Trim() = "" Then Return "download.bin"
+            If Not Name.Contains(".") Then Name &= ".bin"
+            Return Name
+        Catch
+            Return "download.bin"
+        End Try
+    End Function
+
     Private Sub BtnMusicSetup_Click(sender As Object, e As EventArgs) Handles BtnMusicSetup.Click
         FrmMain.PageChange(New FormMain.PageStackData With {.Page = FormMain.PageType.MusicSetup})
     End Sub

@@ -504,7 +504,7 @@ Public Class PageGroupInfo
         Return "jpg"
     End Function
 
-    ''' <summary>另存为：走 PCL 自己的下载任务，进度显示在任务管理器里。</summary>
+    ''' <summary>另存为：直接走 HTTPS 取文件。</summary>
     Private Sub SaveImageAs(Url As String)
         Try
             Dim Dialog As New Microsoft.Win32.SaveFileDialog With {
@@ -516,7 +516,9 @@ Public Class PageGroupInfo
             RunInThread(
             Sub()
                 Try
-                    NetDownloadByLoader(Url, Target)
+                    '不用多线程下载引擎：QQ 图片地址不一定支持分段请求，
+                    '走分片反而会失败，这里直接一次性取回整个文件
+                    NetDownloadByClient(Url, Target, SimulateBrowserHeaders:=True)
                     RunInUi(Sub() Hint("已保存：" & PathUtils.GetLastPart(Target), HintType.Green))
                 Catch ex As Exception
                     Logger.Warn(ex, "保存群图片失败")
@@ -543,7 +545,8 @@ Public Class PageGroupInfo
                 DirectoryUtils.Create(Folder)
                 '同名文件不覆盖：同一秒点两次也不至于互相踩
                 Dim Target As String = Folder & "群图片-" & Date.Now.ToString("yyyyMMdd-HHmmss") & "." & GuessImageExtension(Url)
-                NetDownloadByLoader(Url, Target)
+                '同上：单次 HTTPS 直接取回，避免分片下载在 CDN 上失败
+                NetDownloadByClient(Url, Target, SimulateBrowserHeaders:=True)
                 RunInUi(
                 Sub()
                     Try
