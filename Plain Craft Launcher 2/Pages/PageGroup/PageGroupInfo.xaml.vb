@@ -531,36 +531,24 @@ Public Class PageGroupInfo
     End Sub
 
     ''' <summary>
-    ''' 设置为背景：把图片存进背景图片文件夹，然后立即应用。
+    ''' 设置为背景：把图片存进 PCL\Pictures\，再调一次「刷新背景图片」那套逻辑。
     ''' <para>
-    ''' 不另做一套背景机制，仍复用设置页那套（PCLPictures + ImgBack）。
-    ''' 只是这里不调随机刷新——「设置为背景」点哪张就该显示哪张。
+    ''' 不另做一套背景机制：存进去之后完全交给设置页那个按钮的流程，
+    ''' 以后那块的逻辑怎么改，这里都跟着走。
     ''' </para>
     ''' </summary>
     Private Sub SetImageAsBackground(Url As String)
         RunInThread(
         Sub()
             Try
-                Dim Folder As String = Paths.Base & "PCLPictures"
+                Dim Folder As String = Paths.Base & "PCL\Pictures\"
                 DirectoryUtils.Create(Folder)
                 '同名文件不覆盖：同一秒点两次也不至于互相踩
                 Dim Target As String = Folder & "群图片-" & Date.Now.ToString("yyyyMMdd-HHmmss") & "." & GuessImageExtension(Url)
                 '同上：单次 HTTPS 直接取回，避免分片下载在 CDN 上失败
                 NetDownloadByClient(Url, Target, SimulateBrowserHeaders:=True)
-                RunInUi(
-                Sub()
-                    Try
-                        FrmMain.ImgBack.Background = New MyBitmap(Target)
-                        FrmMain.ImgBack.Visibility = Visibility.Visible
-                        FrmMain.UpdateBackgroundAndTitleBar()
-                        '设置页那块的张数计数跟着走一遍，但不要重新随机选图
-                        PageSetupUI.BackgroundRefresh(True, False)
-                        Hint("已设置为背景", HintType.Green, False)
-                    Catch ex As Exception
-                        Logger.Warn(ex, "应用背景图片失败")
-                        Hint("背景应用失败，图片可能不是标准格式", HintType.Red)
-                    End Try
-                End Sub)
+                '存完就执行「刷新背景图片」按钮那套逻辑
+                RunInUi(Sub() PageSetupUI.BackgroundRefresh(True, True))
             Catch ex As Exception
                 Logger.Warn(ex, "下载背景图片失败")
                 RunInUi(Sub() Hint("设置为背景失败：" & ex.Message, HintType.Red))

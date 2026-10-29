@@ -588,7 +588,7 @@ Public Class PageOtherTest
             Return
         End If
 
-        Dim Folder As String = Paths.Base & "PCLDownloads"
+        Dim Folder As String = Paths.Base & "PCL\Downloads\"
         Dim Name As String = DlGuessFileName(Url)
         Dim Target As String = Folder & Name
         '同名文件加序号，不覆盖
