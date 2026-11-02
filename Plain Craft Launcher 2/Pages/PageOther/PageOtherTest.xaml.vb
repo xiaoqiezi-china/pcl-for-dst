@@ -610,28 +610,46 @@ Public Class PageOtherTest
         BtnI18nDownload.IsEnabled = False
         BtnI18nStart.IsEnabled = False
         LabI18nState.Text = "正在下载汉化工具……"
-        RunInThread(
+
+        '交给加载器组合：它会把任务注册进右下角的任务列表，进度、取消都在那里。
+        '这里只在状态变化时更新卡片文案，不在 UI 线程上阻塞等待。
+        Dim Combo As LoaderCombo(Of Integer)
+        Try
+            Combo = DstI18nTool.DownloadAndInstall()
+        Catch ex As Exception
+            Logger.Warn(ex, "下载汉化工具失败")
+            LabI18nState.Text = "下载失败：" & FriendlyError(ex.Message)
+            Hint("下载汉化工具失败：" & FriendlyError(ex.Message), HintType.Red)
+            RefreshI18nUi()
+            Return
+        End Try
+
+        Combo.OnStateChanged =
         Sub()
-            Try
-                DstI18nTool.DownloadAndInstall()
-                RunInUi(
-                Sub()
-                    LabI18nState.Text = "汉化工具已就绪。"
-                    Hint("汉化工具下载完成", HintType.Green)
-                    RefreshI18nUi()
-                End Sub)
-            Catch ex As Exception
-                ex.ThrowIfCanceled()
-                Logger.Warn(ex, "下载汉化工具失败")
-                RunInUi(
-                Sub()
-                    LabI18nState.Text = "下载失败：" & FriendlyError(ex.Message)
-                    Hint("下载汉化工具失败：" & FriendlyError(ex.Message), HintType.Red)
-                    BtnI18nDownload.IsEnabled = True
-                    RefreshI18nUi()
-                End Sub)
-            End Try
-        End Sub)
+            Select Case Combo.State
+                Case LoadState.Finished
+                    RunInUi(
+                    Sub()
+                        LabI18nState.Text = "汉化工具已就绪。"
+                        Hint("汉化工具下载完成", HintType.Green)
+                        RefreshI18nUi()
+                    End Sub)
+                Case LoadState.Failed
+                    RunInUi(
+                    Sub()
+                        Dim Message As String = FriendlyError(Combo.Error.GetDisplay(False))
+                        LabI18nState.Text = "下载失败：" & Message
+                        Hint("下载汉化工具失败：" & Message, HintType.Red)
+                        RefreshI18nUi()
+                    End Sub)
+                Case LoadState.Canceled
+                    RunInUi(
+                    Sub()
+                        LabI18nState.Text = "已取消下载。"
+                        RefreshI18nUi()
+                    End Sub)
+            End Select
+        End Sub
     End Sub
 
     Private Sub BtnI18nStart_Click(sender As Object, e As EventArgs) Handles BtnI18nStart.Click
@@ -698,7 +716,7 @@ Public Class PageOtherTest
         BtnI18nStop.Visibility = If(Running, Visibility.Visible, Visibility.Collapsed)
         BtnI18nOpen.Visibility = If(Running, Visibility.Visible, Visibility.Collapsed)
         If Not Installed Then
-            LabI18nState.Text = "还没有安装汉化工具，点「下载此程序」获取（约 100 MB）。"
+            LabI18nState.Text = "还没有安装汉化工具，点「下载此程序」获取（约 50 MB）。"
         ElseIf Running Then
             If LabI18nState.Text = "" OrElse LabI18nState.Text.StartsWithF("还没有安装") Then
                 LabI18nState.Text = "汉化工具正在运行。"

@@ -214,7 +214,7 @@ Friend Module DstUpdate
                 '版本与下载地址一律来自 GitHub Release，
                 '不再依赖预设服务器：那个地址是用户可选的第三方，
                 '让它决定装哪个启动器风险太大。
-                Dim Release As ModUpdateSource.ReleaseInfo = ModUpdateSource.FetchLatest()
+                Dim Release As ReleaseInfo = ModUpdateSource.FetchLatest()
                 If Release.Ok Then
                     Info.RemoteVersion = Release.Version
                     Info.DownloadUrl = Release.AssetUrl
@@ -347,7 +347,7 @@ Friend Module DstUpdate
         RunInThread(
         Sub()
             Try
-                Dim Release As ModUpdateSource.ReleaseInfo = ModUpdateSource.FetchLatest()
+                Dim Release As ReleaseInfo = ModUpdateSource.FetchLatest()
                 If Not Release.Ok Then Throw New Exception(If(Release.Err = "", "没有取到版本信息", Release.Err))
                 'API 被限流时只能拿到版本号，下载地址缺失：引导去发布页
                 If Not Release.CanDownload Then

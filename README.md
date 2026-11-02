@@ -66,6 +66,22 @@ DPCL为PCL拓展了非常丰富强大的管理页，以及针对模组等第三�
 也可以在「设置 → 机器人」里选一个预设，选中后会立即同步一次，把服务端下发的 ClientId 与
 CurseForge Key 写进本地配置，之后就能正常登入正版。
 
+## 汉化工具
+
+「更多 → 百宝箱 → 汉化工具」里可以安装并启动 **DST MC I18n Tool**：一个扫描整合包里的
+mods / KubeJS / FTB Quests 语言文件、批量生成 `zh_cn` 译文的独立小程序。
+「版本设置 → 快捷方式 → 创建汉化」会带着该版本实际生效的目录（`PathIndie`）直接启动它。
+
+它不随启动器分发，原因很实在：自包含发布解开后 300 多个文件、约 100 MB，
+塞进启动器会让每次更新都变成一百多兆。启动器只负责「装在哪、怎么启动、怎么装回来」。
+
+- 发布仓库是 [xiaoqiezi-china/DST-i18nPlatform](https://github.com/xiaoqiezi-china/DST-i18nPlatform)，
+  启动器取它的**最新 Release** 里的 `DST-MC-I18n-Tool.zip`
+- 下载按「官方 → `ghfast.top` → `gh-proxy.com`」测速后从快到慢尝试
+- 有 Release 摘要时用 SHA-256 校验内容；解压前还会确认这确实是个能读的 zip 且里面有主程序，
+  镜像返回的错误页与截断包在这一步就会被丢掉
+- 装在 `PCL/I18nTool/`，想换仓库或换镜像改 `PCL/config.ini` 的 `[Modules]` 段即可，不用重新发版
+
 ## 构建
 
 需要 Visual Studio 生成工具（MSBuild）与 .NET Framework 4.8 开发包。

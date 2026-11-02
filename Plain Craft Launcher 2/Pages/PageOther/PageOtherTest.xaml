@@ -211,7 +211,7 @@
             <local:MyCard Margin="0,0,0,15" Title="汉化工具">
                 <StackPanel Margin="25,34,25,18">
                     <TextBlock FontSize="12" Opacity="0.65" TextWrapping="Wrap" Margin="0,0,0,14"
-                               Text="扫描版本目录里的 mods、KubeJS 与 FTB Quests 语言文件，在网页里批量生成汉化。&#xa;这是一个独立的小程序（约 100 MB），不随启动器分发，第一次使用需要先下载。" />
+                               Text="扫描版本目录里的 mods、KubeJS 与 FTB Quests 语言文件，在网页里批量生成汉化。&#xa;这是一个独立的小程序（约 50 MB），不随启动器分发，第一次使用需要先下载。" />
                     <Grid Margin="0,0,0,10">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" SharedSizeGroup="I18nName" />

@@ -80,8 +80,11 @@ Friend Module ModConfigFile
             Sb.AppendLine("Offline=")
             Sb.AppendLine()
             Sb.AppendLine("[" & SectionModules & "]")
-            Sb.AppendLine("; 汉化工具（独立副程序）的下载地址，留空则用启动器内置地址")
-            Sb.AppendLine("; 想换成自己的镜像时改这里，不用重新发版")
+            Sb.AppendLine("; 汉化工具（独立副程序）所在的 GitHub 仓库，形如 owner/repo")
+            Sb.AppendLine("; 留空则用启动器内置的 " & DstI18nTool.RepoOwner & "/" & DstI18nTool.RepoName)
+            Sb.AppendLine("I18nToolRepo=")
+            Sb.AppendLine("; 汉化工具的直链下载地址。填了就只下这个地址，并跳过摘要校验")
+            Sb.AppendLine("; 这是接口被限流时的逃生口，正常情况下留空即可")
             Sb.AppendLine("I18nToolUrl=")
             Dim Initial As String = Sb.ToString()
             '闭源发布版会带一份初始数据，由这里填进去；开源版这段是空操作

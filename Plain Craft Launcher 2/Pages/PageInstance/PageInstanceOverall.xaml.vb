@@ -212,7 +212,7 @@ Public Class PageInstanceOverall
 
         If Not DstI18nTool.IsInstalled Then
             '没装：跳到百宝箱那张卡片，并说清楚为什么要下载
-            If MyMsgBox("创建汉化需要一个独立的小程序「汉化工具」，它体积较大（约 100 MB），" & vbCrLf &
+            If MyMsgBox("创建汉化需要一个独立的小程序「汉化工具」，它体积较大（约 50 MB），" & vbCrLf &
                         "所以没有随启动器一起分发，需要单独下载。" & vbCrLf & vbCrLf &
                         "要现在去「更多 → 百宝箱 → 汉化工具」下载吗？", "需要先下载汉化工具", "去下载", "取消") = 1 Then
                 FrmMain.PageChange(New FormMain.PageStackData With {.Page = FormMain.PageType.Other},
@@ -242,8 +242,17 @@ Public Class PageInstanceOverall
             Else
                 Logger.Warn(ex, "从版本设置启动汉化工具失败")
                 Hint("启动失败：" & ex.Message, HintType.Red)
+                Return
             End If
         End Try
+
+        '启动后一并跳到百宝箱那张卡片：关掉工具的按钮在那里，
+        '否则用户从版本设置点完就找不到怎么停了，只能去任务管理器结束进程
+        FrmMain.PageChange(New FormMain.PageStackData With {.Page = FormMain.PageType.Other},
+                           FormMain.PageSubType.OtherTest)
+        RunInUi(Sub()
+                    If FrmOtherTest IsNot Nothing Then FrmOtherTest.RefreshI18nState()
+                End Sub)
     End Sub
 
 #End Region
