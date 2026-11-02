@@ -8,18 +8,50 @@
 set -u
 cd "$(dirname "$0")/.." || exit 1
 
-# vbc 随 MSBuild 一起安装；CI 里由 setup-msbuild 提供。
-VBC="${VBC:-C:/BuildTools/MSBuild/Current/Bin/Roslyn/vbc.exe}"
 SRC="Plain Craft Launcher 2"
 OUT="tests/bin"
 
-if [ ! -f "$VBC" ]; then
-    VBC="$(command -v vbc.exe || command -v vbc || true)"
-fi
-if [ -z "$VBC" ] || [ ! -f "$VBC" ]; then
+# 找 vbc.exe。
+#
+# 不同机器的安装位置差别很大：本地可能在 BuildTools 下，CI 的 windows-latest
+# 则是 VS 的 MSBuild 目录。原来只写死一个路径，CI 上直接报“找不到 vbc.exe”。
+# 这里按“显式指定 → PATH → 常见安装位置”的顺序找。
+find_vbc() {
+    if [ -n "${VBC:-}" ] && [ -f "${VBC}" ]; then
+        echo "${VBC}"
+        return 0
+    fi
+    local FromPath
+    FromPath="$(command -v vbc.exe 2>/dev/null || command -v vbc 2>/dev/null || true)"
+    if [ -n "$FromPath" ] && [ -f "$FromPath" ]; then
+        echo "$FromPath"
+        return 0
+    fi
+    local Candidate
+    for Candidate in \
+        "C:/BuildTools/MSBuild/Current/Bin/Roslyn/vbc.exe" \
+        "/c/BuildTools/MSBuild/Current/Bin/Roslyn/vbc.exe" \
+        "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/MSBuild/Current/Bin/Roslyn/vbc.exe" \
+        "C:/Program Files/Microsoft Visual Studio/2022/Professional/MSBuild/Current/Bin/Roslyn/vbc.exe" \
+        "C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/Roslyn/vbc.exe" \
+        "C:/Program Files/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/Roslyn/vbc.exe" \
+        "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/Roslyn/vbc.exe" \
+        "C:/Program Files/Microsoft Visual Studio/2019/Enterprise/MSBuild/Current/Bin/Roslyn/vbc.exe" \
+        "C:/Program Files (x86)/Microsoft Visual Studio/2019/BuildTools/MSBuild/Current/Bin/Roslyn/vbc.exe"; do
+        if [ -f "$Candidate" ]; then
+            echo "$Candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+VBC="$(find_vbc || true)"
+if [ -z "$VBC" ]; then
     echo "找不到 vbc.exe。请安装 Visual Studio 生成工具，或用 VBC 环境变量指定路径。" >&2
     exit 1
 fi
+echo "使用 vbc：$VBC"
 
 mkdir -p "$OUT"
 
