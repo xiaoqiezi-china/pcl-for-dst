@@ -99,11 +99,21 @@ Public Class PageOtherTest
             IsLoad = True
             RefreshMusicList()
         End If
+        RefreshI18nUi()
         TickUpdate(Nothing, Nothing)
     End Sub
 
     Private Sub PageOtherTest_Unloaded(sender As Object, e As RoutedEventArgs) Handles Me.Unloaded
         If Timer IsNot Nothing Then Timer.Stop()
+    End Sub
+
+    ''' <summary>从别的页面切回来时刷新一次汉化工具的状态（可能刚在版本设置里启动过）。</summary>
+    Public Sub RefreshI18nState()
+        Try
+            RefreshI18nUi()
+        Catch ex As Exception
+            Logger.Warn(ex, "刷新汉化工具状态失败")
+        End Try
     End Sub
 
     ''' <summary>每 250ms 刷一次标题、进度、时间和播放按钮图标。</summary>
@@ -576,6 +586,125 @@ Public Class PageOtherTest
     '==== 下载器 ====
     '最简实现：一个输入框 + 一个按钮，交给 PCL 现成的多线程下载引擎。
     '不解析文件名以外的信息，也不做队列与断点管理——那些都属于下载页的活。
+
+    '==== 汉化工具 ====
+    '副程序装在 PCL\I18nTool\，这里只负责填参数、启动、以及引导下载。
+    '真正的进程管理在 DstI18nTool 里，界面这边不碰 Process。
+
+    Private Sub BtnI18nPick_Click(sender As Object, e As EventArgs) Handles BtnI18nPick.Click
+        Dim Folder As String = Dialogs.SelectFolder("选择要汉化的版本目录（含 mods、kubejs 的那个文件夹）", False).FirstOrDefault
+        If String.IsNullOrWhiteSpace(Folder) Then Return
+        '用户可能选到 .minecraft 根目录，也可能选到某个版本文件夹，两个都算合法；
+        '这里只做「看起来不像」的提醒，不硬拦，免得把非标准布局的用户挡在外面。
+        If Not DirectoryUtils.Exists(Folder & "\mods") AndAlso Not DirectoryUtils.Exists(Folder & "\kubejs") Then
+            Hint("这个目录下没有 mods 或 kubejs 文件夹，可能不是整合包目录。仍然可以用，但大概率扫不到东西。", HintType.Blue)
+        End If
+        TextI18nFolder.Text = PathUtils.AddSlashSuffix(Folder)
+        RefreshI18nUi()
+    End Sub
+
+    Private Sub BtnI18nDownload_Click(sender As Object, e As EventArgs) Handles BtnI18nDownload.Click
+        If DstI18nTool.IsInstalled Then
+            If MyMsgBox("汉化工具已经装好了。要重新下载覆盖吗？", "重新下载", "重新下载", "取消") <> 1 Then Return
+        End If
+        BtnI18nDownload.IsEnabled = False
+        BtnI18nStart.IsEnabled = False
+        LabI18nState.Text = "正在下载汉化工具……"
+        RunInThread(
+        Sub()
+            Try
+                DstI18nTool.DownloadAndInstall()
+                RunInUi(
+                Sub()
+                    LabI18nState.Text = "汉化工具已就绪。"
+                    Hint("汉化工具下载完成", HintType.Green)
+                    RefreshI18nUi()
+                End Sub)
+            Catch ex As Exception
+                ex.ThrowIfCanceled()
+                Logger.Warn(ex, "下载汉化工具失败")
+                RunInUi(
+                Sub()
+                    LabI18nState.Text = "下载失败：" & FriendlyError(ex.Message)
+                    Hint("下载汉化工具失败：" & FriendlyError(ex.Message), HintType.Red)
+                    BtnI18nDownload.IsEnabled = True
+                    RefreshI18nUi()
+                End Sub)
+            End Try
+        End Sub)
+    End Sub
+
+    Private Sub BtnI18nStart_Click(sender As Object, e As EventArgs) Handles BtnI18nStart.Click
+        If Not DstI18nTool.IsInstalled Then
+            Hint("还没有安装汉化工具，请先点右边的「下载此程序」", HintType.Red)
+            Return
+        End If
+
+        '端口留空就交给程序自己随机挑；填了就必须是合法端口
+        Dim Port As Integer = 0
+        Dim PortText As String = If(TextI18nPort.Text, "").Trim()
+        If PortText <> "" Then
+            If Not Integer.TryParse(PortText, Port) OrElse Port < 1 OrElse Port > 65535 Then
+                Hint("端口需要是 1 到 65535 之间的数字，留空则自动分配", HintType.Red)
+                Return
+            End If
+        End If
+
+        Dim Folder As String = If(TextI18nFolder.Text, "").Trim()
+        If Folder = "" Then
+            Hint("请先选择工作目录", HintType.Red)
+            Return
+        End If
+
+        Try
+            Dim Url As String = DstI18nTool.StartTool(Folder, Port)
+            LabI18nState.Text = "已启动，地址：" & Url
+            Hint("汉化工具已启动，浏览器稍后会自动打开", HintType.Green)
+            RefreshI18nUi()
+        Catch ex As Exception
+            Logger.Warn(ex, "启动汉化工具失败")
+            LabI18nState.Text = "启动失败：" & ex.Message
+            Hint("启动失败：" & ex.Message, HintType.Red)
+        End Try
+    End Sub
+
+    Private Sub BtnI18nStop_Click(sender As Object, e As EventArgs) Handles BtnI18nStop.Click
+        DstI18nTool.StopTool()
+        LabI18nState.Text = "已关闭。"
+        RefreshI18nUi()
+    End Sub
+
+    Private Sub BtnI18nOpen_Click(sender As Object, e As EventArgs) Handles BtnI18nOpen.Click
+        '端口是随机的话地址不固定，让用户从程序自己的控制台看；
+        '这里只在填了固定端口时打开对应地址。
+        Dim PortText As String = If(TextI18nPort.Text, "").Trim()
+        Dim Port As Integer
+        If Integer.TryParse(PortText, Port) AndAlso Port >= 1 AndAlso Port <= 65535 Then
+            OpenWebsite($"http://127.0.0.1:{Port}/")
+        Else
+            Hint("没有填固定端口时地址是随机的，请看汉化工具自己打开的页面或控制台输出", HintType.Blue)
+        End If
+    End Sub
+
+    ''' <summary>按「装没装」「开没开」重排按钮与状态文案。</summary>
+    Private Sub RefreshI18nUi()
+        If LabI18nState Is Nothing Then Return
+        Dim Installed As Boolean = DstI18nTool.IsInstalled
+        Dim Running As Boolean = DstI18nTool.IsRunning
+        BtnI18nDownload.Text = If(Installed, "重新下载", "下载此程序")
+        BtnI18nDownload.IsEnabled = Not Running
+        BtnI18nStart.IsEnabled = Installed AndAlso Not Running
+        BtnI18nStart.Visibility = If(Running, Visibility.Collapsed, Visibility.Visible)
+        BtnI18nStop.Visibility = If(Running, Visibility.Visible, Visibility.Collapsed)
+        BtnI18nOpen.Visibility = If(Running, Visibility.Visible, Visibility.Collapsed)
+        If Not Installed Then
+            LabI18nState.Text = "还没有安装汉化工具，点「下载此程序」获取（约 100 MB）。"
+        ElseIf Running Then
+            If LabI18nState.Text = "" OrElse LabI18nState.Text.StartsWithF("还没有安装") Then
+                LabI18nState.Text = "汉化工具正在运行。"
+            End If
+        End If
+    End Sub
 
     Private Sub BtnDlStart_Click(sender As Object, e As EventArgs) Handles BtnDlStart.Click
         Dim Url As String = If(TextDlUrl.Text, "").Trim()

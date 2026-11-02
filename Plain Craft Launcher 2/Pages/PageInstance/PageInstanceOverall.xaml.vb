@@ -206,6 +206,46 @@ Public Class PageInstanceOverall
         OpenExplorer(Folder)
     End Sub
 
+    '创建汉化：没装副程序就引导去百宝箱下载，装了就直接带好工作目录启动
+    Private Sub BtnCreateI18n_Click(sender As Object, e As EventArgs) Handles BtnCreateI18n.Click
+        If PageInstanceLeft.Instance Is Nothing Then Return
+
+        If Not DstI18nTool.IsInstalled Then
+            '没装：跳到百宝箱那张卡片，并说清楚为什么要下载
+            If MyMsgBox("创建汉化需要一个独立的小程序「汉化工具」，它体积较大（约 100 MB），" & vbCrLf &
+                        "所以没有随启动器一起分发，需要单独下载。" & vbCrLf & vbCrLf &
+                        "要现在去「更多 → 百宝箱 → 汉化工具」下载吗？", "需要先下载汉化工具", "去下载", "取消") = 1 Then
+                FrmMain.PageChange(New FormMain.PageStackData With {.Page = FormMain.PageType.Other},
+                                   FormMain.PageSubType.OtherTest)
+                RunInUi(Sub()
+                            If FrmOtherTest IsNot Nothing Then FrmOtherTest.RefreshI18nState()
+                        End Sub)
+            End If
+            Return
+        End If
+
+        '装了：工作目录按这个版本实际生效的目录来（开了版本隔离就是版本文件夹）
+        Dim Folder As String = DstI18nTool.WorkFolderOf(PageInstanceLeft.Instance)
+        If String.IsNullOrWhiteSpace(Folder) OrElse Not DirectoryUtils.Exists(Folder) Then
+            Hint("找不到这个版本的工作目录", HintType.Red)
+            Return
+        End If
+
+        Try
+            Dim Url As String = DstI18nTool.StartTool(Folder, 0)
+            Hint("汉化工具已启动，浏览器稍后会自动打开", HintType.Green)
+            Logger.Info($"从版本设置启动汉化工具，工作目录：{Folder}")
+        Catch ex As Exception
+            '已经在跑的时候不算错误：把网页打开就行
+            If ex.Message.Contains("已经在运行") Then
+                Hint("汉化工具已经在运行了，请到浏览器里操作", HintType.Blue)
+            Else
+                Logger.Warn(ex, "从版本设置启动汉化工具失败")
+                Hint("启动失败：" & ex.Message, HintType.Red)
+            End If
+        End Try
+    End Sub
+
 #End Region
 
 #Region "卡片：管理"

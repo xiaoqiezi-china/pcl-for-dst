@@ -67,6 +67,9 @@
                     <local:MyButton x:Name="BtnFolderSaves" Text="存档文件夹" MinWidth="140" Padding="13,0" Margin="0,13,20,0" Height="35"/>
                     <local:MyButton x:Name="BtnFolderMods" Text="Mod 文件夹" MinWidth="140" Padding="13,0" Margin="0,13,20,0" Height="35"/>
                     <local:MyButton x:Name="BtnFolderScreen" Text="截图文件夹" MinWidth="140" Padding="13,0" Margin="0,13,20,0" Height="35" />
+                    <local:MyButton x:Name="BtnCreateI18n" Text="创建汉化" MinWidth="140" Padding="13,0" Margin="0,13,20,0" Height="35"
+                                    ColorType="Highlight"
+                                    ToolTip="用独立副程序「汉化工具」扫描这个版本的语言文件并生成汉化。&#xa;第一次使用需要先下载那个副程序。" />
                 </WrapPanel>
             </local:MyCard>
             <local:MyCard Margin="0,0,0,15" Title="高级管理" x:Name="PanManage">

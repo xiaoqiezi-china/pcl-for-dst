@@ -207,6 +207,49 @@
                                TextWrapping="Wrap" Text="文件会保存到 PCL\Downloads 文件夹，下载进度在任务管理器里查看。&#xa;连接时优先使用的 IP 协议跟随 设置 → 其他 → 下载 → 网络协议。" />
                 </Grid>
             </local:MyCard>
+            <!-- 汉化工具：独立副程序，体积大，按需下载 -->
+            <local:MyCard Margin="0,0,0,15" Title="汉化工具">
+                <StackPanel Margin="25,34,25,18">
+                    <TextBlock FontSize="12" Opacity="0.65" TextWrapping="Wrap" Margin="0,0,0,14"
+                               Text="扫描版本目录里的 mods、KubeJS 与 FTB Quests 语言文件，在网页里批量生成汉化。&#xa;这是一个独立的小程序（约 100 MB），不随启动器分发，第一次使用需要先下载。" />
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="I18nName" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30" />
+                            <RowDefinition Height="10" />
+                            <RowDefinition Height="30" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="监听端口" VerticalAlignment="Center" Margin="0,0,20,0" />
+                        <local:MyTextBox x:Name="TextI18nPort" Grid.Column="1" Height="30" MaxHeight="30"
+                                         HintText="留空则随机分配一个空闲端口" />
+                        <TextBlock Grid.Row="2" Text="工作目录" VerticalAlignment="Center" Margin="0,0,20,0" />
+                        <Grid Grid.Row="2" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <local:MyTextBox x:Name="TextI18nFolder" Height="30" MaxHeight="30" IsReadOnly="True"
+                                             HintText="选择含 mods、kubejs 的那个文件夹" />
+                            <local:MyButton x:Name="BtnI18nPick" Grid.Column="1" Margin="10,0,0,0" Height="30"
+                                            MinWidth="88" Text="选择文件夹" />
+                        </Grid>
+                    </Grid>
+                    <WrapPanel Margin="0,4,0,0">
+                        <local:MyButton x:Name="BtnI18nStart" MinWidth="120" Height="34" Padding="13,0" Margin="0,0,12,0"
+                                        Text="开启" ColorType="Highlight" />
+                        <local:MyButton x:Name="BtnI18nDownload" MinWidth="140" Height="34" Padding="13,0" Margin="0,0,12,0"
+                                        Text="下载此程序" />
+                        <local:MyButton x:Name="BtnI18nStop" MinWidth="100" Height="34" Padding="13,0" Margin="0,0,12,0"
+                                        Text="关闭" Visibility="Collapsed" />
+                        <local:MyButton x:Name="BtnI18nOpen" MinWidth="120" Height="34" Padding="13,0"
+                                        Text="打开网页" Visibility="Collapsed" />
+                    </WrapPanel>
+                    <TextBlock x:Name="LabI18nState" Margin="0,12,0,0" FontSize="12" Opacity="0.7" TextWrapping="Wrap" Text="" />
+                </StackPanel>
+            </local:MyCard>
 
         </StackPanel>
     </local:MyScrollViewer>

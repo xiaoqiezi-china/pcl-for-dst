@@ -18,6 +18,8 @@ Friend Module ModConfigFile
 
     Public Const SectionCredential As String = "Credential"
     Public Const SectionCloud As String = "Cloud"
+    ''' <summary>可选模块的下载地址等。发布版可在这里换成自己的镜像。</summary>
+    Public Const SectionModules As String = "Modules"
 
     ''' <summary>读过的键缓存，键为 节/键。</summary>
     Private ReadOnly Cache As New ConcurrentDictionary(Of String, String)
@@ -76,6 +78,11 @@ Friend Module ModConfigFile
             Sb.AppendLine("GroupId=")
             Sb.AppendLine("; 常规模式初始值。预设版写 False（直连），开源版写 True")
             Sb.AppendLine("Offline=")
+            Sb.AppendLine()
+            Sb.AppendLine("[" & SectionModules & "]")
+            Sb.AppendLine("; 汉化工具（独立副程序）的下载地址，留空则用启动器内置地址")
+            Sb.AppendLine("; 想换成自己的镜像时改这里，不用重新发版")
+            Sb.AppendLine("I18nToolUrl=")
             Dim Initial As String = Sb.ToString()
             '闭源发布版会带一份初始数据，由这里填进去；开源版这段是空操作
             Initial = MergeBuiltinDefaults(Initial)
