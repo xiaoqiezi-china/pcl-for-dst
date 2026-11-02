@@ -5,8 +5,11 @@ on:
     paths:
       - 'Plain Craft Launcher 2/**'
       - '.github/workflows/**'
+    # 仓库里的 tag 一直是不带 v 的纯版本号（1.0.0 … 1.0.4），
+    # 只写 'v*' 会让打 tag 时 CI 完全不触发，Release 只能手工发。
     tags:
       - 'v*'
+      - '[0-9]*'
   pull_request:
     paths:
       - 'Plain Craft Launcher 2/**'

@@ -141,6 +141,7 @@ Public Class Settings
         New Setting("ToolDownloadSpeed", 42, Source:=Sources.Registry, OnChanged:=AddressOf ModNet.UpdateNetTaskSpeedLimitHigh),
         New Setting("ToolDownloadSource", 1, Source:=Sources.Registry),
         New Setting("ToolDownloadVersion", 1, Source:=Sources.Registry),
+        New Setting("ToolDownloadIpProtocol", 0, Source:=Sources.Registry),
         New Setting("ToolDownloadTranslate", 0, Source:=Sources.Registry),
         New Setting("ToolDownloadTranslateV2", 1, Source:=Sources.Registry),
         New Setting("ToolDownloadCert", False, Source:=Sources.Registry, OnChanged:=AddressOf ModNet.ShouldValidateSslCertificateOnLogin),

@@ -301,9 +301,16 @@ Retry:
 
 #Region "多线程下载引擎"
 
-    Private ThreadClient As New HttpClient(New HttpClientHandler With {
-        .AutomaticDecompression = DecompressionMethods.Deflate Or DecompressionMethods.GZip
-    })
+    '下载引擎的 HttpClient：处理器换成了自研的 NetSocketHandler，
+    '这样"优先 IPv4 / IPv6"才能真正落到 socket 层（见 NetSocketHandler 的注释）。
+    Private ThreadClient As HttpClient = Nothing
+    Private ReadOnly ThreadClientLock As New Object
+    Private Function GetThreadClient() As HttpClient
+        SyncLock ThreadClientLock
+            If ThreadClient Is Nothing Then ThreadClient = New HttpClient(New NetSocketHandler())
+            Return ThreadClient
+        End SyncLock
+    End Function
 
     ''' <summary>
     ''' 最大线程数。
@@ -916,7 +923,7 @@ StartThread:
                 CancelToken = New CancellationTokenSource(Timeout)
                 If Not Th.IsFirstThread Then HttpRequest.Headers.Range = New Headers.RangeHeaderValue(Th.DownloadStart, Nothing)
                 Dim ContentLength As Long = 0
-                Response = ThreadClient.SendAsync(HttpRequest, HttpCompletionOption.ResponseHeadersRead, CancelToken.Token).GetResultWithTimeout(CancelToken, Timeout)
+                Response = GetThreadClient().SendAsync(HttpRequest, HttpCompletionOption.ResponseHeadersRead, CancelToken.Token).GetResultWithTimeout(CancelToken, Timeout)
                 If Not Response.IsSuccessStatusCode Then '状态码检查
                     Throw New HttpRequestCodeException($"错误码 {Response.StatusCode} ({CInt(Response.StatusCode)})，{Th.Source.Url}", Response.StatusCode, Nothing)
                 End If

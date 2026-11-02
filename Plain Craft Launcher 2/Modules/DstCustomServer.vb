@@ -22,10 +22,47 @@ Public Module DstCustomServer
     Private ReadOnly Lock As New Object
     Private Loaded As Boolean
 
-    ''' <summary>本地保存路径。</summary>
+    ''' <summary>
+    ''' 本地保存路径。放在 PCL 子文件夹里，与其他本地数据保持一致。
+    ''' </summary>
     Public ReadOnly Property SavePath As String
         Get
+            Return Paths.Base & "PCL\DstCustomServers.json"
+        End Get
+    End Property
+
+    ''' <summary>
+    ''' 旧版把文件直接丢在启动器根目录（少了个反斜杠），升级后要把那一份搬过来。
+    ''' 只在正式路径不存在时才搬，搬完就把旧文件删掉，免得两份数据互相覆盖。
+    ''' </summary>
+    Private ReadOnly Property LegacyPath As String
+        Get
             Return Paths.Base & "PCLDstCustomServers.json"
+        End Get
+    End Property
+
+    ''' <summary>把旧路径的数据迁移到正式路径。返回是否发生了迁移。</summary>
+    Private Function MigrateLegacy() As Boolean
+        Try
+            If FileUtils.Exists(SavePath) Then Return False
+            If Not FileUtils.Exists(LegacyPath) Then Return False
+            DirectoryUtils.Create(PathUtils.RemoveLastPart(SavePath))
+            IO.File.Move(LegacyPath, SavePath)
+            Logger.Info("已迁移旧版自定义服务器列表到 PCL\DstCustomServers.json")
+            Return True
+        Catch ex As Exception
+            '迁移失败不该让整个列表消失：保留旧文件，让下面按旧路径读一次
+            Logger.Warn(ex, "迁移旧版自定义服务器列表失败")
+            Return False
+        End Try
+    End Function
+
+    ''' <summary>读取时用的实际路径：正式路径没有、旧路径有，就按旧路径读。</summary>
+    Private ReadOnly Property ReadPath As String
+        Get
+            If FileUtils.Exists(SavePath) Then Return SavePath
+            If FileUtils.Exists(LegacyPath) Then Return LegacyPath
+            Return SavePath
         End Get
     End Property
 
@@ -35,8 +72,10 @@ Public Module DstCustomServer
             Loaded = True
         End SyncLock
         Try
-            If Not FileUtils.Exists(SavePath) Then Return
-            Dim Content As String = FileUtils.TryReadAsString(SavePath)
+            MigrateLegacy()
+            Dim Path_ As String = ReadPath
+            If Not FileUtils.Exists(Path_) Then Return
+            Dim Content As String = FileUtils.TryReadAsString(Path_)
             If String.IsNullOrWhiteSpace(Content) Then Return
             Dim Arr As JArray = JArray.Parse(Content)
             Dim Parsed As New List(Of Entry)

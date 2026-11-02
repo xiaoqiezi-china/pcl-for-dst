@@ -76,6 +76,9 @@ Public Class PageLaunchRight
         If CardDstServers IsNot Nothing Then
             CardDstServers.Visibility = If(Offline AndAlso Not ShowServersInOffline, Visibility.Collapsed, Visibility.Visible)
         End If
+        '「修改群聊」只对在线模式有意义：常规模式下根本拉不到群列表，
+        '留个按不动的按钮只会让人以为坏了
+        If BtnDstChangeGroup IsNot Nothing Then BtnDstChangeGroup.Visibility = Vis
         If CardDstReport IsNot Nothing Then CardDstReport.Visibility = Vis
         If CardDstBot IsNot Nothing Then CardDstBot.Visibility = Vis
         If Not Offline Then
@@ -220,6 +223,16 @@ Public Class PageLaunchRight
         End If
         '只刷服务器列表：群列表不常变，多打一次就多占一份额度
         DstBot.RefreshServers(Force:=True, OnDone:=AddressOf OnServersRefreshed, SkipRateWait:=True)
+    End Sub
+
+    ''' <summary>
+    ''' 主页上直接换群：复用启动页左栏那套群选择器，不另写一份。
+    ''' 换完群由 <see cref="PageLaunchLeft.RefreshGroupDependentViews"/> 统一刷新服务器列表与公告。
+    ''' </summary>
+    Private Sub BtnDstChangeGroup_Click(sender As Object, e As EventArgs) Handles BtnDstChangeGroup.Click
+        If DstBot.IsOffline Then Return
+        If FrmLaunchLeft Is Nothing Then Return
+        FrmLaunchLeft.ShowGroupSelector()
     End Sub
 
     ''' <summary>延迟显示开关变化后重画列表。</summary>

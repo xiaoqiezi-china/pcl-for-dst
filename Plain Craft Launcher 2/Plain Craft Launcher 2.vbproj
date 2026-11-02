@@ -411,6 +411,7 @@
     <Compile Include="Controls\MyDropShadow.vb" />
     <Compile Include="Modules\Base\ModLoader.vb" />
     <Compile Include="Modules\Base\ModNet.vb" />
+    <Compile Include="Modules\Base\ModNetSocket.vb" />
     <Compile Include="Modules\Base\ModValidate.vb" />
     <Compile Include="Modules\Minecraft\ModDownload.vb" />
     <Compile Include="Modules\Minecraft\ModLaunch.vb" />
