@@ -119,7 +119,7 @@ Public Class Settings
         New Setting("LaunchArgumentWindowWidth", 854),
         New Setting("LaunchArgumentWindowHeight", 480),
         New Setting("LaunchArgumentWindowType", 1),
-        New Setting("LaunchArgumentHanhua", 0), '0 不自动，1 启动时自动获取汉化并启用
+        New Setting("LaunchArgumentHanhua", 2), '0 关闭，1 仅获取汉化资源包，2 汉化 + 通用拼音搜索
         New Setting("LaunchArgumentRam", False, Source:=Sources.Registry),
         New Setting("LaunchAdvanceJvm", "-XX:-OmitStackTraceInFastThrow -Djdk.lang.Process.allowAmbiguousCommands=True -Dfml.ignoreInvalidMinecraftCertificates=True -Dfml.ignorePatchDiscrepancies=True"),
         New Setting("LaunchAdvanceGame", ""),

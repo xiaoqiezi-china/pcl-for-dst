@@ -106,12 +106,13 @@
                                 </local:MyTextBox.ValidateRules>
                             </local:MyTextBox>
                         </Grid>
-                        <TextBlock VerticalAlignment="Center" Grid.Row="12" HorizontalAlignment="Left" Text="自动获取汉化" Margin="0,0,25,0" />
+                        <TextBlock VerticalAlignment="Center" Grid.Row="12" HorizontalAlignment="Left" Text="自动汉化" Margin="0,0,25,0" />
                         <local:MyComboBox local:SettingService.Key="LaunchArgumentHanhua" x:Name="ComboArgumentHanhua"
                                           Grid.Row="12" Grid.ColumnSpan="2" Grid.Column="1"
-                                          ToolTip="启动游戏时自动从 CFPA 拉取对应版本的汉化资源包，并写进 options.txt 启用它。&#xa;已有相同文件时会直接覆盖，不会重复下载。">
-                            <local:MyComboBoxItem Content="否" />
-                            <local:MyComboBoxItem Content="是" local:SettingService.Value="1" />
+                                          ToolTip="启动游戏时自动从 CFPA 拉取对应版本的汉化资源包，并写进 options.txt 启用它。&#xa;已有相同文件时会直接覆盖，不会重复下载。&#xa;&#xa;「汉化 + 拼音搜索」会额外检查通用拼音搜索模组（Just Enough Characters），&#xa;当前版本没有装且版本匹配时自动下载。">
+                            <local:MyComboBoxItem Content="关闭" />
+                            <local:MyComboBoxItem Content="仅汉化" local:SettingService.Value="1" />
+                            <local:MyComboBoxItem Content="汉化 + 拼音搜索" local:SettingService.Value="2" />
                         </local:MyComboBox>
                     </Grid>
                 </StackPanel>

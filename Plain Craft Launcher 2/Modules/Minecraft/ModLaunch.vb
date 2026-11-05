@@ -127,6 +127,7 @@ Public Module ModLaunch
                 New LoaderTask(Of Integer, Integer)("解压文件", AddressOf McLaunchNatives) With {.ProgressWeight = 2},
                 New LoaderTask(Of Integer, Integer)("预启动处理", AddressOf McLaunchPrerun) With {.ProgressWeight = 1}, '排在预启动处理之后：options.txt 在那里被改写，否则我们写进去的 resourcePacks 会被盖掉
                 New LoaderTask(Of Integer, Integer)("获取汉化资源包", AddressOf McLaunchHanhua) With {.ProgressWeight = 2, .Block = False},
+                New LoaderTask(Of Integer, Integer)("安装拼音搜索模组", AddressOf McLaunchPinyinSearch) With {.ProgressWeight = 2, .Block = False},
                 New LoaderTask(Of Integer, Integer)("执行自定义命令", AddressOf McLaunchCustom) With {.ProgressWeight = 1},
                 New LoaderTask(Of Integer, Process)("启动进程", AddressOf McLaunchRun) With {.ProgressWeight = 2},
                 New LoaderTask(Of Process, Integer)("等待游戏窗口出现", AddressOf McLaunchWait) With {.ProgressWeight = 1},
@@ -2015,7 +2016,9 @@ IgnoreCustomSkin:
     ''' </summary>
     Private Sub McLaunchHanhua(Loader As LoaderTask(Of Integer, Integer))
         Try
-            If Settings.Get(Of Integer)("LaunchArgumentHanhua") <> 1 Then Return
+            '0 关闭；1 仅汉化；2 汉化 + 拼音搜索
+            Dim Mode As Integer = Settings.Get(Of Integer)("LaunchArgumentHanhua")
+            If Mode <> 1 AndAlso Mode <> 2 Then Return
             If McInstanceSelected Is Nothing Then Return
             ModHanhua.AutoFetch(McInstanceSelected, WaitForExit:=True)
         Catch ex As Exception
@@ -2023,6 +2026,21 @@ IgnoreCustomSkin:
             If ex.IsCanceled Then Return
             Logger.Warn(ex, "自动获取汉化资源包失败")
             McLaunchLog("自动获取汉化资源包失败：" & ex.Message)
+        End Try
+    End Sub
+    ''' <summary>
+    ''' 启动前自动安装通用拼音搜索模组（设置里选「汉化 + 拼音搜索」时）。
+    ''' 已经装了或该版本没有匹配的模组就什么都不做；失败不影响启动，只提示。
+    ''' </summary>
+    Private Sub McLaunchPinyinSearch(Loader As LoaderTask(Of Integer, Integer))
+        Try
+            If McInstanceSelected Is Nothing Then Return
+            ModPinyinSearch.AutoFetch(McInstanceSelected, WaitForExit:=True)
+        Catch ex As Exception
+            '拼音搜索装不上也不该拦着玩家进游戏
+            If ex.IsCanceled Then Return
+            Logger.Warn(ex, "自动安装拼音搜索模组失败")
+            McLaunchLog("自动安装拼音搜索模组失败：" & ex.Message)
         End Try
     End Sub
 
