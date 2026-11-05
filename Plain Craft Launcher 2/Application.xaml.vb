@@ -168,18 +168,25 @@ Public Class Application
                         Environment.Exit(ProcessReturnValues.Fail)
                     End Try
                 ElseIf e.Args(0) = "--memory" Then
-                    '内存优化
-                    Dim Ram = My.Computer.Info.AvailablePhysicalMemory
+                    '内存优化。用 DstMemoryCore 的快照自己测，不要用 My.Computer.Info：
+                    '后者读到的是缓存值，实测回收了 300 多 MB 却只报出 84 KB。
+                    Dim Before = DstMemoryCore.GetSnapshot()
                     Try
                         PageOtherTest.MemoryOptimizeInternal(False)
                     Catch ex As Exception
                         MsgBox(ex.Message, MsgBoxStyle.Critical, "内存优化失败")
                         Environment.Exit(-1)
                     End Try
-                    If My.Computer.Info.AvailablePhysicalMemory < Ram Then '避免 ULong 相减出现负数
+                    Dim After = DstMemoryCore.GetSnapshot()
+                    If Before Is Nothing OrElse After Is Nothing Then Environment.Exit(0)
+                    '退出码为释放的千字节数；没有增加就是 0。
+                    '注意：退出码在 Windows 上只有 8 位，大于 255 的值会被按 256 取模截断，
+                    '所以它只能当「有没有释放」用，不能当精确数值读。要精确值请自己测量前后差值。
+                    Dim Freed As Long = After.AvailableBytes - Before.AvailableBytes
+                    If Freed <= 0 Then
                         Environment.Exit(0)
                     Else
-                        Environment.Exit((My.Computer.Info.AvailablePhysicalMemory - Ram) / 1024) '返回清理的内存量（K）
+                        Environment.Exit(CLng(Math.Min(Freed / 1024, Integer.MaxValue)))
                     End If
                 End If
             End If

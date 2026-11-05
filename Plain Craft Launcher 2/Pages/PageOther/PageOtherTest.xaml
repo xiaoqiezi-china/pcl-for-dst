@@ -251,6 +251,29 @@
                 </StackPanel>
             </local:MyCard>
 
+            <!-- 内存优化：回收各进程工作集，并给出高占用进程让用户自己决定结束谁 -->
+            <local:MyCard Margin="0,0,0,15" Title="内存优化">
+                <StackPanel Margin="25,34,25,18">
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                            <TextBlock x:Name="LabMemUsage" FontSize="12.5" TextWrapping="Wrap" Text="正在读取内存占用……" />
+                            <TextBlock x:Name="LabMemDetail" Margin="0,4,0,0" FontSize="11" Opacity="0.5" TextWrapping="Wrap" Text="" />
+                        </StackPanel>
+                        <WrapPanel Grid.Column="1" VerticalAlignment="Center">
+                            <local:MyButton x:Name="BtnMemTrim" MinWidth="112" Height="34" Padding="13,0" Margin="0,0,10,0" Text="优化内存" ColorType="Highlight" />
+                            <local:MyButton x:Name="BtnMemRefresh" MinWidth="80" Height="34" Padding="13,0" Text="刷新" />
+                        </WrapPanel>
+                    </Grid>
+                    <TextBlock FontSize="11.5" Opacity="0.6" Margin="0,0,0,6" Text="占用较高的程序（可手动结束）" />
+                    <StackPanel x:Name="PanMemList" />
+                    <TextBlock x:Name="LabMemHint" Margin="0,10,0,0" FontSize="11" Opacity="0.5" TextWrapping="Wrap" Text="" />
+                </StackPanel>
+            </local:MyCard>
+
         </StackPanel>
     </local:MyScrollViewer>
 </local:MyPageRight>

@@ -26,12 +26,44 @@ Public Class PageOtherTest
     Public Shared Sub RubbishClear()
         Hint("为便于维护，开源内容中不包含百宝箱功能……")
     End Sub
+    ''' <summary>
+    ''' 回收各进程的工作集，把物理内存占用降下来。
+    ''' <para>
+    ''' 设置里「启动游戏前进行内存优化」、自定义按钮的「内存优化」与百宝箱卡片
+    ''' 最终都走到这里，真正干活的是 <see cref="DstMemoryCore.TrimWorkingSets"/>。
+    ''' </para>
+    ''' </summary>
+    ''' <param name="ShowHint">
+    ''' 是否弹出结果提示。启动流程里传 False，避免在启动过程中弹窗打断。
+    ''' </param>
     Public Shared Sub MemoryOptimize(ShowHint As Boolean)
-        If ShowHint Then Hint("为便于维护，开源内容中不包含百宝箱功能……")
+        Dim Result As DstTrimResult = DstMemoryCore.TrimWorkingSets()
+        Logger.Info($"内存优化完成：回收 {Result.TrimmedCount} 个进程，跳过 {Result.SkippedCount} 个，" &
+                    $"耗时 {Result.ElapsedMs}ms，可用内存增量 {FormatMemorySize(Result.FreedBytes)}")
+        If Not ShowHint Then Return
+        If Result.FreedBytes > 0 Then
+            Hint($"内存优化完成，可用内存增加约 {FormatMemorySize(Result.FreedBytes)}", HintType.Green)
+        Else
+            '回收成功但可用内存没涨：多半是别的程序同时在吃内存，如实说明，不硬说成功了
+            Hint($"已回收 {Result.TrimmedCount} 个进程的工作集，但可用内存没有明显增加", HintType.Blue)
+        End If
     End Sub
+
+    ''' <summary>
+    ''' 静默版：供 <c>--memory</c> 命令行调用，结果由调用方自己测量。
+    ''' </summary>
     Public Shared Sub MemoryOptimizeInternal(ShowHint As Boolean)
-        If ShowHint Then Hint("为便于维护，开源内容中不包含百宝箱功能……")
+        MemoryOptimize(ShowHint)
     End Sub
+
+    ''' <summary>把字节数写成好读的形式。</summary>
+    Public Shared Function FormatMemorySize(Bytes As Long) As String
+        If Bytes < 0 Then Return "0 B"
+        If Bytes >= 1024L * 1024 * 1024 Then Return (Bytes / 1024.0 / 1024.0 / 1024.0).ToString("0.0") & " GB"
+        If Bytes >= 1024L * 1024 Then Return (Bytes / 1024.0 / 1024.0).ToString("0") & " MB"
+        If Bytes >= 1024 Then Return (Bytes / 1024.0).ToString("0") & " KB"
+        Return Bytes.ToString() & " B"
+    End Function
     Public Shared Function GetRandomCave() As String
         Return "为便于维护，开源内容中不包含百宝箱功能……"
     End Function
@@ -100,6 +132,7 @@ Public Class PageOtherTest
             RefreshMusicList()
         End If
         RefreshI18nUi()
+        RefreshMemoryUi()
         TickUpdate(Nothing, Nothing)
     End Sub
 
@@ -786,6 +819,167 @@ Public Class PageOtherTest
 
     Private Sub BtnMusicSetup_Click(sender As Object, e As EventArgs) Handles BtnMusicSetup.Click
         FrmMain.PageChange(New FormMain.PageStackData With {.Page = FormMain.PageType.MusicSetup})
+    End Sub
+
+#End Region
+
+#Region "内存优化"
+
+    '底层全在 DstMemoryCore 里，这里只负责把结果显示出来与收集用户操作。
+    '每次进入页面刷新一次列表；正在回收时禁用按钮，避免连点。
+
+    ''' <summary>是否正在回收工作集。</summary>
+    Private MemTrimming As Boolean = False
+
+    Private Sub BtnMemTrim_Click(sender As Object, e As EventArgs) Handles BtnMemTrim.Click
+        If MemTrimming Then Return
+        MemTrimming = True
+        BtnMemTrim.IsEnabled = False
+        BtnMemRefresh.IsEnabled = False
+        LabMemHint.Text = "正在回收各进程的工作集……"
+        RunInThread(
+        Sub()
+            Try
+                Dim Result As DstTrimResult = DstMemoryCore.TrimWorkingSets()
+                Logger.Info($"内存优化完成：回收 {Result.TrimmedCount} 个进程，跳过 {Result.SkippedCount} 个，" &
+                            $"耗时 {Result.ElapsedMs}ms，可用内存增量 {FormatMemorySize(Result.FreedBytes)}")
+                RunInUi(
+                Sub()
+                    MemTrimming = False
+                    BtnMemTrim.IsEnabled = True
+                    BtnMemRefresh.IsEnabled = True
+                    If Result.FreedBytes > 0 Then
+                        LabMemHint.Text = $"已回收 {Result.TrimmedCount} 个进程的工作集，可用内存增加约 {FormatMemorySize(Result.FreedBytes)}。"
+                        Hint("内存优化完成，可用内存增加约 " & FormatMemorySize(Result.FreedBytes), HintType.Green)
+                    Else
+                        LabMemHint.Text = $"已回收 {Result.TrimmedCount} 个进程的工作集，但可用内存没有明显增加。"
+                        Hint("已回收工作集，但可用内存没有明显增加", HintType.Blue)
+                    End If
+                    RefreshMemoryUi()
+                End Sub)
+            Catch ex As Exception
+                Logger.Warn(ex, "内存优化失败")
+                RunInUi(
+                Sub()
+                    MemTrimming = False
+                    BtnMemTrim.IsEnabled = True
+                    BtnMemRefresh.IsEnabled = True
+                    LabMemHint.Text = "内存优化失败：" & ex.Message
+                    Hint("内存优化失败：" & ex.Message, HintType.Red)
+                End Sub)
+            End Try
+        End Sub)
+    End Sub
+
+    Private Sub BtnMemRefresh_Click(sender As Object, e As EventArgs) Handles BtnMemRefresh.Click
+        RefreshMemoryUi()
+    End Sub
+
+    ''' <summary>重新读取物理内存与高占用进程，重画列表。</summary>
+    Private Sub RefreshMemoryUi()
+        If PanMemList Is Nothing Then Return
+        Dim Snapshot As DstMemorySnapshot = DstMemoryCore.GetSnapshot()
+        If Snapshot Is Nothing Then
+            LabMemUsage.Text = "读取内存占用失败"
+            LabMemDetail.Text = ""
+            Return
+        End If
+        LabMemUsage.Text = $"已用 {FormatMemorySize(Snapshot.UsedBytes)} / {FormatMemorySize(Snapshot.TotalBytes)}（{Snapshot.LoadPercent}%）"
+        LabMemDetail.Text = $"可用 {FormatMemorySize(Snapshot.AvailableBytes)}。列表只显示当前登录会话里的程序，" &
+                            $"系统服务不在此列；结束进程前请确认没有未保存的工作。"
+
+        PanMemList.Children.Clear()
+        Dim Items As List(Of DstProcessMemory) = DstMemoryCore.GetTopProcesses(12)
+        If Items.Count = 0 Then
+            PanMemList.Children.Add(New TextBlock With {
+                .Text = "当前没有占用超过 64 MB 的程序。",
+                .FontSize = 12, .Opacity = 0.55, .Margin = New Thickness(8, 6, 0, 6)
+            })
+            Return
+        End If
+        For Each Item In Items
+            PanMemList.Children.Add(BuildMemRow(Item))
+        Next
+    End Sub
+
+    ''' <summary>一行：进程名 / 占用 / 结束按钮。受保护的进程只显示原因，不给按钮。</summary>
+    Private Function BuildMemRow(Item As DstProcessMemory) As FrameworkElement
+        Dim Row As New Border With {
+            .Height = 32, .CornerRadius = New CornerRadius(4),
+            .Margin = New Thickness(0, 0, 0, 2), .Padding = New Thickness(8, 0, 4, 0),
+            .Background = Brushes.Transparent
+        }
+        Dim Grid As New Grid
+        Grid.ColumnDefinitions.Add(New ColumnDefinition With {.Width = New GridLength(1, GridUnitType.Star)})
+        Grid.ColumnDefinitions.Add(New ColumnDefinition With {.Width = GridLength.Auto})
+        Grid.ColumnDefinitions.Add(New ColumnDefinition With {.Width = GridLength.Auto})
+
+        Dim Name As New TextBlock With {
+            .Text = Item.Name, .FontSize = 12.5,
+            .VerticalAlignment = VerticalAlignment.Center,
+            .TextTrimming = TextTrimming.CharacterEllipsis
+        }
+        If Item.IsProtected Then Name.Opacity = 0.5
+        Grid.Children.Add(Name)
+
+        Dim Usage As New TextBlock With {
+            .Text = FormatMemorySize(Item.WorkingSetBytes), .FontSize = 11.5, .Opacity = 0.55,
+            .VerticalAlignment = VerticalAlignment.Center, .Margin = New Thickness(10, 0, 10, 0)
+        }
+        Grid.SetColumn(Usage, 1)
+        Grid.Children.Add(Usage)
+
+        If Item.IsProtected Then
+            '不能结束的进程：把原因写出来，比摆一个点不动的按钮诚实
+            Dim Why As New TextBlock With {
+                .Text = "受保护", .FontSize = 11, .Opacity = 0.4,
+                .VerticalAlignment = VerticalAlignment.Center, .Width = 64,
+                .TextAlignment = TextAlignment.Right, .ToolTip = Item.Reason
+            }
+            Grid.SetColumn(Why, 2)
+            Grid.Children.Add(Why)
+        Else
+            Dim BtnKill As New MyButton With {
+                .Text = "结束", .Height = 24, .MinWidth = 60,
+                .ColorType = MyButton.ColorState.Red,
+                .VerticalAlignment = VerticalAlignment.Center,
+                .ToolTip = $"结束 {Item.Name}（PID {Item.Pid}），它当前占用 {FormatMemorySize(Item.WorkingSetBytes)}"
+            }
+            Dim Target As DstProcessMemory = Item
+            AddHandler BtnKill.Click, Sub()
+                                          KillMemoryProcess(Target)
+                                      End Sub
+            Grid.SetColumn(BtnKill, 2)
+            Grid.Children.Add(BtnKill)
+        End If
+
+        Row.Child = Grid
+        If Not Item.IsProtected Then
+            AddHandler Row.MouseEnter, Sub() Row.Background = New SolidColorBrush(BackColorSub)
+            AddHandler Row.MouseLeave, Sub() Row.Background = Brushes.Transparent
+        End If
+        Return Row
+    End Function
+
+    ''' <summary>确认后结束进程。失败时如实说明原因，不静默吞掉。</summary>
+    Private Sub KillMemoryProcess(Item As DstProcessMemory)
+        If Item Is Nothing Then Return
+        If MyMsgBox($"确定要结束「{Item.Name}」吗？（PID {Item.Pid}，占用 {FormatMemorySize(Item.WorkingSetBytes)}）" & vbCrLf &
+                    vbCrLf & "未保存的内容会丢失，请确认没有正在进行的工作。" & vbCrLf &
+                    "如果这是系统或安全软件，结束它可能导致异常。",
+                    "结束进程", "结束进程", "取消", IsWarn:=True) <> 1 Then Return
+
+        Dim ErrorMessage As String = DstMemoryCore.KillProcess(Item.Pid)
+        If ErrorMessage = "" Then
+            Logger.Info($"已结束进程：{Item.Name}（PID {Item.Pid}），占用 {FormatMemorySize(Item.WorkingSetBytes)}")
+            Hint($"已结束 {Item.Name}", HintType.Green)
+        Else
+            Logger.Warn($"结束进程失败：{Item.Name}（PID {Item.Pid}）：{ErrorMessage}")
+            Hint($"结束 {Item.Name} 失败：{ErrorMessage}", HintType.Red)
+        End If
+        '给系统一点时间回收资源，立刻读到的数字才接近真实
+        Thread.Sleep(200)
+        RefreshMemoryUi()
     End Sub
 
 #End Region

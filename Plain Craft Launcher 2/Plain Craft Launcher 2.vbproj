@@ -236,6 +236,7 @@
     <Compile Include="Modules\Resource\ModInstallRunner.vb" />
     <Compile Include="Modules\Resource\ModInstallDialog.vb" />
     <Compile Include="Modules\Resource\ResourceSearcher.vb" />
+    <Compile Include="Modules\Minecraft\DstMemoryCore.vb" />
     <Compile Include="Modules\Minecraft\ModJava.vb" />
     <Compile Include="Modules\Resource\LocalResourceLoaders.vb" />
     <Compile Include="Modules\Minecraft\ModModpack.vb" />
