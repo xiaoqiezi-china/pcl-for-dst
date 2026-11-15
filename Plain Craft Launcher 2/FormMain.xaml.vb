@@ -183,10 +183,11 @@ Public Class FormMain
             Try
                 RunInUi(
                 Sub()
-                    '顺序：免责声明 → 首次外观选择 → 版本公告
+                    '顺序：免责声明 → 教程引导 → 首次外观选择 → 版本公告
                     '外观选择要在公告之前，因为它会改 DstAppearance，
                     '而公告只关心版本内容，两者互不影响
                     DstDisclaimer.ShowIfNeeded()
+                    DstGuide.ShowIfNeeded()
                     DstAppearanceSetup.ShowIfNeeded()
                     DstAnnounce.ShowIfNeeded()
                 End Sub)

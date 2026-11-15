@@ -184,9 +184,15 @@ Friend Class ReleaseFeed
                 Next
             End If
             If Result.Version = "" Then Result.Err = "Release 里没有版本号"
-        Catch ex As HttpRequestCodeException
-            Result.Err = "API 请求失败（多半是匿名配额用尽）"
-            Logger.Info($"查询 Release 失败（{Owner}/{Repo}）：{ex.Message}")
+        Catch ex As System.Net.WebException
+            'HttpGetText 走的是原生 HttpWebRequest，403/429 抛的是 WebException；
+            '只有 ModNet 那套封装才会抛 HttpRequestCodeException，这里要按状态码自己判断
+            Result.Err = FriendlyError(ex.Message)
+            Dim Status As Integer = 0
+            Dim Resp As System.Net.HttpWebResponse = TryCast(ex.Response, System.Net.HttpWebResponse)
+            If Resp IsNot Nothing Then Status = CInt(Resp.StatusCode)
+            If Status = 403 OrElse Status = 429 Then Result.Err = "API 请求失败（多半是匿名配额用尽）"
+            Logger.Info($"查询 Release 失败（{Owner}/{Repo}）：HTTP {Status}，{ex.Message}")
         Catch ex As Exception
             Result.Err = FriendlyError(ex.Message)
             Logger.Warn(ex, $"查询 GitHub Release 失败（{Owner}/{Repo}）")
@@ -293,12 +299,26 @@ Friend Class ReleaseFeed
                 End Sub))
         Next
         Try
-            Threading.Tasks.Task.WaitAll(Tasks.ToArray, TimeoutMs + 3000)
+            '超时返回 False 而不是抛异常：这时后台任务还在往 Results 里写，
+            '必须继续等它们收尾，否则下面的排序会撞上「集合已修改」
+            If Not Threading.Tasks.Task.WaitAll(Tasks.ToArray, TimeoutMs + 3000) Then
+                Logger.Warn("测速超时，等待未完成的源收尾")
+                Try
+                    Threading.Tasks.Task.WaitAll(Tasks.ToArray, 5000)
+                Catch ex As Exception
+                    Logger.Warn(ex, "测速任务收尾失败，按已有结果排序")
+                End Try
+            End If
         Catch ex As Exception
             Logger.Warn(ex, "测速过程出错")
         End Try
-        '按速度降序；测不出来的（0）排最后
-        Dim Sorted As List(Of String) = Results.OrderByDescending(Function(P) P.Value).Select(Function(P) P.Key).ToList()
+        '按速度降序；测不出来的（0）排最后。
+        '在锁里复制一份再排序，避免还有任务在写
+        Dim Snapshot As List(Of KeyValuePair(Of String, Double))
+        SyncLock LockObj
+            Snapshot = Results.ToList()
+        End SyncLock
+        Dim Sorted As List(Of String) = Snapshot.OrderByDescending(Function(P) P.Value).Select(Function(P) P.Key).ToList()
         '没测出结果的源也要保留，否则会少一条兜底
         For Each Url In Urls
             If Not Sorted.Contains(Url) Then Sorted.Add(Url)

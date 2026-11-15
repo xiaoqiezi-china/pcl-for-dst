@@ -142,4 +142,8 @@ run_tests LinkDiagnosticsTests \
     "$SRC/Modules/Config/ModLinkDiagnostics.vb" \
     tests/LinkDiagnosticsTests.vb || FAILED=1
 
+run_tests DstModeTests \
+    "$SRC/Modules/DstMode/DstModeCore.vb" \
+    tests/DstModeTests.vb || FAILED=1
+
 exit $FAILED

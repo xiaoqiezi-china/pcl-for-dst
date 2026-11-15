@@ -700,6 +700,14 @@ Retry:
         ''' 是否模拟浏览器的 UserAgent 和 Referer。
         ''' </summary>
         Public SimulateBrowserHeaders As Boolean
+        ''' <summary>
+        ''' 收到第一个字节前的超时（毫秒）。0 表示沿用默认的 15~30 秒自适应超时。
+        ''' <para>
+        ''' 默认超时是按「连接速度未知」估的保守值，对需要快速换源的小文件太久了：
+        ''' 一个连得上却不吐数据的镜像会白白拖住十几秒，让玩家以为下载卡死。
+        ''' </para>
+        ''' </summary>
+        Public StartTimeout As Integer = 0
 
         ''' <summary>
         ''' 上次记速时的时间。
@@ -914,16 +922,18 @@ StartThread:
             '部分下载源真的特别慢，并且只需要一个请求，例如 Ping 为 20s，如果增长太慢，就会造成类似 2.5s 5s 7.5s 10s 12.5s... 的极大延迟
             '延迟过长会导致某些特别慢的链接迟迟不被掐死
             Dim Timeout As Integer = Math.Min(Math.Max(ConnectAverage, 15000) * (1 + Th.Source.FailCount), 30000)
+            '首包超时：拿不到第一份数据时用更短的等待，否则慢镜像会把玩家拖在这里
+            Dim FirstDataTimeout As Integer = If(StartTimeout > 0 AndAlso Th.DownloadDone = 0, Math.Min(StartTimeout, Timeout), Timeout)
             Th.State = NetState.Connecting
             Try
                 Dim HttpDataCount As Integer = 0
                 If SourcesOnce.Contains(Th.Source) AndAlso Th <> Th.Source.SingleThread Then GoTo SourceBreak
                 HttpRequest = New HttpRequestMessage(HttpMethod.Get, Th.Source.Url)
                 SecretHeadersSign(Th.Source.Url, HttpRequest, SimulateBrowserHeaders)
-                CancelToken = New CancellationTokenSource(Timeout)
+                CancelToken = New CancellationTokenSource(FirstDataTimeout)
                 If Not Th.IsFirstThread Then HttpRequest.Headers.Range = New Headers.RangeHeaderValue(Th.DownloadStart, Nothing)
                 Dim ContentLength As Long = 0
-                Response = GetThreadClient().SendAsync(HttpRequest, HttpCompletionOption.ResponseHeadersRead, CancelToken.Token).GetResultWithTimeout(CancelToken, Timeout)
+                Response = GetThreadClient().SendAsync(HttpRequest, HttpCompletionOption.ResponseHeadersRead, CancelToken.Token).GetResultWithTimeout(CancelToken, FirstDataTimeout)
                 If Not Response.IsSuccessStatusCode Then '状态码检查
                     Throw New HttpRequestCodeException($"错误码 {Response.StatusCode} ({CInt(Response.StatusCode)})，{Th.Source.Url}", Response.StatusCode, Nothing)
                 End If
@@ -996,7 +1006,7 @@ NotSupportRange:
                 ResponseStream = Response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
                 If Settings.Get(Of Boolean)("SystemDebugDelay") Then Threading.Thread.Sleep(RandomInteger(50, 3000))
                 Dim ResponseBytes As Byte() = New Byte(16384) {}
-                HttpDataCount = ResponseStream.ReadAsync(ResponseBytes, 0, 16384, CancelToken.Token).GetResultWithTimeout(CancelToken, Timeout)
+                HttpDataCount = ResponseStream.ReadAsync(ResponseBytes, 0, 16384, CancelToken.Token).GetResultWithTimeout(CancelToken, FirstDataTimeout)
                 While (IsUnknownSize OrElse Th.DownloadUndone > 0) AndAlso '判断是否下载完成
                             HttpDataCount > 0 AndAlso Not IsProgramEnding AndAlso State < NetState.Merging AndAlso (Not Th.Source.IsFailed OrElse Th.Source.SingleThread = Th)
                     '限速
@@ -1055,7 +1065,7 @@ SourceBreak:
                 End If
             Catch ex As Exception
                 If ex.IsBadNetwork OrElse TypeOf ex Is TaskCanceledException Then
-                    Logger.Info(New TimeoutException($"{LocalName}：超时（{Timeout}ms），{ex.Message}"))
+                    Logger.Info(New TimeoutException($"{LocalName}：超时（{If(Th.DownloadDone = 0, FirstDataTimeout, Timeout)}ms），{ex.Message}"))
                 Else
                     Logger.Info(ex, $"{LocalName}：出错")
                 End If

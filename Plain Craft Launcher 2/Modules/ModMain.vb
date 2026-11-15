@@ -414,6 +414,7 @@ EndHint:
     Public FrmLoginMs As PageLoginMs
     Public FrmLoginMsSkin As PageLoginMsSkin
     Public FrmLoginQq As PageLoginQq
+    Public FrmLoginDstMode As PageLoginDstMode
 
     '版本设置页面声明
     Public FrmInstanceLeft As PageInstanceLeft
@@ -426,6 +427,7 @@ EndHint:
     Public FrmInstanceSaveDetail As PageInstanceSaveDetail
     Public FrmSaveDetailLeft As PageSaveDetailLeft
     Public FrmInstanceSaveMap As PageInstanceSaveMap
+    Public FrmInstanceSavePack As PageInstanceSavePack
     Public FrmInstanceResourcePack As PageInstanceResourcePack
     Public FrmInstanceShaderPack As PageInstanceShaderPack
     Public FrmInstanceFavorites As PageInstanceFavorites
@@ -497,6 +499,30 @@ EndHint:
         Public XamlContent As String
 
         '转换
+
+        ''' <summary>
+        ''' 构造一个不来自磁盘文件的内置条目（例如指向在线教程的入口）。
+        ''' 走「打开网页」事件，因此不需要 XamlContent。
+        ''' </summary>
+        Public Shared Function CreateLinkEntry(Title As String, Desc As String, Keywords As String,
+                                               Types As String(), Url As String) As HelpEntry
+            Dim Entry As New HelpEntry
+            Entry.Title = Title
+            Entry.Desc = Desc
+            Entry.Search = Keywords
+            Entry.Types = New List(Of String)(Types)
+            Entry.IsEvent = True
+            Entry.EventType = CustomEvent.EventType.打开网页
+            Entry.EventData = Url
+            Return Entry
+        End Function
+
+        ''' <summary>
+        ''' 供工厂方法使用的空构造：字段全部由调用方填充。
+        ''' 不填 XamlContent 也不填 RawPath，仅用于内置的「打开网页」类条目。
+        ''' </summary>
+        Public Sub New()
+        End Sub
 
         ''' <summary>
         ''' 从文件初始化 HelpEntry 对象，失败会抛出异常。
@@ -633,6 +659,10 @@ NextFile:
 
                 '将文件实例化
                 Dim Dict As New List(Of HelpEntry)
+                '内置的教程入口：不依赖 Help.zip，换地址或教程还没随包发布时也能用
+                Dict.Add(HelpEntry.CreateLinkEntry(
+                    "使用教程", "DPCL 的图文教程：选版本、装整合包、登录、联机、装 Mod 与常见问题",
+                    "入门 新手 教学 文档 教程", {"指南", "启动器"}, DstGuide.GuideUrl))
                 For Each FilePath As String In FileList
                     Try
                         Dim Entry As New HelpEntry(FilePath)
@@ -901,6 +931,8 @@ NextFile:
                     Text = Text.Replace("{login}", Replacer("统一通行证"))
                 Case McLoginType.Auth
                     Text = Text.Replace("{login}", Replacer("Authlib-Injector"))
+                Case McLoginType.DstMode
+                    Text = Text.Replace("{login}", Replacer("QQ 登录"))
             End Select
         Else
             Text = Text.Replace("{user}", Replacer(Nothing))

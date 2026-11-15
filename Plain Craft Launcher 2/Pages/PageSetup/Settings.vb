@@ -119,7 +119,7 @@ Public Class Settings
         New Setting("LaunchArgumentWindowWidth", 854),
         New Setting("LaunchArgumentWindowHeight", 480),
         New Setting("LaunchArgumentWindowType", 1),
-        New Setting("LaunchArgumentHanhua", 2), '0 关闭，1 仅获取汉化资源包，2 汉化 + 通用拼音搜索
+        New Setting("LaunchArgumentHanhua", 2), '档位见 ModHanhua.HanhuaMode：0 无，1 仅汉化资源包，2 全部启用，3 仅通用拼音搜索
         New Setting("LaunchArgumentRam", False, Source:=Sources.Registry),
         New Setting("LaunchAdvanceJvm", "-XX:-OmitStackTraceInFastThrow -Djdk.lang.Process.allowAmbiguousCommands=True -Dfml.ignoreInvalidMinecraftCertificates=True -Dfml.ignorePatchDiscrepancies=True"),
         New Setting("LaunchAdvanceGame", ""),
@@ -195,6 +195,7 @@ Public Class Settings
         New Setting("DstOfflineShowServers", True),
         New Setting("DstNeMusicLevel", "standard"),
         New Setting("DstDisclaimerAgreed", False),
+        New Setting("DstGuideSeen", False),
         New Setting("DstLastAnnounceVersion", ""),
         New Setting("DstHomeOrder", "servers,report,bot"),
         New Setting("DstSeenReports", ""),
@@ -213,6 +214,8 @@ Public Class Settings
         New Setting("DstBotUseCustom", False),
         New Setting("DstQqNumber", ""),
         New Setting("DstQqUserKey", "", Source:=Sources.Registry, Encrypted:=True),
+        New Setting("DstModeName", ""), 'QQ 登录上次用的游戏名
+        New Setting("DstModeCredential", "", Source:=Sources.Registry, Encrypted:=True), 'QQ 登录凭据缓存（有效期内复用）
         New Setting("DstQqLastOkTicks", 0L),
         New Setting("DstQqBindDay", 0),
         New Setting("DstQqBindCount", 0),

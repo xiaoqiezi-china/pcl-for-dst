@@ -37,15 +37,38 @@ Public Class PageInstanceSaveDetail
         If IsLoaded AndAlso Id <> 4 Then RefreshContent()
     End Sub
 
-    ''' <summary>只显示当前分类的卡片；存档的头顶信息（名字、路径、按钮）只在「世界设置」里出现。</summary>
+    ''' <summary>
+    ''' 只显示当前分类的卡片；存档的头顶信息（名字、路径、按钮）只在「世界设置」里出现。
+    ''' <para>
+    ''' 显示卡片时必须连透明度一起恢复。页面切换动画会把当时可见的控件逐个淡到 0，
+    ''' 重新进入页面时又只恢复「那一刻可见」的卡片；被 Visibility 藏起来的分类不参与动画，
+    ''' 于是它们的 Opacity 会一直停在 0——再切回来时卡片框架还在、内容却整片透明。
+    ''' </para>
+    ''' </summary>
     Private Sub ApplySectionVisibility()
         If CardLevel Is Nothing Then Return
-        '地图管理是独立内容区，不跟其它卡片挤在同一个滚动区里
+        '数据包与地图管理都是独立页面，不跟其它卡片挤在同一个滚动区里
+        Dim IsPack As Boolean = Section = 1
         Dim IsMap As Boolean = Section = 4
-        If PanBack IsNot Nothing Then PanBack.Visibility = If(IsMap, Visibility.Collapsed, Visibility.Visible)
+        If PanBack IsNot Nothing Then PanBack.Visibility = If(IsPack OrElse IsMap, Visibility.Collapsed, Visibility.Visible)
+        SetCardShown(CardLevel, Section = 0)
+        SetCardShown(CardRegion, Section = 2)
+        SetCardShown(CardPlayer, Section = 3)
+        If PanPackPage IsNot Nothing Then PanPackPage.Visibility = If(IsPack, Visibility.Visible, Visibility.Collapsed)
         If PanMap IsNot Nothing Then PanMap.Visibility = If(IsMap, Visibility.Visible, Visibility.Collapsed)
+        If CardHeader IsNot Nothing Then CardHeader.Visibility = If(Section = 0, Visibility.Visible, Visibility.Collapsed)
+        If IsPack Then
+            If FrmInstanceSavePack Is Nothing Then FrmInstanceSavePack = New PageInstanceSavePack
+            If PanPackPage IsNot Nothing AndAlso FrmInstanceSavePack.Parent Is Nothing Then
+                PanPackPage.Children.Clear()
+                PanPackPage.Children.Add(FrmInstanceSavePack)
+            End If
+            Return
+        End If
+        If PanPackPage IsNot Nothing AndAlso FrmInstanceSavePack IsNot Nothing AndAlso PanPackPage.Children.Contains(FrmInstanceSavePack) Then
+            PanPackPage.Children.Clear()
+        End If
         If IsMap Then
-            If CardHeader IsNot Nothing Then CardHeader.Visibility = Visibility.Collapsed
             If FrmInstanceSaveMap Is Nothing Then FrmInstanceSaveMap = New PageInstanceSaveMap
             If PanMap IsNot Nothing AndAlso FrmInstanceSaveMap.Parent Is Nothing Then
                 PanMap.Children.Clear()
@@ -56,12 +79,8 @@ Public Class PageInstanceSaveDetail
         If PanMap IsNot Nothing AndAlso FrmInstanceSaveMap IsNot Nothing AndAlso PanMap.Children.Contains(FrmInstanceSaveMap) Then
             PanMap.Children.Clear()
         End If
-        CardLevel.Visibility = If(Section = 0, Visibility.Visible, Visibility.Collapsed)
-        CardPack.Visibility = If(Section = 1, Visibility.Visible, Visibility.Collapsed)
-        CardRegion.Visibility = If(Section = 2, Visibility.Visible, Visibility.Collapsed)
-        CardPlayer.Visibility = If(Section = 3, Visibility.Visible, Visibility.Collapsed)
         If CardHeader Is Nothing Then Return
-        CardHeader.Visibility = If(Section = 0, Visibility.Visible, Visibility.Collapsed)
+        SetCardShown(CardHeader, Section = 0)
         CardHeader.Margin = If(Section = 0, New Thickness(0, 15, 0, 15), New Thickness(0))
         If PanBack IsNot Nothing Then
             '没有头顶信息时，界面上沿要往下让一点，不要贴着标题栏
@@ -70,15 +89,33 @@ Public Class PageInstanceSaveDetail
         End If
     End Sub
 
+    ''' <summary>
+    ''' 显示或隐藏一张卡片。显示时把整棵子树从切换动画留下的透明状态里恢复回来，
+    ''' 否则切回这个分类只会看到一片空白（内容其实都在，只是 Opacity 还是 0）。
+    ''' </summary>
+    Private Sub SetCardShown(Card As FrameworkElement, Shown As Boolean)
+        If Card Is Nothing Then Return
+        If Not Shown Then
+            Card.Visibility = Visibility.Collapsed
+            Return
+        End If
+        Card.Visibility = Visibility.Visible
+        'GetAllAnimControls 正好就是切换动画会改动的那批控件
+        For Each Control In GetAllAnimControls(Card, True)
+            Control.Opacity = 1
+            Control.IsHitTestVisible = True
+            If TypeOf Control.RenderTransform Is TranslateTransform Then Control.RenderTransform = Nothing
+        Next
+    End Sub
+
     ''' <summary>重新读取当前存档的全部内容。</summary>
     Public Sub RefreshContent()
-        If PanPack Is Nothing Then Return
+        If PanLevel Is Nothing Then Return
         Dim SaveDir As String = CurDir
         If SaveDir = "" OrElse Not DirectoryUtils.Exists(SaveDir) Then
             LabName.Text = "存档不存在"
             LabPath.Text = SaveDir
             LabLevelName.Text = ""
-            PanPack.Children.Clear()
             PanRegion.Children.Clear()
             PanPlayer.Children.Clear()
             PanLevel.Children.Clear()
@@ -95,12 +132,12 @@ Public Class PageInstanceSaveDetail
             If NameTag IsNot Nothing Then LevelName = CType(NameTag.TagValue, String)
         End If
         LabLevelName.Text = If(LevelName = "", "level.dat 中没有记录世界名", "level.dat 中的世界名：" & LevelName)
-        '只重建当前显示的分类
+        '只重建当前显示的分类。数据包是独立页面，由它自己刷新
         Select Case Section
             Case 0
                 BuildLevel()
             Case 1
-                BuildPacks(SaveDir)
+                If FrmInstanceSavePack IsNot Nothing Then FrmInstanceSavePack.Refresh()
             Case 2
                 BuildRegions(SaveDir)
             Case 3
@@ -521,178 +558,6 @@ Public Class PageInstanceSaveDetail
 
 #End Region
 
-#Region "数据包"
-
-    ''' <summary>datapacks 目录下的一个条目。</summary>
-    Public Class PackEntry
-        ''' <summary>完整路径。</summary>
-        Public Path As String = ""
-        ''' <summary>数据包名（去掉 .zip / .disable 之后的文件名，或文件夹名）。</summary>
-        Public Name As String = ""
-        ''' <summary>是不是文件夹（开发状态的开发包）。</summary>
-        Public IsFolder As Boolean = False
-        ''' <summary>扩展名状态：0 启用（.zip）、1 停用（.zip.disable）、2 文件夹。</summary>
-        Public State As Integer = 0
-        ''' <summary>相对数据包文件夹的位置，用于提示。</summary>
-        Public DisplayPath As String = ""
-    End Class
-
-    Private Const PackStateOn As Integer = 0
-    Private Const PackStateOff As Integer = 1
-    Private Const PackStateFolder As Integer = 2
-
-    ''' <summary>
-    ''' 扫描 datapacks 目录。
-    ''' 启用中的包是 .zip；停用的包是 .zip.disable；文件夹是开发中的包，不能直接启用或停用。
-    ''' </summary>
-    Private Function ScanPacks(SaveDir As String) As List(Of PackEntry)
-        Dim Result As New List(Of PackEntry)
-        Dim Folder As String = SaveDir & "datapacks\"
-        If Not DirectoryUtils.Exists(Folder) Then Return Result
-        Try
-            For Each F In DirectoryUtils.EnumerateFiles(Folder, False)
-                Dim Lower As String = F.ToLower()
-                Dim Entry As New PackEntry With {.Path = F, .DisplayPath = F.Substring(Folder.Length)}
-                If Lower.EndsWith(".zip.disable") Then
-                    Entry.Name = PathUtils.GetLastPart(F).Substring(0, PathUtils.GetLastPart(F).Length - 12)
-                    Entry.State = PackStateOff
-                    Result.Add(Entry)
-                ElseIf Lower.EndsWith(".zip") Then
-                    Entry.Name = PathUtils.GetFileNameWithoutExtension(F)
-                    Entry.State = PackStateOn
-                    Result.Add(Entry)
-                End If
-            Next
-            For Each D In DirectoryUtils.EnumerateDirectories(Folder, False)
-                '文件夹形态的数据包必须带 pack.mcmeta，否则 Minecraft 会直接忽略
-                If Not FileUtils.Exists(PathUtils.AddSlashSuffix(D) & "pack.mcmeta") Then Continue For
-                Result.Add(New PackEntry With {
-                    .Path = D, .Name = PathUtils.GetLastPart(D), .IsFolder = True,
-                    .State = PackStateFolder, .DisplayPath = D.Substring(Folder.Length)
-                })
-            Next
-        Catch ex As Exception
-            Logger.Warn(ex, "读取数据包目录失败")
-        End Try
-        Result.Sort(Function(A, B) String.Compare(A.Name, B.Name, StringComparison.OrdinalIgnoreCase))
-        Return Result
-    End Function
-
-    Private Sub BuildPacks(SaveDir As String)
-        PanPack.Children.Clear()
-        Dim Packs As List(Of PackEntry) = ScanPacks(SaveDir)
-        If Packs.Count = 0 Then
-            PanPack.Children.Add(EmptyHint("没有数据包。把 .zip 文件或带 pack.mcmeta 的文件夹放进 datapacks 文件夹即可加载。"))
-            Return
-        End If
-        For Each Entry In Packs
-            PanPack.Children.Add(BuildPackRow(Entry, SaveDir))
-        Next
-        PanPack.Children.Add(New TextBlock With {
-            .Text = "启用中的包是 .zip，停用后改成 .zip.disable。文件夹形态是开发中的包，游戏会直接读它，开关由游戏自己决定，这里不能切换。",
-            .FontSize = 11, .Opacity = 0.45, .TextWrapping = TextWrapping.Wrap,
-            .Margin = New Thickness(2, 6, 0, 0)
-        })
-    End Sub
-
-    ''' <summary>一个数据包的条目。</summary>
-    Private Function BuildPackRow(Entry As PackEntry, SaveDir As String) As FrameworkElement
-        Dim StateText As String
-        Select Case Entry.State
-            Case PackStateOn
-                StateText = "已启用"
-            Case PackStateOff
-                StateText = "已停用"
-            Case Else
-                StateText = "文件夹 · 开发中"
-        End Select
-        Dim SubText As String = PackDesc(Entry.Path)
-        If SubText = "" Then SubText = StateText
-        If SubText <> StateText Then SubText = StateText & " · " & SubText
-        If Entry.State = PackStateFolder Then SubText &= " · 无法切换"
-
-        Dim Buttons As New List(Of FrameworkElement)
-        If Entry.State <> PackStateFolder Then
-            Dim BtnToggle As New MyIconButton With {
-                .Logo = If(Entry.State = PackStateOn, Logo.IconButtonStop, Logo.IconButtonCheck),
-                .Width = 26, .Height = 26, .LogoScale = 0.8, .Margin = New Thickness(6, 0, 0, 0),
-                .ToolTip = If(Entry.State = PackStateOn, "停用（改名成 .zip.disable）", "启用（改名成 .zip）")
-            }
-            AddHandler BtnToggle.Click, Sub() TogglePack(Entry, SaveDir)
-            Buttons.Add(BtnToggle)
-        End If
-
-        Dim BtnOpen As New MyIconButton With {
-            .Logo = Logo.IconButtonOpen, .Width = 26, .Height = 26, .LogoScale = 0.8,
-            .Margin = New Thickness(6, 0, 0, 0), .ToolTip = "打开所在文件夹"
-        }
-        AddHandler BtnOpen.Click, Sub() OpenExplorer(PathUtils.RemoveLastPart(Entry.Path))
-        Buttons.Add(BtnOpen)
-
-        Dim BtnDelete As New MyIconButton With {
-            .Logo = Logo.IconButtonDelete, .Width = 26, .Height = 26, .LogoScale = 0.8,
-            .Margin = New Thickness(6, 0, 0, 0), .ToolTip = "删除数据包"
-        }
-        AddHandler BtnDelete.Click, Sub() DeleteItem(Entry.Path, "数据包")
-        Buttons.Add(BtnDelete)
-
-        '停用的包整体压暗一点，一眼能分出来
-        Dim Row As FrameworkElement = BuildRow(PackIcon(Entry.Path), Entry.Name, SubText, "", Buttons)
-        If Entry.State = PackStateOff Then Row.Opacity = 0.6
-        Return Row
-    End Function
-
-    ''' <summary>
-    ''' 切换数据包的启用状态。
-    ''' Minecraft 靠文件后缀判断：.zip 启用、.zip.disable 停用，所以这里只改扩展名。
-    ''' 文件夹形态是开发包，不支持切换。
-    ''' </summary>
-    Private Sub TogglePack(Entry As PackEntry, SaveDir As String)
-        If Entry.IsFolder Then
-            Hint("文件夹形态的数据包是开发中的包，不能在启动器里启用或停用。", HintType.Red)
-            Return
-        End If
-        If Not FileUtils.Exists(Entry.Path) Then
-            Hint("这个数据包文件已经不在了：" & Entry.DisplayPath, HintType.Red)
-            RefreshContent()
-            Return
-        End If
-        Dim NewPath As String
-        If Entry.State = PackStateOn Then
-            NewPath = Entry.Path & ".disable"
-        Else
-            '要把末尾的 .disable 去掉
-            NewPath = Entry.Path.Substring(0, Entry.Path.Length - 8)
-        End If
-        If FileUtils.Exists(NewPath) Then
-            Hint("目标文件已存在，改名会覆盖它，所以停下了：" & PathUtils.GetLastPart(NewPath), HintType.Red)
-            Return
-        End If
-        Try
-            FileUtils.Move(Entry.Path, NewPath)
-        Catch ex As Exception
-            Hint("改名失败：" & ex.Message, HintType.Red)
-            Logger.Error(ex, "切换数据包状态失败")
-            Return
-        End Try
-        Hint(If(Entry.State = PackStateOn, "已停用", "已启用") & "：" & Entry.Name, HintType.Green)
-        RefreshContent()
-    End Sub
-
-    ''' <summary>数据包在列表中的名字（.zip / .zip.disable 都要去掉）。</summary>
-    Private Function PackNameOf(Item As String) As String
-        Dim FileName As String = PathUtils.GetLastPart(Item)
-        If FileName.EndsWith(".zip.disable", StringComparison.OrdinalIgnoreCase) Then
-            Return FileName.Substring(0, FileName.Length - 12)
-        End If
-        If FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) Then
-            Return PathUtils.GetFileNameWithoutExtension(Item)
-        End If
-        Return FileName
-    End Function
-
-#End Region
-
 #Region "区域文件"
 
     Private Sub BuildRegions(SaveDir As String)
@@ -726,7 +591,7 @@ Public Class PageInstanceSaveDetail
     Private Function BuildRegionRow(File As String, Folder As String) As FrameworkElement
         Dim SizeText As String = ""
         Try
-            SizeText = FormatSize(FileUtils.GetInfo(File).Length)
+            SizeText = StringUtils.FormatByteSize(FileUtils.GetInfo(File).Length)
         Catch ex As Exception
             Logger.Warn(ex, $"读取区域文件大小失败：{File}")
         End Try
@@ -1327,12 +1192,6 @@ Public Class PageInstanceSaveDetail
         }
     End Function
 
-    Private Shared Function FormatSize(Bytes As Long) As String
-        If Bytes < 1024 Then Return Bytes & " B"
-        If Bytes < 1024 * 1024 Then Return Math.Round(Bytes / 1024, 1) & " KB"
-        Return Math.Round(Bytes / 1024 / 1024, 1) & " MB"
-    End Function
-
     Private Shared Function FormatDouble(Value As Double, Digits As Integer) As String
         Return Math.Round(Value, Digits).ToString()
     End Function
@@ -1433,122 +1292,6 @@ Public Class PageInstanceSaveDetail
         Return G
     End Function
 
-    ''' <summary>数据包图标常用的文件名，按优先级排列。</summary>
-    Private ReadOnly PackIconNames As String() = {"pack.png", "icon.png", "logo.png", "globe.png", "cover.png", "banner.png"}
-
-    ''' <summary>
-    ''' 数据包图标。优先 pack.png，其次是根目录里的其它 png
-    ''' （不少整合包把图标叫 globe.png / icon.png，并不叫 pack.png）。
-    ''' </summary>
-    Private Function PackIcon(Item As String) As ImageSource
-        Try
-            If IsPackZip(Item) Then
-                Using Zip As ZipArchive = ZipFile.OpenRead(Item)
-                    Dim Entry As ZipArchiveEntry = FindZipImage(Zip)
-                    If Entry Is Nothing Then Return Nothing
-                    Return LoadImage(Entry)
-                End Using
-            Else
-                Dim Folder As String = PathUtils.AddSlashSuffix(Item)
-                For Each FileName In PackIconNames
-                    If FileUtils.Exists(Folder & FileName) Then Return LoadImageFile(Folder & FileName)
-                Next
-                Try
-                    For Each F In DirectoryUtils.EnumerateFiles(Folder, False, "*.png")
-                        Return LoadImageFile(F)
-                    Next
-                Catch ex As Exception
-                    Logger.Warn(ex, $"读取地图图片失败：{Folder}")
-                End Try
-            End If
-        Catch ex As Exception
-            Logger.Warn(ex, "读取数据包图标失败：" & Item)
-        End Try
-        Return Nothing
-    End Function
-
-    ''' <summary>是不是压缩包形态的数据包（启用中的 .zip，或停用的 .zip.disable）。</summary>
-    Private Function IsPackZip(Item As String) As Boolean
-        If Item.EndsWith(".zip.disable", StringComparison.OrdinalIgnoreCase) Then Return True
-        Return Item.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
-    End Function
-
-    ''' <summary>在压缩包根目录里找一个图片当图标。</summary>
-    Private Function FindZipImage(Zip As ZipArchive) As ZipArchiveEntry
-        For Each FileName In PackIconNames
-            For Each Item In Zip.Entries
-                If Item.FullName.Equals(FileName, StringComparison.OrdinalIgnoreCase) Then Return Item
-            Next
-        Next
-        '根目录下任意 png
-        For Each Item2 In Zip.Entries
-            If Item2.FullName.IndexOf("/"c) < 0 AndAlso Item2.FullName.EndsWith(".png", StringComparison.OrdinalIgnoreCase) Then Return Item2
-        Next
-        Return Nothing
-    End Function
-
-    Private Function LoadImage(Entry As ZipArchiveEntry) As ImageSource
-        Using Ms As New MemoryStream()
-            Using Stream As Stream = Entry.Open()
-                Stream.CopyTo(Ms)
-            End Using
-            Ms.Position = 0
-            Dim Bmp As New BitmapImage()
-            Bmp.BeginInit()
-            Bmp.CacheOption = BitmapCacheOption.OnLoad
-            Bmp.StreamSource = Ms
-            Bmp.EndInit()
-            Bmp.Freeze()
-            Return Bmp
-        End Using
-    End Function
-
-    Private Function LoadImageFile(Path As String) As ImageSource
-        Using Fs As New FileStream(Path, FileMode.Open, FileAccess.Read, FileShare.Read)
-            Using Ms As New MemoryStream()
-                Fs.CopyTo(Ms)
-                Ms.Position = 0
-                Dim Bmp As New BitmapImage()
-                Bmp.BeginInit()
-                Bmp.CacheOption = BitmapCacheOption.OnLoad
-                Bmp.StreamSource = Ms
-                Bmp.EndInit()
-                Bmp.Freeze()
-                Return Bmp
-            End Using
-        End Using
-    End Function
-
-    ''' <summary>数据包说明，取自 pack.mcmeta。</summary>
-    Private Function PackDesc(Item As String) As String
-        Try
-            Dim Meta As String = ""
-            If IsPackZip(Item) Then
-                Using Zip As ZipArchive = ZipFile.OpenRead(Item)
-                    Dim Entry As ZipArchiveEntry = Zip.GetEntry("pack.mcmeta")
-                    If Entry Is Nothing Then Return ""
-                    Using Stream As Stream = Entry.Open()
-                        Using Reader As New StreamReader(Stream)
-                            Meta = Reader.ReadToEnd()
-                        End Using
-                    End Using
-                End Using
-            Else
-                Dim MetaPath As String = PathUtils.AddSlashSuffix(Item) & "pack.mcmeta"
-                If Not FileUtils.Exists(MetaPath) Then Return ""
-                Meta = FileUtils.ReadAsString(MetaPath)
-            End If
-            Dim Json As JObject = JObject.Parse(Meta)
-            Dim Pack As JObject = Json("pack")
-            If Pack Is Nothing Then Return ""
-            Dim Desc As JToken = Pack("description")
-            If Desc Is Nothing Then Return ""
-            If Desc.Type = JTokenType.String Then Return Desc.ToString()
-            Return ""
-        Catch
-            Return ""
-        End Try
-    End Function
 
 #End Region
 

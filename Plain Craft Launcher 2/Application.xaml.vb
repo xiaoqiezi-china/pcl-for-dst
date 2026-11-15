@@ -411,6 +411,8 @@ RetryCacheCheck:
                 Settings.Set("LoginLegacyName", Names.Join("¨"c))
                 FrmLoginLegacy.ComboName.ItemsSource = Names
                 FrmLoginLegacy.ComboName.Text = If(Names.Any, Names(0), "")
+            Case McLoginType.DstMode
+                'QQ 登录没有账号列表，这里是标题栏头像按钮的删除逻辑，对它不适用
             Case Else
                 '第三方
                 Dim Token As String = Settings.Get(Of McLoginType)("LoginType").ToString()

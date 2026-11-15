@@ -164,6 +164,8 @@ Public Class PageLaunchRight
         End If
         LabBotBind.Text = If(DstBot.IsQqBound, $"已绑定 QQ {DstBot.QqNumber}", "未绑定 QQ")
         BtnDstBotBind.Text = If(DstBot.IsQqBound, "解绑 QQ", "绑定 QQ")
+        '左侧 QQ 登录页的按钮会从「绑定」变成「登录」，反过来也一样，这里顺手同步一下
+        If FrmLoginDstMode IsNot Nothing Then FrmLoginDstMode.RefreshUi()
     End Sub
 
     Private Sub BtnDstBotBind_Click(sender As Object, e As EventArgs) Handles BtnDstBotBind.Click

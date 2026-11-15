@@ -228,10 +228,14 @@
     <Compile Include="Modules\Config\ModReleaseFeed.vb" />
     <Compile Include="Modules\Config\ModUpdateSource.vb" />
     <Compile Include="Modules\DstI18nTool.vb" />
+    <Compile Include="Modules\DstMode\DstModeCore.vb" />
+    <Compile Include="Modules\DstMode\ModDstMode.vb" />
+  <Compile Include="Modules\DstMode\ModDstSkin.vb" />
     <Compile Include="Modules\Resource\ModHanhua.vb" />
     <Compile Include="Modules\Resource\ModPinyinSearch.vb" />
     <Compile Include="Modules\Resource\ModPackState.vb" />
     <Compile Include="Modules\Resource\ModPackFolder.vb" />
+    <Compile Include="Modules\Resource\ModPackInfo.vb" />
     <Compile Include="Modules\Resource\ModInstallPlanner.vb" />
     <Compile Include="Modules\Resource\ModInstallRunner.vb" />
     <Compile Include="Modules\Resource\ModInstallDialog.vb" />
@@ -303,6 +307,7 @@
   <Compile Include="Pages\PageInstance\DstNbtViewer.vb" />
   <Compile Include="Pages\PageInstance\DstItemPanel.vb" />
   <Compile Include="Modules\DstDisclaimer.vb" />
+  <Compile Include="Modules\DstGuide.vb" />
   <Compile Include="Modules\DstCustomServer.vb" />
   <Compile Include="Modules\DstAppearanceSetup.vb" />
     <Compile Include="Modules\DstAnnounce.vb" />
@@ -355,6 +360,9 @@
     <Compile Include="Pages\PageLaunch\PageLoginQq.xaml.vb">
       <DependentUpon>PageLoginQq.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Pages\PageLaunch\PageLoginDstMode.xaml.vb">
+      <DependentUpon>PageLoginDstMode.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Pages\PageLaunch\PageLoginMsSkin.xaml.vb">
       <DependentUpon>PageLoginMsSkin.xaml</DependentUpon>
     </Compile>
@@ -384,6 +392,9 @@
     </Compile>
     <Compile Include="Pages\PageInstance\PageInstanceSaveMap.xaml.vb">
       <DependentUpon>PageInstanceSaveMap.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Pages\PageInstance\PageInstanceSavePack.xaml.vb">
+      <DependentUpon>PageInstanceSavePack.xaml</DependentUpon>
     </Compile>
     <Compile Include="Pages\PageInstance\PageInstanceResourcePack.xaml.vb">
       <DependentUpon>PageInstanceResourcePack.xaml</DependentUpon>
@@ -670,6 +681,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Pages\PageLaunch\PageLoginDstMode.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Pages\PageLaunch\PageLoginMsSkin.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -711,6 +726,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Pages\PageInstance\PageInstanceSaveMap.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Pages\PageInstance\PageInstanceSavePack.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

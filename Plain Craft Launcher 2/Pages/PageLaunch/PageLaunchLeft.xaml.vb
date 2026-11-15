@@ -10,6 +10,8 @@ Public Class PageLaunchLeft
     Private OfflineChecked As Boolean = False
 
     Public Sub PageLaunchLeft_Loaded() Handles Me.Loaded
+        'QQ 登录的图标在这里挂，免得在 XAML 里贴一长串路径
+        If RadioLoginType6 IsNot Nothing Then RadioLoginType6.Logo = Logo.IconButtonUser
         If IsLoad Then RefreshPage(True, False)
         If Not OfflineChecked Then
             OfflineChecked = True
@@ -139,6 +141,8 @@ Public Class PageLaunchLeft
                 LabLaunchingMethod.Text = "统一通行证"
             Case McLoginType.Auth
                 LabLaunchingMethod.Text = "Authlib-Injector"
+            Case McLoginType.DstMode
+                LabLaunchingMethod.Text = "QQ 登录"
         End Select
         '初始化页面
         LabLaunchingName.Text = McInstanceSelected.Name
@@ -209,6 +213,7 @@ Public Class PageLaunchLeft
         Ms
         MsSkin
         Qq
+        DstMode
     End Enum
     ''' <summary>
     ''' 当前页面的种类。
@@ -241,6 +246,9 @@ Public Class PageLaunchLeft
             Case PageType.Qq
                 If IsNothing(FrmLoginQq) Then FrmLoginQq = New PageLoginQq
                 Return FrmLoginQq
+            Case PageType.DstMode
+                If IsNothing(FrmLoginDstMode) Then FrmLoginDstMode = New PageLoginDstMode
+                Return FrmLoginDstMode
             Case Else
                 Throw New ArgumentOutOfRangeException("Type", "即将切换的登录分页编号越界")
         End Select
@@ -381,6 +389,14 @@ UnknownType:
                 PathTypeOne.Data = (New GeometryConverter).ConvertFromString(Logo.IconButtonCard)
                 LabTypeOne.Text = If(McInstanceSelected Is Nothing, Settings.Get(Of String)("CacheAuthServerName"), Settings.Get(Of String)("VersionServerAuthName", Instance:=McInstanceSelected))
                 If LabTypeOne.Text = "" Then LabTypeOne.Text = "第三方登录"
+            Case 5 'QQ 登录（DST-Mode）
+                '和「正版或离线」一样保留登录方式那一排，否则切不回别的登录方式
+                Type = PageType.DstMode
+                Settings.Set("LoginType", McLoginType.DstMode)
+                PanType.Visibility = Visibility.Visible
+                PanTypeOne.Visibility = Visibility.Collapsed
+                RadioLoginType5.Visibility = Visibility.Visible
+                RadioLoginType0.Visibility = Visibility.Visible
             Case Else
                 Logger.Error($"未知的登录页面：{LoginPageType}", LogBehavior.Toast)
                 GoTo UnknownType
@@ -396,6 +412,7 @@ UnknownType:
             RadioLoginTypeQq.Checked = True
             RadioLoginType5.Checked = False
             RadioLoginType0.Checked = False
+            RadioLoginType6.Checked = False
         Else
             RadioLoginTypeQq.Checked = False
             Dim Control As MyRadioButton = FindName("RadioLoginType" & Settings.Get(Of McLoginType)("LoginType"))
@@ -1128,6 +1145,17 @@ ExitRefresh:
     Private Sub RadioLoginTypeQq_Check(sender As Object, raiseByMouse As Boolean) Handles RadioLoginTypeQq.Check
         If Not raiseByMouse Then Return
         SwitchToQqMode()
+    End Sub
+
+    ''' <summary>QQ 登录（DST-Mode）：切到绑定码登录页，并退出 QQ 群形态。</summary>
+    Private Sub RadioLoginType6_Check(sender As Object, raiseByMouse As Boolean) Handles RadioLoginType6.Check
+        If Not raiseByMouse Then Return
+        Settings.Set("DstQqMode", False)
+        Settings.Set("LoginPageType", 5)
+        If McInstanceSelected IsNot Nothing Then Settings.Set("VersionServerLogin", 5, Instance:=McInstanceSelected)
+        '强制下次重算启动按钮文案（QQ 形态把它改写过）
+        BtnLaunchState = -1
+        RefreshPage(True, True)
     End Sub
 
     Private Sub ShowQqBindAction()

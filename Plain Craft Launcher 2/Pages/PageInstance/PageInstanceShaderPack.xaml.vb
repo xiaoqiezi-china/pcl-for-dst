@@ -666,69 +666,6 @@ Public Class PageInstanceShaderPack
 #End Region
 
 #Region "行与图标"
-
-    ''' <summary>一行条目：图标 + 名称 + 说明 + 右侧按钮。读不到图标时换成 NoIcon。</summary>
-    Private Function BuildRow(IconSource As ImageSource, Title As String, SubText As String,
-                              Buttons As List(Of FrameworkElement)) As FrameworkElement
-        Dim IconElement As FrameworkElement
-        If IconSource Is Nothing Then
-            IconElement = New MyImage With {.Stretch = Stretch.UniformToFill, .Source = PathImage & "Icons/NoIcon.png"}
-        Else
-            IconElement = New Image With {.Stretch = Stretch.UniformToFill, .Source = IconSource}
-        End If
-        Return BuildRowWith(IconElement, Title, SubText, Buttons)
-    End Function
-
-    ''' <summary>同一行，但图标元素由调用方提供。</summary>
-    Private Function BuildRowWith(IconElement As FrameworkElement, Title As String, SubText As String,
-                                  Buttons As List(Of FrameworkElement)) As FrameworkElement
-        Dim Row As New Border With {
-            .Height = 48, .CornerRadius = New CornerRadius(6), .Margin = New Thickness(0, 0, 0, 6),
-            .Padding = New Thickness(10, 0, 10, 0), .Background = New SolidColorBrush(BackColorSub)
-        }
-        Dim G As New Grid
-        G.ColumnDefinitions.Add(New ColumnDefinition With {.Width = GridLength.Auto})
-        Dim IconBox As New Border With {
-            .Width = 32, .Height = 32, .CornerRadius = New CornerRadius(4),
-            .Margin = New Thickness(0, 0, 10, 0), .VerticalAlignment = VerticalAlignment.Center,
-            .Background = New SolidColorBrush(BackColorMain)
-        }
-        IconBox.Child = IconElement
-        G.Children.Add(IconBox)
-        G.ColumnDefinitions.Add(New ColumnDefinition With {.Width = New GridLength(1, GridUnitType.Star)})
-        G.ColumnDefinitions.Add(New ColumnDefinition With {.Width = GridLength.Auto})
-
-        Dim Info As New StackPanel With {.VerticalAlignment = VerticalAlignment.Center}
-        Dim TitleBlock As New TextBlock With {
-            .Text = Title, .FontSize = 12.5, .FontWeight = FontWeights.Bold,
-            .TextTrimming = TextTrimming.CharacterEllipsis
-        }
-        Info.Children.Add(TitleBlock)
-        If SubText <> "" Then
-            Info.Children.Add(New TextBlock With {
-                .Text = SubText, .FontSize = 11, .Opacity = 0.5, .Margin = New Thickness(0, 2, 0, 0),
-                .TextTrimming = TextTrimming.CharacterEllipsis
-            })
-        End If
-        Grid.SetColumn(Info, 1)
-        G.Children.Add(Info)
-
-        Dim RightBox As New StackPanel With {
-            .Orientation = Orientation.Horizontal, .VerticalAlignment = VerticalAlignment.Center
-        }
-        If Buttons IsNot Nothing Then
-            For Each Btn As FrameworkElement In Buttons
-                RightBox.Children.Add(Btn)
-            Next
-        End If
-        Grid.SetColumn(RightBox, 2)
-        G.Children.Add(RightBox)
-
-        Row.Child = G
-        Row.Tag = TitleBlock
-        Return Row
-    End Function
-
     ''' <summary>读出压缩包里某个条目的原始字节，条目不存在时返回 Nothing。</summary>
     Private Function ReadIconEntry(Entry As ZipArchiveEntry) As Byte()
         If Entry Is Nothing OrElse Entry.Length <= 0 Then Return Nothing
@@ -750,68 +687,10 @@ Public Class PageInstanceShaderPack
             Return Nothing
         End Try
     End Function
-
-    ''' <summary>
-    ''' 列表行左侧的图标。
-    ''' 光影包几乎都不带 pack.png（这点和资源包不一样），读不到时按包名生成一个带首字的色块，
-    ''' 至少能让不同光影包在列表里互相区分，而不是清一色的占位图。
-    ''' </summary>
-    Private Function MakePackIcon(Entry As ShaderPackItem) As FrameworkElement
-        Dim Source As ImageSource = MakeIcon(Entry.IconBytes)
-        If Source IsNot Nothing Then
-            Return New Image With {.Stretch = Stretch.UniformToFill, .Source = Source}
-        End If
-        Return BuildLetterIcon(Entry.DisplayName)
-    End Function
-
-    ''' <summary>用包名生成色块图标：色相由名字决定，同一包每次都一样。</summary>
-    Private Function BuildLetterIcon(Name As String) As FrameworkElement
-        Dim Text As String = "?"
-        Dim Clean As String = If(Name, "").Trim()
-        If Clean.Length > 0 Then Text = Clean.Substring(0, 1).ToUpper()
-        '自己算个稳定色相，别用 String.GetHashCode（.NET 里不保证跨进程一致）
-        '用 Long 累加再取模，Integer 在这里会因默认的溢出检查直接抛异常
-        Dim Sum As Long = 0
-        For Each C As Char In Clean
-            Sum = (Sum * 31 + AscW(C)) Mod 2147483647L
-        Next
-        Dim Hue As Integer = CInt(Sum Mod 360L)
-        Dim Box As New Border With {
-            .CornerRadius = New CornerRadius(4),
-            .Background = New SolidColorBrush(New MyColor().FromHSL(Hue, 52, 46))
-        }
-        Box.Child = New TextBlock With {
-            .Text = Text, .FontSize = 16, .FontWeight = FontWeights.Bold,
-            .Foreground = New SolidColorBrush(New MyColor(255, 255, 255)),
-            .HorizontalAlignment = HorizontalAlignment.Center,
-            .VerticalAlignment = VerticalAlignment.Center
-        }
-        Return Box
-    End Function
-
     ''' <summary>光影包图标路径。图标在内存里，需要先写入缓存目录再交给列表项。</summary>
     Private Function IconCachePath(Entry As ShaderPackItem) As String
         Return MyLocalModItem.CacheIcon(Entry.PackPath, Entry.IconBytes)
     End Function
-
-    ''' <summary>把图标的字节解码成位图。读不到就是 Nothing。</summary>
-    Private Function MakeIcon(Data As Byte()) As ImageSource
-        If Data Is Nothing OrElse Data.Length = 0 Then Return Nothing
-        Try
-            Using Ms As New MemoryStream(Data)
-                Dim Bmp As New BitmapImage()
-                Bmp.BeginInit()
-                Bmp.CacheOption = BitmapCacheOption.OnLoad
-                Bmp.StreamSource = Ms
-                Bmp.EndInit()
-                Return Bmp
-            End Using
-        Catch ex As Exception
-            Logger.Warn(ex, "解码光影包图标失败")
-            Return Nothing
-        End Try
-    End Function
-
     ''' <summary>
     ''' 从 shaders.properties 里读光影包自己的名字。
     ''' 这个文件的键名各家写法不统一，这里只认几个常见的名字键。

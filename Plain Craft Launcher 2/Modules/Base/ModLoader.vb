@@ -246,7 +246,8 @@ Public Module ModLoader
             ElseIf IsNothing([Error]) Then
                 Throw New Exception("未知错误！")
             Else
-                Throw [Error]
+                '包一层再抛，保留加载器内部出错时的原始堆栈
+                Throw New Exception([Error].Message, [Error])
             End If
         End Sub
 
@@ -254,6 +255,10 @@ Public Module ModLoader
         Public Overrides Function Equals(obj As Object) As Boolean
             Dim base = TryCast(obj, LoaderBase)
             Return base IsNot Nothing AndAlso Uuid = base.Uuid
+        End Function
+        '重写了 Equals 就必须一起重写 GetHashCode，否则按 Uuid 判等的字典查不到
+        Public Overrides Function GetHashCode() As Integer
+            Return Uuid
         End Function
 
     End Class
@@ -580,66 +585,74 @@ Public Module ModLoader
         End Sub
         ''' <summary>
         ''' 触发一次更新，以启动新加载器或完成。
+        ''' <para>
+        ''' 必须串行化：多个子加载器各自在自己的回调线程上触发这里，
+        ''' 两个线程同时遍历到同一个 Waiting 的子加载器就会把它启动两遍
+        ''' （自定义命令执行两次、游戏进程起两个）。
+        ''' </para>
         ''' </summary>
+        Private ReadOnly UpdateLock As New Object()
         Private Sub Update()
-            If State = LoadState.Finished OrElse State = LoadState.Failed OrElse State = LoadState.Canceled Then Return
-            Dim IsFinished As Boolean = True
-            Dim Blocked As Boolean = False
-            Dim Input As Object = Me.Input
-            For Each Loader In Loaders
-                Select Case Loader.State
-                    Case LoadState.Finished
-                        '检查 LoaderTask 是否需要重启
-                        If GeneralUtils.IsGenericInstanceOf(Loader, GetType(LoaderTask(Of ,))) Then
-                            If CType(Loader, Object).ShouldStart(If(Input IsNot Nothing AndAlso Loader.GetType.GenericTypeArguments.First Is Input.GetType, Input, Nothing), IgnoreReloadTimeout:=True) Then
-                                Logger.Info($"由于输入条件变更，重启已完成的加载器 {Loader.Name}")
-                                GoTo Restart
+            SyncLock UpdateLock
+                If State = LoadState.Finished OrElse State = LoadState.Failed OrElse State = LoadState.Canceled Then Return
+                Dim IsFinished As Boolean = True
+                Dim Blocked As Boolean = False
+                Dim Input As Object = Me.Input
+                For Each Loader In Loaders
+                    Select Case Loader.State
+                        Case LoadState.Finished
+                            '检查 LoaderTask 是否需要重启
+                            If GeneralUtils.IsGenericInstanceOf(Loader, GetType(LoaderTask(Of ,))) Then
+                                If CType(Loader, Object).ShouldStart(If(Input IsNot Nothing AndAlso Loader.GetType.GenericTypeArguments.First Is Input.GetType, Input, Nothing), IgnoreReloadTimeout:=True) Then
+                                    Logger.Info($"由于输入条件变更，重启已完成的加载器 {Loader.Name}")
+                                    GoTo Restart
+                                End If
+                                '更新下一个加载器的输入
+                                Input = CType(Loader, Object).Output
                             End If
-                            '更新下一个加载器的输入
-                            Input = CType(Loader, Object).Output
-                        End If
-                        '如果不让继续启动，且已有加载器正在加载中，就不继续启动
-                        If Loader.Block AndAlso Not IsFinished Then Blocked = True
-                    Case LoadState.Loading
-                        '检查 LoaderTask 是否需要重启
-                        If GeneralUtils.IsGenericInstanceOf(Loader, GetType(LoaderTask(Of ,))) Then
-                            If CType(Loader, Object).ShouldStart(If(Input IsNot Nothing AndAlso Loader.GetType.GenericTypeArguments.First Is Input.GetType, Input, Nothing), IgnoreReloadTimeout:=True) Then
-                                Logger.Warn($"由于输入条件变更，重启进行中的加载器 {Loader.Name}")
-                                GoTo Restart
+                            '如果不让继续启动，且已有加载器正在加载中，就不继续启动
+                            If Loader.Block AndAlso Not IsFinished Then Blocked = True
+                        Case LoadState.Loading
+                            '检查 LoaderTask 是否需要重启
+                            If GeneralUtils.IsGenericInstanceOf(Loader, GetType(LoaderTask(Of ,))) Then
+                                If CType(Loader, Object).ShouldStart(If(Input IsNot Nothing AndAlso Loader.GetType.GenericTypeArguments.First Is Input.GetType, Input, Nothing), IgnoreReloadTimeout:=True) Then
+                                    Logger.Warn($"由于输入条件变更，重启进行中的加载器 {Loader.Name}")
+                                    GoTo Restart
+                                End If
                             End If
-                        End If
-                        '已经有正在加载中的了，不需要再启动了
-                        IsFinished = False
-                        Blocked = True
-                    Case Else
-Restart:
-                        '未启动，则启动加载器
-                        IsFinished = False
-                        If Blocked Then Continue For
-                        If Input IsNot Nothing Then
-                            '若输入类型与下一个加载器相同才继续
-                            If GeneralUtils.IsGenericInstanceOf(Loader, GetType(LoaderTask(Of ,))) OrElse GeneralUtils.IsGenericInstanceOf(Loader, GetType(LoaderCombo(Of ))) Then
-                                Loader.Start(If(Loader.GetType.GenericTypeArguments.First Is Input.GetType, Input, Nothing), IsForceRestarting)
-                            ElseIf TypeOf Loader Is LoaderWorker Then
-                                Loader.Start(IsForceRestart:=IsForceRestarting)
-                            ElseIf TypeOf Loader Is LoaderDownload Then
-                                Loader.Start(If(TypeOf Input Is List(Of NetFile), Input, Nothing), IsForceRestarting)
+                            '已经有正在加载中的了，不需要再启动了
+                            IsFinished = False
+                            Blocked = True
+                        Case Else
+    Restart:
+                            '未启动，则启动加载器
+                            IsFinished = False
+                            If Blocked Then Continue For
+                            If Input IsNot Nothing Then
+                                '若输入类型与下一个加载器相同才继续
+                                If GeneralUtils.IsGenericInstanceOf(Loader, GetType(LoaderTask(Of ,))) OrElse GeneralUtils.IsGenericInstanceOf(Loader, GetType(LoaderCombo(Of ))) Then
+                                    Loader.Start(If(Loader.GetType.GenericTypeArguments.First Is Input.GetType, Input, Nothing), IsForceRestarting)
+                                ElseIf TypeOf Loader Is LoaderWorker Then
+                                    Loader.Start(IsForceRestart:=IsForceRestarting)
+                                ElseIf TypeOf Loader Is LoaderDownload Then
+                                    Loader.Start(If(TypeOf Input Is List(Of NetFile), Input, Nothing), IsForceRestarting)
+                                Else
+                                    Throw New Exception("未知的加载器类型（" & Loader.GetType.Name & "）")
+                                End If
                             Else
-                                Throw New Exception("未知的加载器类型（" & Loader.GetType.Name & "）")
+                                Loader.Start(IsForceRestart:=IsForceRestarting)
                             End If
-                        Else
-                            Loader.Start(IsForceRestart:=IsForceRestarting)
-                        End If
-                        '阻止继续
-                        If Loader.Block Then Blocked = True
-                End Select
-            Next
-            If IsFinished Then
-                '顺利完成，贼棒
-                RaisePreviewFinish()
-                State = LoadState.Finished
-                FrmMain.BtnExtraDownload.ShowRefresh()
-            End If
+                            '阻止继续
+                            If Loader.Block Then Blocked = True
+                    End Select
+                Next
+                If IsFinished Then
+                    '顺利完成，贼棒
+                    RaisePreviewFinish()
+                    State = LoadState.Finished
+                    FrmMain.BtnExtraDownload.ShowRefresh()
+                End If
+            End SyncLock
         End Sub
 
         ''' <summary>

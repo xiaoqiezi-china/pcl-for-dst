@@ -123,11 +123,12 @@ Public Module ModLaunch
                 New LoaderTask(Of Integer, Integer)("获取 Java", AddressOf McLaunchJava) With {.ProgressWeight = 4, .Block = False},
                 McLoginLoader, '.ProgressWeight = 15, .Block = False
                 New LoaderCombo(Of String)("补全文件", DlClientFix(McInstanceSelected, False, True)) With {.ProgressWeight = 15, .Show = False},
+                New LoaderTask(Of Integer, Integer)("准备 DST-Mode Agent", AddressOf McLaunchDstMode) With {.ProgressWeight = 2}, '必须排在获取启动参数之前，且 Block=True（Block=False 时加载器不等它跑完，Agent 没下好就会丢掉 -javaagent）
                 New LoaderTask(Of String, Integer)("获取启动参数", AddressOf McLaunchArgumentMain) With {.ProgressWeight = 2},
                 New LoaderTask(Of Integer, Integer)("解压文件", AddressOf McLaunchNatives) With {.ProgressWeight = 2},
                 New LoaderTask(Of Integer, Integer)("预启动处理", AddressOf McLaunchPrerun) With {.ProgressWeight = 1}, '排在预启动处理之后：options.txt 在那里被改写，否则我们写进去的 resourcePacks 会被盖掉
-                New LoaderTask(Of Integer, Integer)("获取汉化资源包", AddressOf McLaunchHanhua) With {.ProgressWeight = 2, .Block = False},
-                New LoaderTask(Of Integer, Integer)("安装拼音搜索模组", AddressOf McLaunchPinyinSearch) With {.ProgressWeight = 2, .Block = False},
+                New LoaderTask(Of Integer, Integer)("获取汉化资源包", AddressOf McLaunchHanhua) With {.ProgressWeight = 2}, 'Block=True 但内部不等下载：本地已有的就地启用（毫秒级），缺包的丢后台下载后立刻返回
+                New LoaderTask(Of Integer, Integer)("安装拼音搜索模组", AddressOf McLaunchPinyinSearch) With {.ProgressWeight = 2},
                 New LoaderTask(Of Integer, Integer)("执行自定义命令", AddressOf McLaunchCustom) With {.ProgressWeight = 1},
                 New LoaderTask(Of Integer, Process)("启动进程", AddressOf McLaunchRun) With {.ProgressWeight = 2},
                 New LoaderTask(Of Process, Integer)("等待游戏窗口出现", AddressOf McLaunchWait) With {.ProgressWeight = 1},
@@ -235,32 +236,18 @@ NextInner:
 
     Private Sub McLaunchPrecheck()
         If Settings.Get(Of Boolean)("SystemDebugDelay") Then Thread.Sleep(RandomInteger(100, 2000))
+        '检查版本。必须先判空再碰它的属性，否则选不到版本时抛的是 NullReferenceException，
+        '下面那句友好提示永远轮不到。
+        If McInstanceSelected Is Nothing Then Throw New Exception("未选择 Minecraft 版本！")
         '检查路径
         If McInstanceSelected.PathIndie.Contains("!") OrElse McInstanceSelected.PathIndie.Contains(";") Then Throw New Exception("游戏路径中不可包含 ! 或 ;（" & McInstanceSelected.PathIndie & "）")
         If McInstanceSelected.PathVersion.Contains("!") OrElse McInstanceSelected.PathVersion.Contains(";") Then Throw New Exception("游戏路径中不可包含 ! 或 ;（" & McInstanceSelected.PathVersion & "）")
-        '检查版本
-        If McInstanceSelected Is Nothing Then Throw New Exception("未选择 Minecraft 版本！")
         McInstanceSelected.Load()
         If McInstanceSelected.State = McInstance.McInstanceState.Error Then Throw New Exception("Minecraft 存在问题：" & McInstanceSelected.Info)
         '检查输入信息
         Dim CheckResult As String = ""
         RunInUiWait(Sub() CheckResult = McLoginAble(McLoginInput()))
         If CheckResult <> "" Then Throw New ArgumentException(CheckResult)
-        '求赞助
-        If BuildType = BuildTypes.Release AndAlso CurrentLaunchOptions?.SaveBatch Is Nothing Then '保存脚本时不提示
-            RunInNewThread(
-            Sub()
-                Select Case Settings.Get(Of Integer)("SystemLaunchCount")
-                    Case 10, 20, 40, 60, 80, 100, 120, 150, 200, 250, 300, 350, 400, 500, 600, 700, 800, 900, 1000, 1200, 1400, 1600, 1800, 2000
-                        If MyMsgBox("PCL 已经为你启动了 " & Settings.Get(Of Integer)("SystemLaunchCount") & " 次游戏啦！" & vbCrLf &
-                                    "如果 PCL 还算好用的话，能不能考虑赞助一下 PCL……" & vbCrLf &
-                                    "如果没有大家的支持，PCL 很难在免费、无任何广告的情况下维持数年的更新（磕头）……！",
-                                    Settings.Get(Of Integer)("SystemLaunchCount") & " 次启动！", "支持 PCL！", "但是我拒绝") = 1 Then
-                            OpenWebsite("https://meloong.com/afd/a/LTCat")
-                        End If
-                End Select
-            End Sub, "Donate")
-        End If
         '正版购买提示
         If CurrentLaunchOptions?.SaveBatch Is Nothing AndAlso '保存脚本时不提示
            Not Settings.Get(Of Boolean)("HintBuy") AndAlso Settings.Get(Of McLoginType)("LoginType") <> McLoginType.Ms Then
@@ -300,6 +287,8 @@ NextInner:
         Nide = 2
         Auth = 3
         Ms = 5
+        ''' <summary>DST-Mode（帝释天签发服务器）的 QQ 登录。</summary>
+        DstMode = 6
     End Enum
 
     '各个登录方式的对应数据
@@ -391,6 +380,21 @@ NextInner:
         End Function
     End Class
 
+    ''' <summary>
+    ''' DST-Mode（帝释天签发服务器）的 QQ 登录。
+    ''' 凭据由 <see cref="ModDstMode"/> 保存在内存里，这里只用来标记登录方式。
+    ''' </summary>
+    Public Class McLoginDstMode
+        Inherits McLoginData
+
+        Public Sub New()
+            Type = McLoginType.DstMode
+        End Sub
+        Public Overrides Function GetHashCode() As Integer
+            Return "DstMode".GetStableHashCode() Mod Integer.MaxValue
+        End Function
+    End Class
+
     '登录返回结果
     Public Structure McLoginResult
         Public Name As String
@@ -418,6 +422,8 @@ NextInner:
                 If Settings.Get(Of String)("CacheNideName") <> "" Then Return Settings.Get(Of String)("CacheNideName")
             Case McLoginType.Auth
                 If Settings.Get(Of String)("CacheAuthName") <> "" Then Return Settings.Get(Of String)("CacheAuthName")
+            Case McLoginType.DstMode
+                If ModDstMode.Current IsNot Nothing Then Return ModDstMode.Current.Name
         End Select
         '查找所有可能的项
         If Settings.Get(Of String)("CacheMsV2Name") <> "" Then Return Settings.Get(Of String)("CacheMsV2Name")
@@ -451,6 +457,12 @@ NextInner:
                 Else
                     Return ""
                 End If
+            Case McLoginType.DstMode
+                If ModDstMode.HasUsableCredential Then
+                    Return ""
+                Else
+                    Return PageLoginDstMode.IsVaild(New McLoginDstMode())
+                End If
             Case Else
                 Return "未知的登录方式"
         End Select
@@ -468,6 +480,8 @@ NextInner:
                 Return PageLoginNide.IsVaild(LoginData)
             Case McLoginType.Auth
                 Return PageLoginAuth.IsVaild(LoginData)
+            Case McLoginType.DstMode
+                Return PageLoginDstMode.IsVaild(CType(LoginData, McLoginDstMode))
             Case Else
                 Return "未知的登录方式"
         End Select
@@ -501,6 +515,8 @@ NextInner:
                     Else
                         LoginData = PageLoginAuthSkin.GetLoginData()
                     End If
+                Case McLoginType.DstMode
+                    LoginData = PageLoginDstMode.GetLoginData()
             End Select
             Return LoginData
         Catch ex As Exception
@@ -523,6 +539,8 @@ NextInner:
                 Loader = McLoginNideLoader
             Case McLoginType.Auth
                 Loader = McLoginAuthLoader
+            Case McLoginType.DstMode
+                Loader = McLoginDstModeLoader
         End Select
         '尝试加载
         Loader.WaitForExit(Data.Input, McLoginLoader, Data.IsForceRestarting)
@@ -539,6 +557,27 @@ NextInner:
     Public McLoginLegacyLoader As New LoaderTask(Of McLoginLegacy, McLoginResult)("Loader Login Legacy", AddressOf McLoginLegacyStart)
     Public McLoginNideLoader As New LoaderTask(Of McLoginServer, McLoginResult)("Loader Login Nide", AddressOf McLoginServerStart) With {.ReloadTimeout = 1000 * 60 * 10}
     Public McLoginAuthLoader As New LoaderTask(Of McLoginServer, McLoginResult)("Loader Login Auth", AddressOf McLoginServerStart) With {.ReloadTimeout = 1000 * 60 * 10}
+    Public McLoginDstModeLoader As New LoaderTask(Of McLoginDstMode, McLoginResult)("Loader Login DstMode", AddressOf McLoginDstModeStart)
+
+    ''' <summary>
+    ''' DST-Mode 的登录：凭据已经由绑定流程拿到，这里只把它翻译成启动参数。
+    ''' 令牌一次性、只在内存里，所以这里不做任何缓存或续期。
+    ''' </summary>
+    Private Sub McLoginDstModeStart(Data As LoaderTask(Of McLoginDstMode, McLoginResult))
+        McLaunchLog("登录方式：QQ 登录（DST-Mode）")
+        If Not ModDstMode.HasUsableCredential Then Throw New Exception("$QQ 登录凭据已失效，请在启动页重新登录")
+        Dim Cred As ModDstMode.DstModeCredential = ModDstMode.Current
+        Data.Progress = 0.9
+        Data.Output = New McLoginResult With {
+            .Name = Cred.Name,
+            .Uuid = Cred.Uuid32,
+            .AccessToken = Cred.AccessToken,
+            .ClientToken = Cred.Uuid32,
+            .Type = "DstMode"
+        }
+        '令牌不写日志，只记认证地址与有效期
+        McLaunchLog("QQ 登录成功：" & Cred.Name & "，认证地址 " & Cred.AuthBase & "，有效期至 " & Cred.ExpiresText)
+    End Sub
 
     '主加载函数，返回所有需要的登录信息
     Private Sub McLoginMsStart(Data As LoaderTask(Of McLoginMs, McLoginResult))
@@ -1159,7 +1198,7 @@ Retry:
             Uuid = If(GotJson("id"), "")
         Catch ex As Exception
             Logger.Warn(ex, $"从官网获取正版 Uuid 失败（{Name}）")
-            If Not ThrowOnNotFound AndAlso ex.GetType.Name = "FileNotFoundException" Then
+            If Not ThrowOnNotFound AndAlso TypeOf ex Is FileNotFoundException Then
                 Uuid = McLoginLegacyUuid(Name) '玩家档案不存在
             Else
                 Throw New Exception("从官网获取正版 Uuid 失败", ex)
@@ -1295,6 +1334,18 @@ NextInstance:
             Catch ex As Exception
                 Throw New Exception("无法连接到第三方登录服务器（" & If(Server, Nothing) & "）", ex)
             End Try
+        End If
+        'DST-Mode（QQ 登录）：Agent 形态用 -javaagent 挂载，地址作参数传给 Agent。
+        '不要再传 -Ddstmode.authBase：两种形态同时存在会让注入重复。
+        If McLoginLoader.Output.Type = "DstMode" Then
+            Dim DstAuthBase As String = If(ModDstMode.Current Is Nothing, "", ModDstMode.Current.AuthBase)
+            Dim AgentFile As String = ModDstMode.AgentPath()
+            If DstAuthBase <> "" AndAlso AgentFile <> "" Then
+                Args.Add(ModDstMode.BuildAgentArgument(AgentFile, DstAuthBase))
+                McLaunchLog("DST-Mode Agent：" & AgentFile & "，认证地址：" & DstAuthBase)
+            Else
+                McLaunchLog("DST-Mode Agent 未就绪，本次启动不带认证参数")
+            End If
         End If
 
         'JLW
@@ -1509,8 +1560,37 @@ NextInstance:
             End If
         End If
 
-        '再次去重并输出
-        Return DeduplicateJavaArguments(Args, False)
+        '再次去重
+        Dim Result As List(Of String) = DeduplicateJavaArguments(Args, False)
+
+        '1.16.4 起，客户端用 --userType 判断多人游戏能不能用：
+        '值不是 msa（例如 legacy）时，「多人游戏」按钮会被置灰并提示检查 Microsoft 账户。
+        'PCL 的 ${user_type} 一直固定替换成 msa，但部分整合包 / 魔改版本 JSON 里
+        '根本没有 --userType 这一项，MC 就会退回默认的 legacy，于是多人游戏不可用。
+        '这里补一次兜底。只对 1.16.4 及以后生效：更早的版本不认识这个选项。
+        If McInstanceSelected.ReleaseTime >= New Date(2020, 11, 3) Then '1.16.4 发布时间
+            Dim UserTypeIndex As Integer = Result.IndexOf("--userType")
+            If UserTypeIndex < 0 Then
+                '完全没有这一项：补上 userType。
+                Result.Add("--userType") : Result.Add("msa")
+                '部分版本除了类型还要求 XUID 存在，缺了就补个占位值 0。
+                '新版本 JSON 自带的 --xuid 在上面已经替换过了，这里不能重复添加
+                '（MC 对同一参数出现两次的处理不可靠）。
+                If Not Result.Contains("--xuid") Then
+                    Result.Add("--xuid") : Result.Add("0")
+                End If
+                McLaunchLog("版本 JSON 未提供 --userType，已补充 msa（否则多人游戏会被禁用）")
+            ElseIf UserTypeIndex + 1 < Result.Count Then
+                Dim CurrentType As String = Result(UserTypeIndex + 1)
+                '${user_type} 是 PCL 自己的占位符，稍后会统一替换成 msa，不算错误
+                If CurrentType <> "msa" AndAlso CurrentType <> "${user_type}" Then
+                    McLaunchLog($"修正 --userType：{CurrentType} → msa（否则多人游戏会被禁用）")
+                    Result(UserTypeIndex + 1) = "msa"
+                End If
+            End If
+        End If
+
+        Return Result
     End Function
     '获取替换标记
     Private Iterator Function McLaunchArgumentsReplace(Arguments As List(Of String)) As IEnumerable(Of (Key As String, Value As String))
@@ -1532,6 +1612,12 @@ NextInstance:
         Yield ("${access_token}", McLoginLoader.Output.AccessToken)
         Yield ("${auth_session}", McLoginLoader.Output.AccessToken)
         Yield ("${user_type}", "msa") '#1221
+        '1.18 起版本 JSON 里带 --clientId ${clientid}、--xuid ${auth_xuid} 这类占位符，
+        'PCL 过去没有提供它们，于是字面量被原样传给游戏。
+        'XUID 传一个非数字串会影响社交 / 联机相关功能，这里统一给个占位值 0。
+        '(运行时若已确定真实 XUID，可在下面覆盖；目前 PCL 没有从登录结果里拿 XUID。)
+        Yield ("${auth_xuid}", "0")
+        Yield ("${clientid}", "0")
         Yield ("${primary_jar}", PathUtils.ToShortPath(McInstanceSelected.PathVersion & McInstanceSelected.Name & ".jar")) '#6942
         Yield ("${game_assets}", PathUtils.ToShortPath(McFolderSelected & "assets\virtual\legacy")) '1.5.2 的 pre-1.6 资源索引应与 legacy 合并
         Yield ("${assets_index_name}", McAssetsGetIndexName(McInstanceSelected))
@@ -1584,7 +1670,9 @@ NextInstance:
                 Cps.Add(Library.LocalPath)
             End If
         Next
-        If OptiFineCp IsNot Nothing Then Cps.Insert(Cps.Count - 2, OptiFineCp) 'OptiFine 的总是需要放到倒数第二位
+        'OptiFine 的总是需要放到倒数第二位；只装了 OptiFine 一个库时要夹住索引，
+        '否则 Cps.Count - 2 是负数，Insert 会直接抛 ArgumentOutOfRange 导致启动失败
+        If OptiFineCp IsNot Nothing Then Cps.Insert(Math.Max(0, Cps.Count - 2), OptiFineCp)
         Yield ("${classpath}", Cps.Select(Function(c) PathUtils.ToShortPath(c)).Join(";"c))
     End Function
 
@@ -1679,7 +1767,7 @@ NextInstance:
         Dim ExistFiles As New List(Of String)
         For Each Native As McLibEntry In McLibListGet(McInstanceSelected, True)
             If Not Native.IsNatives Then Continue For
-            Dim Zip As ZipArchive
+            Dim Zip As ZipArchive = Nothing
             Try
                 Zip = FileUtils.OpenZip(Native.LocalPath)
             Catch ex As InvalidDataException
@@ -1687,33 +1775,38 @@ NextInstance:
                 FileUtils.Delete(Native.LocalPath)
                 Throw New Exception("无法打开 Natives 文件（" & Native.LocalPath & "），该文件可能已损坏，请重新尝试启动游戏")
             End Try
-            For Each Entry In Zip.Entries
-                Dim FileName As String = Entry.FullName
-                If PathUtils.GetExtension(FileName) = "dll" Then
-                    '实际解压文件的步骤
-                    Dim FilePath As String = Target & FileName
-                    ExistFiles.Add(FilePath)
-                    Dim OriginalFile = FileUtils.GetInfo(FilePath)
-                    If OriginalFile.Exists Then
-                        If OriginalFile.Length = Entry.Length Then
-                            If ModeDebug Then McLaunchLog("无需解压：" & FilePath)
-                            Continue For
+            '无论循环里哪一步抛异常，Zip 都必须释放：否则 jar 句柄一直占着，
+            '之后修复或更新同一个库文件都会失败
+            Try
+                For Each Entry In Zip.Entries
+                    Dim FileName As String = Entry.FullName
+                    If PathUtils.GetExtension(FileName) = "dll" Then
+                        '实际解压文件的步骤
+                        Dim FilePath As String = Target & FileName
+                        ExistFiles.Add(FilePath)
+                        Dim OriginalFile = FileUtils.GetInfo(FilePath)
+                        If OriginalFile.Exists Then
+                            If OriginalFile.Length = Entry.Length Then
+                                If ModeDebug Then McLaunchLog("无需解压：" & FilePath)
+                                Continue For
+                            End If
+                            '删除原文件
+                            Try
+                                FileUtils.Delete(FilePath)
+                            Catch ex As UnauthorizedAccessException
+                                McLaunchLog("删除原 dll 访问被拒绝，这通常代表有一个 MC 正在运行，跳过解压：" & FilePath)
+                                McLaunchLog("实际的错误信息：" & ex.GetDisplay(True))
+                                Exit For
+                            End Try
                         End If
-                        '删除原文件
-                        Try
-                            FileUtils.Delete(FilePath)
-                        Catch ex As UnauthorizedAccessException
-                            McLaunchLog("删除原 dll 访问被拒绝，这通常代表有一个 MC 正在运行，跳过解压：" & FilePath)
-                            McLaunchLog("实际的错误信息：" & ex.GetDisplay(True))
-                            Exit For
-                        End Try
+                        '解压新文件
+                        FileUtils.Write(FilePath, Entry.Open)
+                        McLaunchLog("已解压：" & FilePath)
                     End If
-                    '解压新文件
-                    FileUtils.Write(FilePath, Entry.Open)
-                    McLaunchLog("已解压：" & FilePath)
-                End If
-            Next
-            If Zip IsNot Nothing Then Zip.Dispose()
+                Next
+            Finally
+                If Zip IsNot Nothing Then Zip.Dispose()
+            End Try
         Next
 
         '删除多余文件
@@ -2011,21 +2104,45 @@ IgnoreCustomSkin:
 
     End Sub
     ''' <summary>
-    ''' 启动前自动获取汉化资源包（设置里开启「自动获取汉化」时）。
-    ''' 已经装好并启用就什么都不做；失败不影响启动，只提示。
+    ''' 启动前自动准备汉化资源包（设置里开启「自动获取汉化」时）。
+    ''' <para>
+    ''' 不阻塞启动：本地已有的就地把 options.txt 启用了，缺包的直接丢到后台下载，
+    ''' 下完自动启用、下次启动生效。首次启动拿不到汉化是可接受的代价，
+    ''' 比让玩家在启动页干等几十 MB 强。
+    ''' </para>
     ''' </summary>
     Private Sub McLaunchHanhua(Loader As LoaderTask(Of Integer, Integer))
         Try
-            '0 关闭；1 仅汉化；2 汉化 + 拼音搜索
-            Dim Mode As Integer = Settings.Get(Of Integer)("LaunchArgumentHanhua")
-            If Mode <> 1 AndAlso Mode <> 2 Then Return
+            '档位判断收口在 ModHanhua 里，别在这里再抄一遍整数比较
+            If Not ModHanhua.NeedHanhua Then Return
             If McInstanceSelected Is Nothing Then Return
-            ModHanhua.AutoFetch(McInstanceSelected, WaitForExit:=True)
+            ModHanhua.AutoFetch(McInstanceSelected, WaitForExit:=False)
         Catch ex As Exception
             '汉化拿不到不该拦着玩家进游戏
             If ex.IsCanceled Then Return
             Logger.Warn(ex, "自动获取汉化资源包失败")
             McLaunchLog("自动获取汉化资源包失败：" & ex.Message)
+        End Try
+    End Sub
+    ''' <summary>
+    ''' 启动前把 DST-Mode Agent 下载好（仅 QQ 登录时）。
+    ''' Agent 与游戏版本、加载器都无关，所以这里不做任何版本判断。
+    ''' 装不上不拦启动：只是进服会失败，启动器不该替玩家做这个决定。
+    ''' </summary>
+    Private Sub McLaunchDstMode(Loader As LoaderTask(Of Integer, Integer))
+        Try
+            If Settings.Get(Of McLoginType)("LoginType") <> McLoginType.DstMode Then Return
+            '玩家自己装了 dstmode 模组时 Agent 与模组会重复注入，提示后跳过
+            If ModDstMode.HasLegacyMod(McInstanceSelected) Then
+                Hint("检测到 mods 里有 dstmode 模组，已跳过 Agent。两者不要同时用。", HintType.Red)
+                McLaunchLog("DST-Mode：检测到旧版模组，跳过 Agent")
+                Return
+            End If
+            ModDstMode.EnsureAgent(WaitForExit:=True)
+        Catch ex As Exception
+            If ex.IsCanceled Then Return
+            Logger.Warn(ex, "准备 DST-Mode Agent 失败")
+            McLaunchLog("准备 DST-Mode Agent 失败：" & ex.Message)
         End Try
     End Sub
     ''' <summary>
@@ -2078,7 +2195,8 @@ IgnoreCustomSkin:
             End If
         Catch ex As Exception
             Logger.Warn(ex, "输出启动脚本失败")
-            If CurrentLaunchOptions.SaveBatch IsNot Nothing Then Throw ex '直接触发启动失败
+            '导出脚本时失败要打断启动，但不能用 Throw ex（会丢掉原始堆栈）
+            If CurrentLaunchOptions.SaveBatch IsNot Nothing Then Throw New Exception(ex.Message, ex)
         End Try
 
         '执行自定义命令
@@ -2202,7 +2320,8 @@ IgnoreCustomSkin:
         McLaunchLog("")
         McLaunchLog("~ 登录参数 ~")
         McLaunchLog("玩家用户名：" & McLoginLoader.Output.Name)
-        McLaunchLog("AccessToken：" & McLoginLoader.Output.AccessToken)
+        'QQ 登录的 accessToken 是进服凭据，按接入文档要求不能进日志
+        McLaunchLog("AccessToken：" & If(McLoginLoader.Output.Type = "DstMode", "（QQ 登录令牌已隐藏）", McLoginLoader.Output.AccessToken))
         McLaunchLog("ClientToken：" & McLoginLoader.Output.ClientToken)
         McLaunchLog("UUID：" & McLoginLoader.Output.Uuid)
         McLaunchLog("登录方式：" & McLoginLoader.Output.Type)

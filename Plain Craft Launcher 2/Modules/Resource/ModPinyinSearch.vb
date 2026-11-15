@@ -110,11 +110,13 @@ Public Module ModPinyinSearch
         If String.IsNullOrEmpty(GameVersion) OrElse GameVersion = "Unknown" Then Return Nothing
 
         Try
-            'Modrinth 的筛选参数是 JSON 数组，需要 URL 编码
+            'Modrinth 的筛选参数是 JSON 数组，必须带方括号并整体 URL 编码。
+            '之前这里少了结尾的 ]，服务端把两个筛选条件都当成无效，直接返回全部版本，
+            '于是永远选中最新版（例如给 1.21.1 装了 26.x 的模组）。
             Dim Url As String =
                 $"https://api.modrinth.com/v2/project/{ModrinthProjectId}/version" &
-                $"?loaders={Uri.EscapeDataString("[""" & LoaderName & """")}" &
-                $"&game_versions={Uri.EscapeDataString("[""" & GameVersion & """")}"
+                $"?loaders={Uri.EscapeDataString("[""" & LoaderName & """]")}" &
+                $"&game_versions={Uri.EscapeDataString("[""" & GameVersion & """]")}"
             Logger.Info($"查询拼音搜索模组：{GameVersion} / {LoaderName}")
             Dim Raw As String = NetRequestByLoader({Url}, 20000, IsJson:=True)
             Dim Versions As JArray = JArray.Parse(Raw)
@@ -122,7 +124,22 @@ Public Module ModPinyinSearch
                 Logger.Info($"没有匹配 {GameVersion} / {LoaderName} 的拼音搜索模组")
                 Return Nothing
             End If
-            Dim Data As JObject = CType(Versions(0), JObject)
+            '不能直接拿第一条：万一服务端忽略了筛选条件，会装进不匹配的版本。
+            '这里再按返回体里的 game_versions / loaders 复核一次，宁可不装也不装错。
+            Dim Chosen As JObject = Nothing
+            For Each Item As JToken In Versions
+                Dim Version As JObject = TryCast(Item, JObject)
+                If Version Is Nothing Then Continue For
+                If Not JsonArrayContains(Version("game_versions"), GameVersion) Then Continue For
+                If Not JsonArrayContains(Version("loaders"), LoaderName) Then Continue For
+                Chosen = Version
+                Exit For
+            Next
+            If Chosen Is Nothing Then
+                Logger.Info($"没有匹配 {GameVersion} / {LoaderName} 的拼音搜索模组")
+                Return Nothing
+            End If
+            Dim Data As JObject = Chosen
             Dim Result As ResourceVersion = ResourceVersion.FromPlatformJson(Data, ResourceTypes.Mod)
             If Result Is Nothing OrElse Result.FileName = "" Then Return Nothing
             Logger.Info($"匹配到拼音搜索模组：{Result.FileName}")
@@ -133,6 +150,15 @@ Public Module ModPinyinSearch
         End Try
     End Function
 
+    ''' <summary>JSON 数组里是否包含某个值（忽略大小写）。</summary>
+    Private Function JsonArrayContains(Array As JToken, Value As String) As Boolean
+        If Array Is Nothing OrElse Array.Type <> JTokenType.Array Then Return False
+        For Each Item As JToken In Array
+            If String.Equals(Item.ToString().Trim(), Value, StringComparison.OrdinalIgnoreCase) Then Return True
+        Next
+        Return False
+    End Function
+
     ''' <summary>
     ''' 启动游戏前的自动安装：设置里选了「汉化 + 拼音搜索」时才做。
     ''' 已经装了就跳过；当前版本没有匹配的模组也只是记一条日志，不打扰用户。
@@ -141,8 +167,8 @@ Public Module ModPinyinSearch
     ''' <param name="WaitForExit">True 时阻塞到下载完成（启动流程里用）。</param>
     Public Function AutoFetch(Instance As McInstance, Optional WaitForExit As Boolean = True) As Boolean
         If Instance Is Nothing Then Return False
-        '2 才代表「汉化 + 拼音搜索」
-        If Settings.Get(Of Integer)("LaunchArgumentHanhua") <> 2 Then Return False
+        '档位判断收口在 ModHanhua 里：这里只关心「要不要装拼音搜索」
+        If Not ModHanhua.NeedPinyin Then Return False
         If IsInstalled(Instance) Then
             Logger.Info("拼音搜索模组已存在，跳过自动安装")
             Return False

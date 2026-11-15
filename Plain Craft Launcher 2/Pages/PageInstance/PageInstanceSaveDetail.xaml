@@ -41,10 +41,6 @@
                         <StackPanel Margin="25,40,25,20" x:Name="PanLevel" />
                     </local:MyCard>
 
-                    <local:MyCard x:Name="CardPack" Margin="0,0,0,15" Title="数据包（datapacks）">
-                        <StackPanel Margin="25,40,25,20" x:Name="PanPack" />
-                    </local:MyCard>
-
                     <local:MyCard x:Name="CardRegion" Margin="0,0,0,15" Title="区域文件（region）">
                         <StackPanel Margin="25,40,25,20" x:Name="PanRegion" />
                     </local:MyCard>
@@ -55,7 +51,8 @@
                 </StackPanel>
             </local:MyScrollViewer>
 
-            <!-- 地图管理是独立的一整页，和上面的滚动区同级，切过去时把页面塞进来 -->
+            <!-- 数据包管理与地图管理都是独立的一整页，和上面的滚动区同级，切过去时把页面塞进来 -->
+            <Grid x:Name="PanPackPage" Margin="0,15,0,15" Visibility="Collapsed" />
             <Grid x:Name="PanMap" Margin="0,15,0,15" Visibility="Collapsed" />
         </Grid>
     </Grid>

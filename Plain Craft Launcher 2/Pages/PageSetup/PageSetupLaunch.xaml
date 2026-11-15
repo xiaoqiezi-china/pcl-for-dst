@@ -109,10 +109,11 @@
                         <TextBlock VerticalAlignment="Center" Grid.Row="12" HorizontalAlignment="Left" Text="自动汉化" Margin="0,0,25,0" />
                         <local:MyComboBox local:SettingService.Key="LaunchArgumentHanhua" x:Name="ComboArgumentHanhua"
                                           Grid.Row="12" Grid.ColumnSpan="2" Grid.Column="1"
-                                          ToolTip="启动游戏时自动从 CFPA 拉取对应版本的汉化资源包，并写进 options.txt 启用它。&#xa;已有相同文件时会直接覆盖，不会重复下载。&#xa;&#xa;「汉化 + 拼音搜索」会额外检查通用拼音搜索模组（Just Enough Characters），&#xa;当前版本没有装且版本匹配时自动下载。">
-                            <local:MyComboBoxItem Content="关闭" />
-                            <local:MyComboBoxItem Content="仅汉化" local:SettingService.Value="1" />
-                            <local:MyComboBoxItem Content="汉化 + 拼音搜索" local:SettingService.Value="2" />
+                                          ToolTip="启动游戏时自动准备汉化资源包（CFPA 自动构建）与通用拼音搜索模组（Just Enough Characters）。&#xa;&#xa;汉化资源包会写进 options.txt 并启用；拼音搜索模组装进 mods。&#xa;两者都在后台进行，不阻塞游戏启动，本次装不上就下次启动生效。">
+                            <local:MyComboBoxItem Content="无" />
+                            <local:MyComboBoxItem Content="仅通用拼音搜索" local:SettingService.Value="3" />
+                            <local:MyComboBoxItem Content="仅汉化资源包" local:SettingService.Value="1" />
+                            <local:MyComboBoxItem Content="全部启用" local:SettingService.Value="2" />
                         </local:MyComboBox>
                     </Grid>
                 </StackPanel>

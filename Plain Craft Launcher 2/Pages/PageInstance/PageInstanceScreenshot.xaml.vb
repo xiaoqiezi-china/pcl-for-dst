@@ -25,23 +25,30 @@ Public Class PageInstanceScreenshot
         End Get
     End Property
 
+    '控件事件只挂一次：PCL 切页会反复触发 Loaded，
+    '每次 Loaded 都 AddHandler 会让一次输入触发 N 次 ApplyFilter、列表重建 N 遍
+    Private HandlersReady As Boolean = False
+
     Private Sub PageInstanceScreenshot_Loaded(sender As Object, e As RoutedEventArgs) Handles Me.Loaded
-        BtnSelectDelete.Logo = Logo.IconButtonDelete
-        BtnSelectCancel.Logo = Logo.IconButtonCross
-        AddHandler BtnOpenShots.Click, Sub() OpenShotsFolder()
-        AddHandler BtnRefreshShots.Click, Sub() RefreshShots()
-        AddHandler BtnSelectAll.Click, Sub() ChangeAllSelected(True)
-        AddHandler BtnSelectDelete.Click, Sub() DeleteSelected()
-        AddHandler BtnSelectCancel.Click, Sub() ClearSelection()
-        AddHandler SearchBox.TextChanged, Sub() ApplyFilter()
-        '每次切回本页都重画一次：收藏状态可能在收藏夹里被改过，
-        '只靠建行时读一次的话星星会一直是旧的
-        AddHandler PageEnter,
-            Sub()
-                'Loaded 里已经刷过一次，紧接着的 PageEnter 不必再扫一遍
-                If Date.Now - LastRefreshAt < TimeSpan.FromMilliseconds(300) Then Return
-                RefreshShots()
-            End Sub
+        If Not HandlersReady Then
+            HandlersReady = True
+            BtnSelectDelete.Logo = Logo.IconButtonDelete
+            BtnSelectCancel.Logo = Logo.IconButtonCross
+            AddHandler BtnOpenShots.Click, Sub() OpenShotsFolder()
+            AddHandler BtnRefreshShots.Click, Sub() RefreshShots()
+            AddHandler BtnSelectAll.Click, Sub() ChangeAllSelected(True)
+            AddHandler BtnSelectDelete.Click, Sub() DeleteSelected()
+            AddHandler BtnSelectCancel.Click, Sub() ClearSelection()
+            AddHandler SearchBox.TextChanged, Sub() ApplyFilter()
+            '每次切回本页都重画一次：收藏状态可能在收藏夹里被改过，
+            '只靠建行时读一次的话星星会一直是旧的
+            AddHandler PageEnter,
+                Sub()
+                    'Loaded 里已经刷过一次，紧接着的 PageEnter 不必再扫一遍
+                    If Date.Now - LastRefreshAt < TimeSpan.FromMilliseconds(300) Then Return
+                    RefreshShots()
+                End Sub
+        End If
         RefreshShots()
     End Sub
 
@@ -278,7 +285,7 @@ Public Class PageInstanceScreenshot
             Dim Text As String = "—"
             Try
                 Dim Info As New IO.FileInfo(Shot)
-                Dim SizeText As String = FormatSize(Info.Length)
+                Dim SizeText As String = StringUtils.FormatByteSize(Info.Length)
                 Dim DimText As String = ""
                 Try
                     Using Fs As IO.FileStream = IO.File.OpenRead(Shot)
@@ -357,12 +364,6 @@ Public Class PageInstanceScreenshot
         End Try
     End Function
 
-    Private Shared Function FormatSize(Bytes As Long) As String
-        If Bytes < 1024 Then Return Bytes & " B"
-        If Bytes < 1024 * 1024 Then Return Math.Round(Bytes / 1024, 1) & " KB"
-        Return Math.Round(Bytes / 1024 / 1024, 1) & " MB"
-    End Function
-
     ''' <summary>双击或右键：全屏预览。</summary>
     Private Sub PreviewShot(Shot As String)
         Try
@@ -411,7 +412,7 @@ Public Class PageInstanceScreenshot
                 Catch ex As Exception
                     Lines.Add("尺寸：读取失败")
                 End Try
-                Lines.Add("大小：" & FormatSize(Info.Length))
+                Lines.Add("大小：" & StringUtils.FormatByteSize(Info.Length))
                 Lines.Add("修改时间：" & Info.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss"))
                 Lines.Add("位置：" & Shot)
             Catch ex As Exception
@@ -452,7 +453,7 @@ Public Class PageInstanceScreenshot
             Dim Description As String = ""
             Try
                 Dim Info As New IO.FileInfo(Shot)
-                Description = FormatSize(Info.Length) & " · " & Info.LastWriteTime.ToString("MM-dd HH:mm")
+                Description = StringUtils.FormatByteSize(Info.Length) & " · " & Info.LastWriteTime.ToString("MM-dd HH:mm")
             Catch ex As Exception
                 Logger.Warn(ex, "读取截图信息失败")
             End Try

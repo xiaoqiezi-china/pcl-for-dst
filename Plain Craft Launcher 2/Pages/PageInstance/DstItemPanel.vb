@@ -315,13 +315,11 @@ Public Class DstItemPanel
         End If
         Dim CountText As String = MyMsgBoxInput("放入物品", "输入数量，1 到 127 之间。", "1")
         If CountText Is Nothing Then Return
-        Dim Count As Integer = 1
-        Try
-            Count = CInt(Val(CountText))
-        Catch
-        End Try
-        If Count < 1 Then Count = 1
-        If Count > 127 Then Count = 127
+        Dim Count As Integer = ParseItemCount(CountText)
+        If Count <= 0 Then
+            Hint("数量必须是 1 到 127 之间的整数", HintType.Red)
+            Return
+        End If
         '列表不存在时先补出来
         If EnsureList() Is Nothing Then
             Hint("无法创建 " & Field & "，这个文件的顶层结构不支持", HintType.Red)
@@ -355,11 +353,11 @@ Public Class DstItemPanel
         Dim CountText As String = MyMsgBoxInput("修改物品", "输入数量，1 到 127 之间。",
                                                 If(Info Is Nothing, "1", Info.Count.ToString()))
         If CountText Is Nothing Then Return
-        Dim Count As Integer = 1
-        Try
-            Count = CInt(Val(CountText))
-        Catch
-        End Try
+        Dim Count As Integer = ParseItemCount(CountText)
+        If Count <= 0 Then
+            Hint("数量必须是 1 到 127 之间的整数", HintType.Red)
+            Return
+        End If
         DstItem.SetIdAndCount(Slot, DstItemValidate.NormalizeId(Id), Count)
         If Persist() Then
             Hint("已保存物品", HintType.Blue)
@@ -368,6 +366,20 @@ Public Class DstItemPanel
         End If
         Refresh()
     End Sub
+
+    ''' <summary>
+    ''' 解析用户输入的数量：1 到 127 之间返回原值，否则返回 0。
+    ''' <para>
+    ''' 原实现用 CInt(Val(...)) + 空 Catch：输入超出 Integer 范围时异常被完全吞掉，
+    ''' 数量静默保持旧值，界面却提示「已放入」，与实际写入的内容不一致。
+    ''' </para>
+    ''' </summary>
+    Private Function ParseItemCount(Text As String) As Integer
+        Dim Value As Integer = 0
+        If Not Integer.TryParse(If(Text, "").Trim(), Value) Then Return 0
+        If Value < 1 OrElse Value > 127 Then Return 0
+        Return Value
+    End Function
 
     ''' <summary>改自定义名称。</summary>
     Private Sub EditCustomName(Cell As DstItem.SlotCell, Slot As NbtTag)

@@ -704,7 +704,7 @@ NoSubtitle:
     ''' <summary>
     ''' 工程 ID 对应的工程实例的缓存。不会保存到文件。
     ''' </summary>
-    Protected Friend Shared Cache As New Dictionary(Of String, ResourceProject)
+    Protected Friend Shared ReadOnly Cache As New System.Collections.Concurrent.ConcurrentDictionary(Of String, ResourceProject)
 
     ''' <summary>
     ''' 检查是否与某个 Project 是相同的工程，只是在不同的网站。
@@ -724,8 +724,10 @@ NoSubtitle:
         If Platform = Project.Platform Then Return False
         'Mod 加载器一致
         If ModLoaders <> Project.ModLoaders Then Return False
-        '若不为光影，则要求 MC 版本一致
-        If Types <> ResourceTypes.Shader AndAlso Drops.Ordered.SequenceEqual(Project.Drops.Ordered) Then Return False
+        '若不为光影，则要求 MC 版本一致。
+        '注意这里是「不一致才排除」：以前写反了，版本相同时反而判成不同工程，
+        '导致同一 Mod 在 Modrinth / CurseForge 两个平台各出现一条。
+        If Types <> ResourceTypes.Shader AndAlso Not Drops.Ordered.SequenceEqual(Project.Drops.Ordered) Then Return False
         '最近更新时间差距在一周以内
         If Math.Abs((LastUpdate - Project.LastUpdate).TotalDays) > 7 Then Return False
         'MCMOD 翻译名 / 原名 / 描述文本 / Slug 的英文部分相同
@@ -748,6 +750,10 @@ NoSubtitle:
     Public Overrides Function Equals(obj As Object) As Boolean
         Dim project = TryCast(obj, ResourceProject)
         Return project IsNot Nothing AndAlso Id = project.Id
+    End Function
+    '重写了 Equals 就要一起重写 GetHashCode，否则 HashSet / Dictionary 的相等语义不成立
+    Public Overrides Function GetHashCode() As Integer
+        Return If(Id, "").GetHashCode()
     End Function
     Public Shared Operator =(left As ResourceProject, right As ResourceProject) As Boolean
         Return EqualityComparer(Of ResourceProject).Default.Equals(left, right)

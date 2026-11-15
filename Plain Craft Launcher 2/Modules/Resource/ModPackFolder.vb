@@ -15,6 +15,12 @@ Public Module ModPackFolder
     ''' <summary>停用状态下追加的扩展名后缀。</summary>
     Public Const PackDisabledSuffix As String = ".disabled"
 
+    ''' <summary>
+    ''' 早期版本用的停用后缀（少一个 d）。
+    ''' 存档数据包页曾经用它，扫描时一并认下来，避免老文件里那些包被判成「不认识的文件」。
+    ''' </summary>
+    Public Const PackLegacyDisabledSuffix As String = ".disable"
+
     ''' <summary>扫描结果里的一条：可能是一个压缩包，也可能是一个文件夹。</summary>
     Public Class PackFolderItem
         ''' <summary>完整路径。</summary>
@@ -69,30 +75,43 @@ Public Module ModPackFolder
     ''' 版本目录下的 options.txt。给了就顺便读出游戏真正启用的列表，填进 IsActive；
     ''' 留空则 IsActive 一律为 False（光影包没有这个概念）。
     ''' </param>
+    ''' <param name="FolderMarkerFile">
+    ''' 文件夹形态的包必须带的标记文件名，例如存档数据包要求 <c>pack.mcmeta</c>。
+    ''' 留空表示不检查，所有子文件夹都算（资源包、光影包都是这样）。
+    ''' </param>
     Public Function ScanPackFolder(Folder As String, KindName As String, Optional KeepZipSuffix As Boolean = False,
-                                   Optional OptionsFile As String = "") As List(Of PackFolderItem)
+                                   Optional OptionsFile As String = "",
+                                   Optional FolderMarkerFile As String = "") As List(Of PackFolderItem)
         Dim Items As New List(Of PackFolderItem)
         If String.IsNullOrWhiteSpace(Folder) OrElse Not DirectoryUtils.Exists(Folder) Then Return Items
 
-        '压缩包形态：.zip 是启用，.zip.disabled 是停用
+        '压缩包形态：.zip 是启用，.zip.disabled 是停用（老版本留下的 .zip.disable 一并认下来）
         For Each FilePath In DirectoryUtils.EnumerateFiles(Folder, False)
             Dim FileName As String = PathUtils.GetLastPart(FilePath)
             Dim Item As New PackFolderItem With {.PackPath = FilePath}
+            Dim EnabledName As String = ""
             If FileName.EndsWith(".zip" & PackDisabledSuffix, StringComparison.OrdinalIgnoreCase) Then
                 Item.IsEnabled = False
-                Item.DisplayName = FileName.Substring(0, FileName.Length - PackDisabledSuffix.Length)
+                EnabledName = FileName.Substring(0, FileName.Length - PackDisabledSuffix.Length)
+            ElseIf FileName.EndsWith(".zip" & PackLegacyDisabledSuffix, StringComparison.OrdinalIgnoreCase) Then
+                Item.IsEnabled = False
+                EnabledName = FileName.Substring(0, FileName.Length - PackLegacyDisabledSuffix.Length)
             ElseIf FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) Then
                 Item.IsEnabled = True
-                Item.DisplayName = If(KeepZipSuffix, FileName, PathUtils.GetFileNameWithoutExtension(FilePath))
+                EnabledName = FileName
             Else
                 Continue For '不认识的扩展名，不当成资源包
             End If
+            '显示名对启用和停用状态必须一致，否则同一个包开关一次名字就变了
+            Item.DisplayName = If(KeepZipSuffix, EnabledName, PathUtils.GetFileNameWithoutExtension(EnabledName))
             Item.SizeBytes = GetPackFileSize(FilePath, KindName)
             Items.Add(Item)
         Next
 
         '文件夹形态：游戏会直接读，不参与启用 / 停用
         For Each DirPath In DirectoryUtils.EnumerateDirectories(Folder, False)
+            If FolderMarkerFile <> "" AndAlso
+               Not FileUtils.Exists(PathUtils.AddSlashSuffix(DirPath) & FolderMarkerFile) Then Continue For
             Dim Item As New PackFolderItem With {
                 .PackPath = DirPath, .DisplayName = PathUtils.GetLastPart(DirPath),
                 .IsFolder = True, .IsEnabled = True}
@@ -136,9 +155,15 @@ Public Module ModPackFolder
     Public Function PackToggledPath(Item As PackFolderItem, TargetEnabled As Boolean) As String
         If Item Is Nothing Then Return ""
         If TargetEnabled Then
-            If Not Item.PackPath.EndsWith(PackDisabledSuffix, StringComparison.OrdinalIgnoreCase) Then Return Item.PackPath
-            Return Item.PackPath.Substring(0, Item.PackPath.Length - PackDisabledSuffix.Length)
+            If Item.PackPath.EndsWith(PackDisabledSuffix, StringComparison.OrdinalIgnoreCase) Then
+                Return Item.PackPath.Substring(0, Item.PackPath.Length - PackDisabledSuffix.Length)
+            End If
+            If Item.PackPath.EndsWith(PackLegacyDisabledSuffix, StringComparison.OrdinalIgnoreCase) Then
+                Return Item.PackPath.Substring(0, Item.PackPath.Length - PackLegacyDisabledSuffix.Length)
+            End If
+            Return Item.PackPath
         End If
+        '统一写成标准后缀，老文件重新停用时顺手把命名纠正过来
         Return Item.PackPath & PackDisabledSuffix
     End Function
 

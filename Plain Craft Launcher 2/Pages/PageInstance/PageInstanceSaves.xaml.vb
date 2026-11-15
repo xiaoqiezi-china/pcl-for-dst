@@ -253,7 +253,7 @@ Public Class PageInstanceSaves
             Catch ex As Exception
                 Logger.Warn(ex, $"统计存档大小失败：{SaveDir}")
             End Try
-            Dim Text As String = $"{FormatSize(Size)} · {Files} 个文件"
+            Dim Text As String = $"{StringUtils.FormatByteSize(Size)} · {Files} 个文件"
             RunInUi(Sub() Item.Description = Text)
         End Sub)
 
@@ -276,12 +276,6 @@ Public Class PageInstanceSaves
         '右键进详情
         AddHandler Item.MouseRightButtonUp, Sub() OpenDetail(SaveDir)
         Return Item
-    End Function
-
-    Private Shared Function FormatSize(Bytes As Long) As String
-        If Bytes < 1024 Then Return Bytes & " B"
-        If Bytes < 1024 * 1024 Then Return Math.Round(Bytes / 1024, 1) & " KB"
-        Return Math.Round(Bytes / 1024 / 1024, 1) & " MB"
     End Function
 
     ''' <summary>
@@ -337,7 +331,7 @@ Public Class PageInstanceSaves
             Dim Sb As New Text.StringBuilder
             Sb.AppendLine("文件夹：" & PathUtils.GetLastPart(SaveDir))
             If WorldName <> "" Then Sb.AppendLine("世界名：" & WorldName)
-            Sb.AppendLine("大小：" & FormatSize(Size) & "（" & Files & " 个文件，" & Subs & " 个文件夹）")
+            Sb.AppendLine("大小：" & StringUtils.FormatByteSize(Size) & "（" & Files & " 个文件，" & Subs & " 个文件夹）")
             Sb.AppendLine("创建时间：" & Created)
             Sb.AppendLine("修改时间：" & Modified)
             If GameVersion <> "" Then Sb.AppendLine("游戏版本：" & GameVersion & If(DataVersion = "", "", "（数据版本 " & DataVersion & "）"))

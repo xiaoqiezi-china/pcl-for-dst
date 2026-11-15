@@ -189,7 +189,8 @@ Public Class LocalResourceFile
         Get
             If _CurseForgeHash Is Nothing Then
                 '读取缓存
-                Dim CacheKey As String = $"{EnabledFullName}-{File.LastWriteTime.ToLongTimeString}-{File.Length}-C".GetStableHashCode()
+                '缓存键必须带上日期：ToLongTimeString 只有时分秒，不同日期同一时刻的同长文件会撞键
+                Dim CacheKey As String = $"{EnabledFullName}-{File.LastWriteTime.Ticks}-{File.Length}-C".GetStableHashCode()
                 Dim Cached As String = ReadIni(PathTemp & "Cache\ModHash.ini", CacheKey)
                 If Cached <> "" AndAlso Cached.RegexCheck("^\d+$") Then '#5062
                     _CurseForgeHash = Cached
@@ -244,7 +245,8 @@ Public Class LocalResourceFile
         Get
             If _ModrinthHash Is Nothing Then
                 '读取缓存
-                Dim CacheKey As String = $"{EnabledFullName}-{File.LastWriteTime.ToLongTimeString}-{File.Length}-M".GetStableHashCode()
+                '同 CurseForgeHash：键里要带日期，不能只有时分秒
+            Dim CacheKey As String = $"{EnabledFullName}-{File.LastWriteTime.Ticks}-{File.Length}-M".GetStableHashCode()
                 Dim Cached As String = ReadIni(PathTemp & "Cache\ModHash.ini", CacheKey)
                 If Cached <> "" Then
                     _ModrinthHash = Cached
@@ -270,6 +272,10 @@ Public Class LocalResourceFile
     Public Overrides Function Equals(obj As Object) As Boolean
         Dim Target = TryCast(obj, LocalResourceFile)
         Return Target IsNot Nothing AndAlso PathUtils.IsSame(File.FullName, Target.File.FullName)
+    End Function
+    '与 Equals 配套；用不区分大小写的路径哈希，和 PathUtils.IsSame 的语义保持一致
+    Public Overrides Function GetHashCode() As Integer
+        Return If(File Is Nothing, 0, StringComparer.OrdinalIgnoreCase.GetHashCode(File.FullName))
     End Function
 
 #End Region

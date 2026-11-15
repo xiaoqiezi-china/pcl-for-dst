@@ -589,8 +589,11 @@ Public Class PageInstanceExport
             If Not CheckHostedAssets Then Logger.Info($"要求跳过联网获取步骤") : Return
             If Not Loader.Input.Any Then Logger.Info($"没有需要联网检查的文件，跳过联网获取步骤") : Return
 
-            '分平台获取下载地址
+            '分平台获取下载地址。
+            '这里两个线程会同时往同一个 Dictionary（Loader.Output）和同一个 List（FailedExceptions）写，
+            '所以所有写入都必须走 OutputLock；计数用 Interlocked，避免自旋等待等不到 2 卡死。
             Dim EndedThreadCount As Integer = 0, FailedExceptions As New List(Of Exception)
+            Dim OutputLock As New Object()
 
             '从 Modrinth 获取信息
             RunInNewThread(
@@ -604,14 +607,18 @@ Public Class PageInstanceExport
                         If Not ModrinthRaw.ContainsKey(ModFile.ModrinthHash) Then Continue For
                         If ModrinthRaw(ModFile.ModrinthHash)?("files")?(0)("hashes")?("sha1") <> ModFile.ModrinthHash Then Continue For
                         '写入下载地址
-                        Loader.Output.AddIntoValueCollection(ModFile, ModrinthRaw(ModFile.ModrinthHash)("files")(0)("url"))
+                        SyncLock OutputLock
+                            Loader.Output.AddIntoValueCollection(ModFile, ModrinthRaw(ModFile.ModrinthHash)("files")(0)("url"))
+                        End SyncLock
                     Next
                     Logger.Info($"从 Modrinth 获取到 {ModrinthRaw.Count} 个本地资源项的对应信息")
                 Catch ex As Exception
                     Logger.Warn(ex, "从 Modrinth 获取本地 Mod 信息失败")
-                    FailedExceptions.Add(ex)
+                    SyncLock OutputLock
+                        FailedExceptions.Add(ex)
+                    End SyncLock
                 Finally
-                    EndedThreadCount += 1
+                    Threading.Interlocked.Increment(EndedThreadCount)
                     Loader.Progress += 0.45
                 End Try
             End Sub, "Modrinth - " & LoaderName)
@@ -632,22 +639,26 @@ Public Class PageInstanceExport
                         Dim ModFile As LocalResourceFile = Loader.Input.FirstOrDefault(Function(m) m.CurseForgeHash = File("fileFingerprint").ToObject(Of UInteger))
                         If ModFile Is Nothing Then Continue For
                         '写入下载地址
-                        For Each Address In ResourceVersion.ParseCurseForgeDownloadUrls(File("downloadUrl").ToString)
-                            Loader.Output.AddIntoValueCollection(ModFile, Address)
-                        Next
+                        SyncLock OutputLock
+                            For Each Address In ResourceVersion.ParseCurseForgeDownloadUrls(File("downloadUrl").ToString)
+                                Loader.Output.AddIntoValueCollection(ModFile, Address)
+                            Next
+                        End SyncLock
                     Next
                     Logger.Info($"从 CurseForge 获取到 {CurseForgeRaw.Count} 个本地资源项的对应信息")
                 Catch ex As Exception
                     Logger.Warn(ex, "从 CurseForge 获取本地 Mod 信息失败")
-                    FailedExceptions.Add(ex)
+                    SyncLock OutputLock
+                        FailedExceptions.Add(ex)
+                    End SyncLock
                 Finally
-                    EndedThreadCount += 1
+                    Threading.Interlocked.Increment(EndedThreadCount)
                     Loader.Progress += 0.45
                 End Try
             End Sub, "CurseForge - " & LoaderName)
 
             '等待线程结束
-            Do Until EndedThreadCount = 2
+            Do Until Threading.Volatile.Read(EndedThreadCount) = 2
                 If Loader.IsCanceled Then Return
                 Thread.Sleep(10)
             Loop

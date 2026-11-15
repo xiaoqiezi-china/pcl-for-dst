@@ -648,11 +648,19 @@ Install:
             '启动加载器
             Logger.Info($"开始更新 {ModList.Count} 个 Mod：{ModList.Select(Function(m) m.File.Name).Join("，")}")
             UpdatingInstanceModFolders.Add(PathMods)
-            Loader.Start()
-            LoaderTaskbarAdd(Loader)
-            FrmMain.BtnExtraDownload.ShowRefresh()
-            FrmMain.BtnExtraDownload.Ribble()
-            ReloadModList(True)
+            '加进去之后必须保证这个路径最终会被移除：Loader.Start 抛异常时
+            '原来的写法只在 OnStateChanged 里 Remove，路径会永久留着，
+            '之后 LocalResourceLoaders 等它消失会一直等不到，Mod 列表卡在「正在更新」
+            Try
+                Loader.Start()
+                LoaderTaskbarAdd(Loader)
+                FrmMain.BtnExtraDownload.ShowRefresh()
+                FrmMain.BtnExtraDownload.Ribble()
+                ReloadModList(True)
+            Catch ex As Exception
+                UpdatingInstanceModFolders.Remove(PathMods)
+                Throw
+            End Try
         Catch ex As Exception
             Logger.Warn(ex, "初始化 Mod 更新失败")
         End Try

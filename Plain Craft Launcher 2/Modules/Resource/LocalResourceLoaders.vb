@@ -122,6 +122,8 @@ Public Module LocalResourceLoaders
         Dim VanillaVersion = TargetMcVersion.VanillaName
         '开始网络获取
         Logger.Info($"正在检查 Mod 信息的版本：{VanillaVersion}，加载器 {ModLoaders}")
+        '用 Interlocked 计数：+= 是读-改-写三步，两个线程同时收尾会丢掉一次更新，
+        '下面的自旋等待就永远等不到 2，Mod 页会卡在「正在更新 Mod」出不来
         Dim EndedThreadCount As Integer = 0, IsFailed As Boolean = False
         Dim CurrentTaskThread As Thread = Thread.CurrentThread
         '从 Modrinth 获取信息
@@ -199,7 +201,7 @@ Public Module LocalResourceLoaders
                 Logger.Warn(ex, "从 Modrinth 获取本地 Mod 信息失败")
                 IsFailed = True
             Finally
-                EndedThreadCount += 1
+                Threading.Interlocked.Increment(EndedThreadCount)
             End Try
         End Sub, "Mod List Detail Loader Modrinth")
         '从 CurseForge 获取信息
@@ -315,11 +317,11 @@ Public Module LocalResourceLoaders
                 Logger.Warn(ex, "从 CurseForge 获取本地 Mod 信息失败")
                 IsFailed = True
             Finally
-                EndedThreadCount += 1
+                Threading.Interlocked.Increment(EndedThreadCount)
             End Try
         End Sub, "Mod List Detail Loader CurseForge")
         '等待线程结束
-        Do Until EndedThreadCount = 2
+        Do Until Threading.Volatile.Read(EndedThreadCount) = 2
             Thread.Sleep(10)
             If Loader.IsCanceled Then Return
         Loop
