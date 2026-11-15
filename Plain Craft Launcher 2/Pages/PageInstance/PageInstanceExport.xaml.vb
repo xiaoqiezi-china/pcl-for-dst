@@ -333,7 +333,7 @@ Public Class PageInstanceExport
             ConfigLines.Add($"# 当版本设置中选择了 {vbLQ}使用版本文件夹中的 Java{vbRQ} 时，是否打包版本文件夹中的 Java。")
             ConfigLines.Add("IncludeJava:" & CheckOptionsJava.Checked)
             ConfigLines.Add("")
-            ConfigLines.Add("# 是否打包正式版 PCL，以便没有启动器的玩家安装整合包。")
+            ConfigLines.Add("# 是否打包当前使用的启动器，以便没有启动器的玩家安装整合包。")
             ConfigLines.Add("IncludeLauncher:" & CheckOptionsPcl.Checked)
             ConfigLines.Add("")
             ConfigLines.Add("# 是否打包 PCL 个性化内容，例如功能隐藏设置、主页、背景音乐和图片等。")
@@ -473,18 +473,6 @@ Public Class PageInstanceExport
         '构造步骤加载器
         Dim Loaders As New List(Of LoaderBase)
 
-#Region "准备 PCL 文件"
-
-        If BuildType <> BuildTypes.Release AndAlso IncludePCL Then
-            Loaders.Add(New LoaderTask(Of Integer, Integer)("下载 PCL 正式版",
-            Sub(Loader As LoaderTask(Of Integer, Integer))
-                DownloadLatestPCL(Loader)
-                FileUtils.Copy(PathTemp & "Latest.exe", CacheFolder & "Plain Craft Launcher.exe")
-            End Sub) With {.ProgressWeight = 0.5, .Block = False})
-        End If
-
-#End Region
-
 #Region "复制文件"
 
         Loaders.Add(New LoaderTask(Of Integer, List(Of LocalResourceFile))("复制导出内容",
@@ -565,8 +553,10 @@ Public Class PageInstanceExport
             '复制 PCL 版本设置
             If DirectoryUtils.Exists(TargetInstance.PathVersion & "PCL\") Then DirectoryUtils.Copy(TargetInstance.PathVersion & "PCL\", OverridesFolder & "PCL\")
             WriteIni(OverridesFolder & "PCL\Setup.ini", "IsStar", False)
-            '复制 PCL 本体（正式版）
-            If BuildType = BuildTypes.Release AndAlso IncludePCL Then FileUtils.Copy(PathExe, CacheFolder & "Plain Craft Launcher.exe")
+            '复制启动器本体：始终打包当前运行的这一个。
+            '原实现只在 Release 构建里走这条路，其它构建会去下载「官方正式版 PCL」——
+            '那是上游的功能，本仓库已经不需要，而且没下载到就会让整个导出直接失败。
+            If IncludePCL Then FileUtils.Copy(PathExe, CacheFolder & LauncherName & ".exe")
             '复制 PCL 个性化内容
             If IncludePCLCustom Then
                 If DirectoryUtils.Exists(Paths.Base & "PCL\Pictures\") Then DirectoryUtils.Copy(Paths.Base & "PCL\Pictures\", CacheFolder & "PCL\Pictures\")
