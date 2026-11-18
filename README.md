@@ -108,10 +108,9 @@ Agent 只改未混淆的 authlib，所以**与加载器、游戏版本都无关*
 从 1.7.10 到 1.21.x 都是同一个 jar，不用往 `mods` 里放东西。
 注意**不要再传 `-Ddstmode.authBase`**，两种形态同时存在会重复注入。
 
-Agent 的下载地址、大小（131213 字节）与 SHA-256 都固定写在代码里，
-按「官方 → `ghfast.top` → `gh-proxy.com`」依次尝试，下载后校验大小与摘要。
-缓存在 `PCL/DST/Agent/`，存在即跳过；下载失败不拦启动，只提示玩家。
-如果玩家的 `mods` 里已经有 `dstmode-*.jar`，启动器会提示并跳过 Agent。
+启动器会自动从dstmode-agent的仓库下载其jar文件
+按「官方 → `ghfast.top` → `gh-proxy.com`」依次尝试。
+缓存在 `PCL/DST/Agent/`，存在即跳过；下载失败不会导致启动失败，只会提示玩家。
 
 配置在 `PCL/config.ini` 的 `[Modules]` 段，一般都不用填：
 
