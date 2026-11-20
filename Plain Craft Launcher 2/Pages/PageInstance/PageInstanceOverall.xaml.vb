@@ -151,7 +151,6 @@ Public Class PageInstanceOverall
             WriteIni(PageInstanceLeft.Instance.PathVersion & "PCL\Setup.ini", "Logo", NewLogo)
             WriteIni(PageInstanceLeft.Instance.PathVersion & "PCL\Setup.ini", "LogoCustom", Not NewLogo = "")
             '刷新显示
-            WriteIni(McFolderSelected & "PCL.ini", "InstanceCache", "") '要求刷新缓存
             PageInstanceLeft.Instance = New McInstance(PageInstanceLeft.Instance.Name).Load()
             Reload()
             LoaderFolderRun(McInstanceListLoader, McFolderSelected, LoaderFolderRunType.ForceRun, MaxDepth:=1, ExtraPath:="versions\")
@@ -166,7 +165,6 @@ Public Class PageInstanceOverall
             WriteIni(PageInstanceLeft.Instance.PathVersion & "PCL\Setup.ini", "IsStar", Not PageInstanceLeft.Instance.IsStar)
             PageInstanceLeft.Instance = New McInstance(PageInstanceLeft.Instance.Name).Load()
             Reload()
-            McInstanceListForceRefresh = True
             LoaderFolderRun(McInstanceListLoader, McFolderSelected, LoaderFolderRunType.ForceRun, MaxDepth:=1, ExtraPath:="versions\")
         Catch ex As Exception
             Logger.Error(ex, $"版本 {PageInstanceLeft.Instance.Name} 收藏状态更改失败", LogBehavior.Alert)

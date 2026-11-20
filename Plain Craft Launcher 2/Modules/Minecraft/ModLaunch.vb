@@ -163,6 +163,8 @@ Public Module ModLaunch
             Select Case LaunchLoader.State
                 Case LoadState.Finished
                     Hint(McInstanceSelected.Name & " 启动成功！", HintType.Green)
+                    '记录上次启动的版本：下次加载版本列表时优先解析它，让启动按钮尽快可用
+                    If Not IsSavingBatch Then WriteIni(McFolderSelected & "PCL.ini", "LastLaunchVersion", McInstanceSelected.Name)
                     '上报
                     If Not IsSavingBatch Then
                         Telemetry("Minecraft 启动成功",

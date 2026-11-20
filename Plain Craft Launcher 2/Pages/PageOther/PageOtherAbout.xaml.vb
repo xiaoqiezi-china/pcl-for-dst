@@ -31,4 +31,11 @@ Public Class PageOtherAbout
         UpdateCheckByButton()
     End Sub
 
+    ''' <summary>官方 QQ 群号。写在代码里而不是 XAML，方便以后只改一处。</summary>
+    Public Const QqGroupNumber As String = "1136846754"
+
+    Private Sub BtnQqGroupCopy_Click(sender As Object, e As EventArgs) Handles BtnQqGroupCopy.Click
+        ClipboardSet(QqGroupNumber)
+    End Sub
+
 End Class

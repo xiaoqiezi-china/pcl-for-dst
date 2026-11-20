@@ -666,6 +666,7 @@ Public Class PageOtherTest
                         LabI18nState.Text = "汉化工具已就绪。"
                         Hint("汉化工具下载完成", HintType.Green)
                         RefreshI18nUi()
+                        CheckI18nLatestVersion(IsForce:=True)
                     End Sub)
                 Case LoadState.Failed
                     RunInUi(
@@ -737,6 +738,64 @@ Public Class PageOtherTest
         End If
     End Sub
 
+    '==== 汉化工具版本标记 ====
+    '右下角显示已安装的版本号：与远端最新版一致标绿，不一致标红。
+    '刻意不做自动更新——下载会替换整个安装目录，得让用户自己点「重新下载」。
+
+    Private I18nLatestVersion As String = ""
+    Private I18nLatestCheckedTick As Long = 0
+    Private I18nLatestChecking As Boolean = False
+
+    ''' <summary>按当前的本地/远端版本号刷新右下角标记。</summary>
+    Private Sub UpdateI18nVersionUi()
+        If LabI18nVersion Is Nothing Then Return
+        If Not DstI18nTool.IsInstalled Then
+            LabI18nVersion.Visibility = Visibility.Collapsed
+            Return
+        End If
+        LabI18nVersion.Visibility = Visibility.Visible
+        Dim Installed As String = DstI18nTool.InstalledVersion
+        Dim Latest As String = I18nLatestVersion
+        If Installed = "" OrElse Latest = "" Then
+            '缺一头就判断不了新旧：没有安装记录就显示未知，没查到远端就只显示版本号
+            LabI18nVersion.Text = If(Installed = "", "版本未知", "版本 " & Installed)
+            LabI18nVersion.ClearValue(TextBlock.ForegroundProperty)
+            LabI18nVersion.Opacity = 0.55
+            Return
+        End If
+        LabI18nVersion.Opacity = 1
+        If String.Equals(Installed, Latest, StringComparison.OrdinalIgnoreCase) Then
+            LabI18nVersion.Text = "版本 " & Installed & "（已是最新）"
+            LabI18nVersion.Foreground = New MyColor(33, 177, 33)
+        Else
+            LabI18nVersion.Text = "版本 " & Installed & "（可更新至 " & Latest & "）"
+            LabI18nVersion.Foreground = New MyColor(226, 45, 31)
+        End If
+    End Sub
+
+    ''' <summary>查一次远端版本号，10 分钟内不重复查，避免每次进页面都去打 GitHub 接口。</summary>
+    Private Sub CheckI18nLatestVersion(Optional IsForce As Boolean = False)
+        If I18nLatestChecking Then Return
+        If Not IsForce AndAlso I18nLatestCheckedTick > 0 AndAlso GetTimeMs() - I18nLatestCheckedTick < 600000 Then Return
+        I18nLatestChecking = True
+        RunInThread(
+        Sub()
+            Dim Latest As String = ""
+            Try
+                Latest = DstI18nTool.FetchLatestVersion()
+            Catch ex As Exception
+                Logger.Warn(ex, "检查汉化工具最新版本失败")
+            End Try
+            RunInUi(
+            Sub()
+                I18nLatestChecking = False
+                I18nLatestCheckedTick = GetTimeMs()
+                If Latest <> "" Then I18nLatestVersion = Latest
+                UpdateI18nVersionUi()
+            End Sub)
+        End Sub)
+    End Sub
+
     ''' <summary>按「装没装」「开没开」重排按钮与状态文案。</summary>
     Private Sub RefreshI18nUi()
         If LabI18nState Is Nothing Then Return
@@ -755,6 +814,8 @@ Public Class PageOtherTest
                 LabI18nState.Text = "汉化工具正在运行。"
             End If
         End If
+        UpdateI18nVersionUi()
+        If Installed Then CheckI18nLatestVersion()
     End Sub
 
     Private Sub BtnDlStart_Click(sender As Object, e As EventArgs) Handles BtnDlStart.Click
@@ -772,22 +833,44 @@ Public Class PageOtherTest
         Dim Name As String = DlGuessFileName(Url)
         Dim Target As String = Folder & Name
         '同名文件加序号，不覆盖
-        If FileUtils.Exists(Target) Then Target = Folder & PathUtils.GetFileNameWithoutExtension(Name) & "-" & Date.Now.ToString("HHmmss") & "." & PathUtils.GetExtension(Name)
+        If FileUtils.Exists(Target) Then
+            Name = PathUtils.GetFileNameWithoutExtension(Name) & "-" & Date.Now.ToString("HHmmss") & "." & PathUtils.GetExtension(Name)
+            Target = Folder & Name
+        End If
 
-        LabDlState.Text = "正在下载：" & Name
+        LabDlState.Text = "正在下载：" & Name & "，进度可以在任务管理器里查看。"
         RunInThread(
         Sub()
             Try
                 DirectoryUtils.Create(Folder)
                 'NetFile 第一个参数是地址列表：直接传字符串会被 VB 当成隐式转换，
                 '编译期只给个警告、运行时才炸，所以这里显式包成数组
-                Dim Task As New LoaderDownload("下载 " & Name, New List(Of NetFile) From {New NetFile({Url}, Target)}) With {.ProgressWeight = 1}
-                Task.WaitForExit()
+                Dim Fetch As New LoaderDownload("下载 " & Name, New List(Of NetFile) From {New NetFile({Url}, Target)}) With {.ProgressWeight = 1}
+                '必须包进 LoaderCombo 再挂到 LoaderTaskbar：单独 Start 的下载器不会注册成任务，
+                '任务管理器里既看不到进度也没法取消，用户只能干等，这就是之前的“静默下载”
+                Dim Combo As New LoaderCombo(Of Object)("下载 " & Name, New List(Of LoaderBase) From {Fetch})
+                Combo.Start()
+                LoaderTaskbarAdd(Combo)
+                FrmMain.BtnExtraDownload.ShowRefresh()
+                FrmMain.BtnExtraDownload.Ribble()
+                '不能用 Combo.WaitForExit：它内部会再调一次 Start，对已结束的组合加载器等于重新跑一遍
+                Do While Combo.State = LoadState.Loading
+                    Thread.Sleep(20)
+                Loop
+                If Combo.State = LoadState.Canceled Then
+                    Logger.Info($"下载已取消：{Target}")
+                    RunInUi(Sub() LabDlState.Text = "已取消下载。")
+                    Return
+                End If
+                If Combo.State <> LoadState.Finished Then Throw New Exception(If(Combo.Error Is Nothing, "下载失败", Combo.Error.Message))
                 RunInUi(
                 Sub()
                     LabDlState.Text = "已保存到：" & Target
                     Hint("下载完成：" & Name, HintType.Green)
                 End Sub)
+            Catch ex As OperationCanceledException
+                Logger.Info($"下载已取消：{Target}")
+                RunInUi(Sub() LabDlState.Text = "已取消下载。")
             Catch ex As Exception
                 Logger.Warn(ex, "下载器下载失败")
                 RunInUi(
@@ -797,6 +880,18 @@ Public Class PageOtherTest
                 End Sub)
             End Try
         End Sub)
+    End Sub
+
+    ''' <summary>打开下载文件所在的文件夹。目录不存在就先建出来，避免点了没反应。</summary>
+    Private Sub BtnDlFolder_Click(sender As Object, e As EventArgs) Handles BtnDlFolder.Click
+        Try
+            Dim Folder As String = Paths.Base & "PCL\Downloads\"
+            DirectoryUtils.Create(Folder)
+            OpenExplorer(Folder)
+        Catch ex As Exception
+            Logger.Warn(ex, "打开下载文件夹失败")
+            Hint("打开下载文件夹失败：" & ex.Message, HintType.Red)
+        End Try
     End Sub
 
     ''' <summary>从地址里猜一个文件名：取最后一段路径，去掉查询串；猜不到就叫 download。</summary>

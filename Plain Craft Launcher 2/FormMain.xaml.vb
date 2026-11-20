@@ -626,7 +626,8 @@ Public Class FormMain
         '更改隐藏版本可见性
         If e.Key = Key.F11 AndAlso PageCurrent = FormMain.PageType.InstanceSelect Then
             FrmSelectRight.ShowHidden = Not FrmSelectRight.ShowHidden
-            LoaderFolderRun(McInstanceListLoader, McFolderSelected, LoaderFolderRunType.ForceRun, MaxDepth:=1, ExtraPath:="versions\")
+            '隐藏版本只是显示过滤，直接按现有快照重画即可，不必重新加载版本列表
+            FrmSelectRight.RefreshView()
             Return
         End If
         '更改功能隐藏可见性

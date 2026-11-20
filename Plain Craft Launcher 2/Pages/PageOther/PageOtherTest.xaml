@@ -8,8 +8,10 @@
     PanScroll="PanBack">
     <local:MyPageRight.Resources>
         <!-- 进度/跳转条：细圆角轨道 + 圆形滑块 -->
-        <Style x:Key="SeekSlider" TargetType="Slider">
-            <!-- 允许点轨道直接跳过去，不加这个只能拖滑块 -->
+        <Style x:Key="SeekSlider" TargetType="Slider">
+
+            <!-- 允许点轨道直接跳过去，不加这个只能拖滑块 -->
+
             <Setter Property="IsMoveToPointEnabled" Value="True" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -47,43 +49,80 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        <!-- 竖向音量条，跟进度条同一套外观 -->
-        <Style x:Key="VolumeSlider" TargetType="Slider">
-            <Setter Property="Orientation" Value="Vertical" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Slider">
-                        <Grid Width="18" Height="110" Background="Transparent">
-                            <Border Width="6" CornerRadius="3" HorizontalAlignment="Center"
-                                    Background="{DynamicResource ColorBrushGray4}" Opacity="0.4" />
-                            <Track x:Name="PART_Track" Orientation="Vertical">
-                                <Track.DecreaseRepeatButton>
-                                    <RepeatButton Command="Slider.DecreaseLarge" Focusable="False">
-                                        <RepeatButton.Template>
-                                            <ControlTemplate TargetType="RepeatButton">
-                                                <Border Width="6" CornerRadius="3" HorizontalAlignment="Center"
-                                                        Background="{DynamicResource ColorBrush3}" />
-                                            </ControlTemplate>
-                                        </RepeatButton.Template>
-                                    </RepeatButton>
-                                </Track.DecreaseRepeatButton>
-                                <Track.IncreaseRepeatButton>
-                                    <RepeatButton Command="Slider.IncreaseLarge" Opacity="0" Focusable="False" />
-                                </Track.IncreaseRepeatButton>
-                                <Track.Thumb>
-                                    <Thumb Width="16" Height="16">
-                                        <Thumb.Template>
-                                            <ControlTemplate TargetType="Thumb">
-                                                <Border CornerRadius="8" Background="{DynamicResource ColorBrush3}" />
-                                            </ControlTemplate>
-                                        </Thumb.Template>
-                                    </Thumb>
-                                </Track.Thumb>
-                            </Track>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+        <!-- 竖向音量条，跟进度条同一套外观 -->
+
+        <Style x:Key="VolumeSlider" TargetType="Slider">
+
+            <Setter Property="Orientation" Value="Vertical" />
+
+            <Setter Property="Template">
+
+                <Setter.Value>
+
+                    <ControlTemplate TargetType="Slider">
+
+                        <Grid Width="18" Height="110" Background="Transparent">
+
+                            <Border Width="6" CornerRadius="3" HorizontalAlignment="Center"
+
+                                    Background="{DynamicResource ColorBrushGray4}" Opacity="0.4" />
+
+                            <Track x:Name="PART_Track" Orientation="Vertical">
+
+                                <Track.DecreaseRepeatButton>
+
+                                    <RepeatButton Command="Slider.DecreaseLarge" Focusable="False">
+
+                                        <RepeatButton.Template>
+
+                                            <ControlTemplate TargetType="RepeatButton">
+
+                                                <Border Width="6" CornerRadius="3" HorizontalAlignment="Center"
+
+                                                        Background="{DynamicResource ColorBrush3}" />
+
+                                            </ControlTemplate>
+
+                                        </RepeatButton.Template>
+
+                                    </RepeatButton>
+
+                                </Track.DecreaseRepeatButton>
+
+                                <Track.IncreaseRepeatButton>
+
+                                    <RepeatButton Command="Slider.IncreaseLarge" Opacity="0" Focusable="False" />
+
+                                </Track.IncreaseRepeatButton>
+
+                                <Track.Thumb>
+
+                                    <Thumb Width="16" Height="16">
+
+                                        <Thumb.Template>
+
+                                            <ControlTemplate TargetType="Thumb">
+
+                                                <Border CornerRadius="8" Background="{DynamicResource ColorBrush3}" />
+
+                                            </ControlTemplate>
+
+                                        </Thumb.Template>
+
+                                    </Thumb>
+
+                                </Track.Thumb>
+
+                            </Track>
+
+                        </Grid>
+
+                    </ControlTemplate>
+
+                </Setter.Value>
+
+            </Setter>
+
         </Style>    </local:MyPageRight.Resources>
 
     <local:MyScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" x:Name="PanBack">
@@ -134,32 +173,58 @@
                             </Border>
                         </StackPanel>
 
-                        <Border x:Name="BtnVolume" Grid.Column="3" Width="30" Height="30" CornerRadius="15"
-                                Background="Transparent" Cursor="Hand" ToolTip="音量"
-                                Margin="14,0,0,0" VerticalAlignment="Top">
-                            <Grid Width="16" Height="16">
-                                <Path Fill="{DynamicResource ColorBrush3}" Stretch="Uniform"
-                                      Data="M2,8 L6,8 L11,3 L11,17 L6,12 L2,12 Z" />
-                                <Path Stroke="{DynamicResource ColorBrush3}" StrokeThickness="1.6"
-                                      Stretch="Uniform" Margin="10,4,0,4"
-                                      Data="M1,3 A5,5 0 0 1 1,11" />
-                            </Grid>
-                        </Border>
-                        <local:MyIconButton x:Name="BtnMusicSetup" Grid.Column="4" Width="28" Height="28"
-                                            LogoScale="0.85" ToolTip="播放器设置" Margin="8,0,0,0"
-                                            VerticalAlignment="Top" />
-                        <Popup x:Name="PopupVolume" PlacementTarget="{Binding ElementName=BtnVolume}"
-                               Placement="Top" StaysOpen="False" AllowsTransparency="True"
-                               HorizontalOffset="0" VerticalOffset="6">
-                            <Border CornerRadius="8" Padding="10,12" Background="{DynamicResource ColorBrush7}"
-                                    BorderThickness="1" BorderBrush="{DynamicResource ColorBrush6}">
-                                <StackPanel>
-                                    <Slider x:Name="SliderVolume" Style="{StaticResource VolumeSlider}"
-                                            Minimum="0" Maximum="100" Value="50" />
-                                    <TextBlock x:Name="LabVolume" Text="50%" FontSize="11" Opacity="0.6"
-                                               HorizontalAlignment="Center" Margin="0,6,0,0" />
-                                </StackPanel>
-                            </Border>
+                        <Border x:Name="BtnVolume" Grid.Column="3" Width="30" Height="30" CornerRadius="15"
+
+                                Background="Transparent" Cursor="Hand" ToolTip="音量"
+
+                                Margin="14,0,0,0" VerticalAlignment="Top">
+
+                            <Grid Width="16" Height="16">
+
+                                <Path Fill="{DynamicResource ColorBrush3}" Stretch="Uniform"
+
+                                      Data="M2,8 L6,8 L11,3 L11,17 L6,12 L2,12 Z" />
+
+                                <Path Stroke="{DynamicResource ColorBrush3}" StrokeThickness="1.6"
+
+                                      Stretch="Uniform" Margin="10,4,0,4"
+
+                                      Data="M1,3 A5,5 0 0 1 1,11" />
+
+                            </Grid>
+
+                        </Border>
+
+                        <local:MyIconButton x:Name="BtnMusicSetup" Grid.Column="4" Width="28" Height="28"
+
+                                            LogoScale="0.85" ToolTip="播放器设置" Margin="8,0,0,0"
+
+                                            VerticalAlignment="Top" />
+
+                        <Popup x:Name="PopupVolume" PlacementTarget="{Binding ElementName=BtnVolume}"
+
+                               Placement="Top" StaysOpen="False" AllowsTransparency="True"
+
+                               HorizontalOffset="0" VerticalOffset="6">
+
+                            <Border CornerRadius="8" Padding="10,12" Background="{DynamicResource ColorBrush7}"
+
+                                    BorderThickness="1" BorderBrush="{DynamicResource ColorBrush6}">
+
+                                <StackPanel>
+
+                                    <Slider x:Name="SliderVolume" Style="{StaticResource VolumeSlider}"
+
+                                            Minimum="0" Maximum="100" Value="50" />
+
+                                    <TextBlock x:Name="LabVolume" Text="50%" FontSize="11" Opacity="0.6"
+
+                                               HorizontalAlignment="Center" Margin="0,6,0,0" />
+
+                                </StackPanel>
+
+                            </Border>
+
                         </Popup>
                     </Grid>
 
@@ -197,21 +262,24 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="1*" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <local:MyTextBox x:Name="TextDlUrl" Grid.Column="0" Height="30" MaxHeight="30"
                                          HintText="粘贴下载直链，例如 https://example.com/file.zip" />
                         <local:MyButton x:Name="BtnDlStart" Grid.Column="1" Margin="10,0,0,0" Height="30"
                                         MinWidth="96" Text="开始下载" ColorType="Highlight" />
+                        <local:MyButton x:Name="BtnDlFolder" Grid.Column="2" Margin="10,0,0,0" Height="30"
+                                        MinWidth="118" Text="打开下载文件夹" />
                     </Grid>
                     <TextBlock x:Name="LabDlState" Grid.Row="1" Margin="0,10,0,0" FontSize="12" Opacity="0.7"
-                               TextWrapping="Wrap" Text="文件会保存到 PCL\Downloads 文件夹，下载进度在任务管理器里查看。&#xa;连接时优先使用的 IP 协议跟随 设置 → 其他 → 下载 → 网络协议。" />
+                               TextWrapping="Wrap" Text="使用多线程下载能力下载自定义文件。" />
                 </Grid>
             </local:MyCard>
             <!-- 汉化工具：独立副程序，体积大，按需下载 -->
             <local:MyCard Margin="0,0,0,15" Title="汉化工具">
                 <StackPanel Margin="25,34,25,18">
                     <TextBlock FontSize="12" Opacity="0.65" TextWrapping="Wrap" Margin="0,0,0,14"
-                               Text="扫描版本目录里的 mods、KubeJS 与 FTB Quests 语言文件，在网页里批量生成汉化。&#xa;这是一个独立的小程序（约 50 MB），不随启动器分发，第一次使用需要先下载。" />
+                               Text="自动解析本地化文本并提供AI工作区进行翻译操作。支持并发LLM,机翻。" />
                     <Grid Margin="0,0,0,10">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" SharedSizeGroup="I18nName" />
@@ -247,7 +315,15 @@
                         <local:MyButton x:Name="BtnI18nOpen" MinWidth="120" Height="34" Padding="13,0"
                                         Text="打开网页" Visibility="Collapsed" />
                     </WrapPanel>
-                    <TextBlock x:Name="LabI18nState" Margin="0,12,0,0" FontSize="12" Opacity="0.7" TextWrapping="Wrap" Text="" />
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="LabI18nState" Grid.Column="0" FontSize="12" Opacity="0.7" TextWrapping="Wrap" Text="" />
+                        <TextBlock x:Name="LabI18nVersion" Grid.Column="1" Margin="12,0,0,0" FontSize="11.5"
+                                   MaxWidth="210" TextWrapping="Wrap" TextAlignment="Right" VerticalAlignment="Bottom" Text="" />
+                    </Grid>
                 </StackPanel>
             </local:MyCard>
 

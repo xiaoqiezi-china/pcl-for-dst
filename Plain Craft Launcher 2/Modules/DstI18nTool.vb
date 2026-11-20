@@ -39,6 +39,9 @@ Friend Module DstI18nTool
 
     Public Const ExeName As String = "DST-MC-I18n-Tool.exe"
 
+    ''' <summary>安装目录里记录版本号的文件名。安装目录会被整体重建，旧版本号不会残留。</summary>
+    Public Const VersionRecordName As String = "pcl-version.txt"
+
     ''' <summary>该仓库的 Release 数据源。取版本、展开镜像、算摘要都走这一层。</summary>
     Private ReadOnly Feed As New ReleaseFeed(RepoOwner, RepoName)
 
@@ -80,10 +83,44 @@ Friend Module DstI18nTool
         Return New ReleaseFeed(Parts(0).Trim(), Parts(1).Trim())
     End Function
 
+    ''' <summary>
+    ''' 查询远端的最新版本号；查不到返回空串。会走网络，不能在 UI 线程上调用。
+    ''' </summary>
+    Public Function FetchLatestVersion() As String
+        Try
+            Dim Release As ReleaseInfo = GetFeed().FetchLatest(".zip")
+            Return Release.Version.Trim()
+        Catch ex As Exception
+            Logger.Warn(ex, "查询汉化工具最新版本号失败")
+            Return ""
+        End Try
+    End Function
+
     ''' <summary>本机是否已经装好了这个程序。</summary>
     Public ReadOnly Property IsInstalled As Boolean
         Get
             Return FileUtils.Exists(ExePath)
+        End Get
+    End Property
+
+    ''' <summary>
+    ''' 本机已安装的版本号；没有记录时返回空串。
+    ''' <para>
+    ''' 版本号是下载时从 Release 拿到的，安装完成后写进 <see cref="VersionRecordName"/>，
+    ''' 所以「装的是什么版本」只取决于这份记录。手工替换过安装目录的会读不到，显示为「版本未知」。
+    ''' </para>
+    ''' </summary>
+    Public ReadOnly Property InstalledVersion As String
+        Get
+            Try
+                If Not IsInstalled Then Return ""
+                Dim Record As String = InstallFolder & VersionRecordName
+                If Not FileUtils.Exists(Record) Then Return ""
+                Return FileUtils.ReadAsString(Record).Trim()
+            Catch ex As Exception
+                Logger.Warn(ex, "读取汉化工具版本号失败")
+                Return ""
+            End Try
         End Get
     End Property
 
@@ -201,6 +238,7 @@ Friend Module DstI18nTool
     ''' <summary>下载完成后落在哪，以及要不要校验摘要。第一步与第三步之间靠这几个模块级变量传。</summary>
     Private PendingZip As String = ""
     Private PendingSha256 As String = ""
+    Private PendingVersion As String = ""
 
     ''' <summary>
     ''' 第一步：问 Release 要地址与摘要，产出待下载的文件列表。
@@ -216,6 +254,7 @@ Friend Module DstI18nTool
         '固定路径会残留上次的半个文件，被当成断点续传的起点，最后「下载完成」但内容不全
         If FileUtils.Exists(PendingZip) Then FileUtils.Delete(PendingZip)
         PendingSha256 = ""
+        PendingVersion = ""
 
         Dim Sources As String()
         Dim Direct As String = DirectUrl
@@ -229,6 +268,7 @@ Friend Module DstI18nTool
             '拿不到也不算失败——API 有匿名限流（走系统代理时尤其容易被别人的配额拖累），
             '而 releases/latest/download/<固定附件名> 是纯跳转、不吃配额，只要附件名固定就能用。
             Dim Release As ReleaseInfo = CurrentFeed.FetchLatest(".zip")
+            PendingVersion = Release.Version
             Dim AssetUrl As String
             If Release.CanDownload Then
                 PendingSha256 = Release.AssetSha256
@@ -300,6 +340,13 @@ Friend Module DstI18nTool
         If DirectoryUtils.Exists(InstallFolder) Then DirectoryUtils.Delete(InstallFolder)
         DirectoryUtils.Create(InstallFolder)
         DirectoryUtils.Copy(SrcDir, InstallFolder)
+        '记下这次装的是哪个版本，卡片右下角要用它判断是否已是最新
+        Try
+            FileUtils.Write(InstallFolder & VersionRecordName, PendingVersion)
+            If PendingVersion = "" Then Logger.Info("本次安装没有拿到版本号，卡片上会显示版本未知")
+        Catch ex As Exception
+            Logger.Warn(ex, "写入汉化工具版本记录失败")
+        End Try
         Logger.Info($"汉化工具已安装到 {InstallFolder}")
 
         Try

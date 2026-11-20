@@ -780,32 +780,39 @@ ExitDataLoad:
             Return (Info & ModLoaderInfo).Replace("_", "-")
         End Function
 
-        Public Function ToListItem(Optional ContentHandler As Action(Of MyListItem, EventArgs) = Nothing) As MyVirtualizingElement(Of MyListItem)
-            Return New MyVirtualizingElement(Of MyListItem)(
-            Function()
-                Dim NewItem As New MyListItem With {
-                    .Info = Info, .Height = 42, .Tag = Me, .SnapsToDevicePixels = True, .Type = MyListItem.CheckType.Clickable,
-                    .ContentHandler = ContentHandler
-                }
-                '标题
-                NewItem.Inlines.Clear()
-                NewItem.Inlines.Add(New Run(Name))
-                If ReadIni(PathVersion & "PCL\Setup.ini", "CustomInfo") <> "" Then '如果版本设置了自定义描述，在标题后面以淡灰色显示其版本号
-                    NewItem.Inlines.Add(New Run("  |  " & VersionDisplayName()) With {.Foreground = New MyColor(215, 215, 215), .FontSize = 12})
+        ''' <summary>
+        ''' 建立版本在列表中的控件（不进行虚拟化包装）。
+        ''' 拆出来是为了让外部可以在项目真正生成时做进入动画。
+        ''' </summary>
+        Public Function CreateListItem(Optional ContentHandler As Action(Of MyListItem, EventArgs) = Nothing) As MyListItem
+            Dim NewItem As New MyListItem With {
+                .Info = Info, .Height = 42, .Tag = Me, .SnapsToDevicePixels = True, .Type = MyListItem.CheckType.Clickable,
+                .ContentHandler = ContentHandler
+            }
+            '标题
+            NewItem.Inlines.Clear()
+            NewItem.Inlines.Add(New Run(Name))
+            If ReadIni(PathVersion & "PCL\Setup.ini", "CustomInfo") <> "" Then '如果版本设置了自定义描述，在标题后面以淡灰色显示其版本号
+                NewItem.Inlines.Add(New Run("  |  " & VersionDisplayName()) With {.Foreground = New MyColor(215, 215, 215), .FontSize = 12})
+            End If
+            'Logo
+            Try
+                If Logo.EndsWithF("PCL\Logo.png") Then
+                    NewItem.Logo = PathVersion & "PCL\Logo.png" '修复老版本中，存储的自定义 Logo 使用完整路径，导致移动后无法加载的 Bug
+                Else
+                    NewItem.Logo = Logo
                 End If
-                'Logo
-                Try
-                    If Logo.EndsWithF("PCL\Logo.png") Then
-                        NewItem.Logo = PathVersion & "PCL\Logo.png" '修复老版本中，存储的自定义 Logo 使用完整路径，导致移动后无法加载的 Bug
-                    Else
-                        NewItem.Logo = Logo
-                    End If
-                Catch ex As Exception
-                    Logger.Error(ex, "加载版本图标失败", LogBehavior.Toast)
-                    NewItem.Logo = "pack://application:,,,/images/Blocks/RedstoneBlock.png"
-                End Try
-                Return NewItem
-            End Function) With {.Height = 42}
+            Catch ex As Exception
+                Logger.Error(ex, "加载版本图标失败", LogBehavior.Toast)
+                NewItem.Logo = "pack://application:,,,/images/Blocks/RedstoneBlock.png"
+            End Try
+            Return NewItem
+        End Function
+        ''' <summary>
+        ''' 建立版本在列表中的控件，并包装为虚拟化控件。
+        ''' </summary>
+        Public Function ToListItem(Optional ContentHandler As Action(Of MyListItem, EventArgs) = Nothing) As MyVirtualizingElement(Of MyListItem)
+            Return New MyVirtualizingElement(Of MyListItem)(Function() CreateListItem(ContentHandler)) With {.Height = 42}
         End Function
 
         ''' <summary>
@@ -935,7 +942,7 @@ ExitDataLoad:
 #Region "版本列表加载"
 
     ''' <summary>
-    ''' 是否要求本次加载强制刷新版本列表。
+    ''' 是否要求本次加载强制刷新版本列表（忽略单个版本的加载缓存，逐个版本重新解析）。
     ''' </summary>
     Public McInstanceListForceRefresh As Boolean = False
     ''' <summary>
@@ -945,22 +952,105 @@ ExitDataLoad:
     Private IsFirstMcInstanceListLoad As Boolean = True
 
     ''' <summary>
+    ''' 版本列表的最新快照。
+    ''' <para/>
+    ''' 结构与 McInstanceList 相同，但在加载过程中会被逐步填充：每解析好一批版本就更新一次，
+    ''' 因此界面不必等全部版本解析完成，版本项可以“解析好一个就显示一个”。
+    ''' </summary>
+    Public McInstanceListSnapshot As Dictionary(Of McInstanceCardType, List(Of McInstance)) = Nothing
+    ''' <summary>
+    ''' 快照属于哪一个 Minecraft 文件夹。
+    ''' </summary>
+    Public McInstanceListSnapshotFolder As String = Nothing
+    ''' <summary>
+    ''' 加载代次：上一次加载被取消后，它的线程可能还会试图发布快照，用代次把这类过期输出丢弃。
+    ''' </summary>
+    Private McInstanceListGeneration As Integer = 0
+    ''' <summary>
+    ''' McInstanceListSnapshot 是否已经加载完成（之后内容不再变化）。
+    ''' </summary>
+    Public McInstanceListSnapshotIsFinal As Boolean = False
+    ''' <summary>
+    ''' 版本列表快照发生了更新。在后台线程触发，UI 需要自行读取 McInstanceListSnapshot。
+    ''' </summary>
+    Public Event McInstanceListProgress()
+
+    ''' <summary>
     ''' 加载 Minecraft 文件夹的版本列表。
     ''' </summary>
     Public McInstanceListLoader As New LoaderTask(Of String, Integer)("Minecraft Instance List", AddressOf InitMcInstanceList) With {.ReloadTimeout = 1}
+
+    ''' <summary>
+    ''' 发布一次版本列表快照，并通知界面刷新。
+    ''' </summary>
+    Private Sub McInstanceListPublish(Snapshot As Dictionary(Of McInstanceCardType, List(Of McInstance)), IsFinal As Boolean, Optional Generation As Integer = -1)
+        If Generation <> -1 AndAlso Generation <> McInstanceListGeneration Then Return '已被新的加载取代
+        McInstanceListSnapshot = Snapshot
+        McInstanceListSnapshotIsFinal = IsFinal
+        RaiseEvent McInstanceListProgress()
+    End Sub
+
+    ''' <summary>
+    ''' 把一个快照里的所有版本收集成一个列表。
+    ''' </summary>
+    Private Function McInstanceSnapshotFlatten(Snapshot As Dictionary(Of McInstanceCardType, List(Of McInstance))) As List(Of McInstance)
+        Dim Result As New List(Of McInstance)
+        If Snapshot Is Nothing Then Return Result
+        For Each Card As KeyValuePair(Of McInstanceCardType, List(Of McInstance)) In Snapshot
+            For Each Instance As McInstance In Card.Value
+                Result.Add(Instance)
+            Next
+        Next
+        Return Result
+    End Function
+
+    ''' <summary>
+    ''' 将已经解析好的版本，与尚未重新解析、但上一次已经显示出来的版本合并起来。
+    ''' 这样加载过程中旧内容不会先消失、再一个个冒出来。
+    ''' </summary>
+    Private Function MergeDisplays(Parsed As List(Of McInstance), Previous As List(Of McInstance)) As List(Of McInstance)
+        If Previous Is Nothing OrElse Not Previous.Any() Then Return Parsed
+        Dim ParsedKeys As New HashSet(Of String)
+        For Each Instance As McInstance In Parsed
+            ParsedKeys.Add(Instance.PathVersion)
+        Next
+        Dim Result As New List(Of McInstance)(Parsed)
+        For Each Instance As McInstance In Previous
+            If ParsedKeys.Contains(Instance.PathVersion) Then Continue For
+            Result.Add(Instance)
+        Next
+        Return Result
+    End Function
+
     Private Sub InitMcInstanceList(Loader As LoaderTask(Of String, Integer))
         '开始加载
         Dim PathMc As String = Loader.Input
+        Dim Generation As Integer = McInstanceListGeneration + 1
+        McInstanceListGeneration = Generation
+        Dim ParsedList As New List(Of McInstance)
         Try
             '初始化
             McInstanceList = New Dictionary(Of McInstanceCardType, List(Of McInstance))
+            '沿用上一次的显示内容：
+            '同一个文件夹重新加载时（安装、删除、改收藏之后），旧内容继续留在界面上，界面不会先被清空再一点点填回来，
+            '只有切换文件夹时才需要清空。
+            Dim PreviousInstances As New List(Of McInstance)
+            If McInstanceListSnapshotFolder = PathMc Then PreviousInstances = McInstanceSnapshotFlatten(McInstanceListSnapshot)
+            McInstanceListSnapshotFolder = PathMc
+            If PreviousInstances.Any() Then
+                McInstanceListPublish(McInstanceListSnapshot, False, Generation)
+            Else
+                McInstanceListPublish(New Dictionary(Of McInstanceCardType, List(Of McInstance)), False, Generation)
+            End If
 
             '检测缓存是否需要更新
             Dim FolderList As New List(Of String)
+            Dim FolderInfos As New List(Of DirectoryInfo)
             If DirectoryUtils.Exists(PathMc & "versions") Then '不要使用 CheckPermission，会导致写入时间改变，从而使得文件夹被强制刷新
                 Try
                     For Each Folder As DirectoryInfo In DirectoryUtils.GetInfo(PathMc & "versions").GetDirectories
                         FolderList.Add(Folder.Name)
+                        FolderInfos.Add(Folder)
                     Next
                 Catch ex As Exception
                     Throw New Exception("无法读取版本文件夹，可能是由于没有权限（" & PathMc & "versions）", ex)
@@ -969,27 +1059,48 @@ ExitDataLoad:
             '不可用
             If Not FolderList.Any() Then
                 WriteIni(PathMc & "PCL.ini", "InstanceCache", "") '清空缓存
+                McInstanceListPublish(New Dictionary(Of McInstanceCardType, List(Of McInstance)), True, Generation)
                 GoTo OnLoaded
             End If
-            '有可用版本
+
+            '确认能否复用单个版本的加载缓存
+            '以前只有“文件夹名列表完全没变”时才复用缓存，任何增删版本、甚至只是切换一下收藏状态，都会让整套缓存作废并重新解析全部版本，
+            '那正是版本列表经常加载得很慢的原因。现在改成按单个版本判断：只有真正缺少缓存的那个版本才需要解析 JSON。
             Dim FolderListCheck As Integer = (Versions.McInstanceCacheVersion & "#" & FolderList.Join("#"c)).GetStableHashCode() Mod (Integer.MaxValue - 1) '根据文件夹名列表生成辨识码
-            If Not McInstanceListForceRefresh AndAlso Val(ReadIni(PathMc & "PCL.ini", "InstanceCache")) = FolderListCheck Then
-                '可以使用缓存
-                Dim Result = InitMcInstanceListWithCache(PathMc)
-                If Result Is Nothing Then
-                    GoTo Reload
-                Else
-                    McInstanceList = Result
+            Dim CacheStamp As String = ReadIni(PathMc & "PCL.ini", "InstanceCache")
+            '缓存标识被清空（例如安装完版本后要求做的完整性检查）意味着要求彻底重新解析
+            Dim UseInstanceCache As Boolean = (Not McInstanceListForceRefresh) AndAlso CacheStamp <> ""
+            McInstanceListForceRefresh = False
+            If Not UseInstanceCache Then Logger.Info("版本缓存被要求刷新，逐个重新解析所有版本")
+            WriteIni(PathMc & "PCL.ini", "InstanceCache", FolderListCheck.ToString())
+
+            '加载顺序：上次启动的版本最可能是玩家马上就要玩的，先解析它，让启动按钮尽快可用
+            Dim OrderedFolders As List(Of DirectoryInfo) = OrderVersionFolders(FolderInfos, PathMc)
+
+            '逐个解析版本，解析好一批就让界面显示一批
+            Dim LastPublishTime As Long = 0
+            For Each FolderInfo As DirectoryInfo In OrderedFolders
+                If Loader.IsCanceled Then Return
+                Dim Instance As McInstance = LoadOneInstance(PathMc, FolderInfo, UseInstanceCache)
+                If Instance Is Nothing Then Continue For
+                ParsedList.Add(Instance)
+                '节流：分类排序会随版本数量变慢，不能解析一个就全量重排一次界面
+                If GetTimeMs() - LastPublishTime >= 120 Then
+                    LastPublishTime = GetTimeMs()
+                    Try
+                        McInstanceListPublish(ClassifyInstances(MergeDisplays(ParsedList, PreviousInstances)), False, Generation)
+                    Catch ex As Exception
+                        Logger.Warn(ex, "刷新版本列表快照失败")
+                    End Try
                 End If
-            Else
-                '文件夹列表不符
-Reload:
-                McInstanceListForceRefresh = False
-                Logger.Info("文件夹列表变更，重载所有版本")
-                WriteIni(PathMc & "PCL.ini", "InstanceCache", FolderListCheck)
-                McInstanceList = InitMcInstanceListWithoutCache(PathMc)
-            End If
+            Next
             IsFirstMcInstanceListLoad = False
+
+            '最终分类与排序
+            Dim FinalResult As Dictionary(Of McInstanceCardType, List(Of McInstance)) = ClassifyInstances(ParsedList)
+            If Generation <> McInstanceListGeneration Then Return '本次加载已被取代，不要把旧结果写回去
+            McInstanceList = FinalResult
+            McInstanceListPublish(FinalResult, True, Generation)
 
             '改变当前选择的版本
 OnLoaded:
@@ -1026,154 +1137,158 @@ OnLoaded:
         End Try
     End Sub
 
-    '获取版本列表
-    Private Function InitMcInstanceListWithCache(Folder As String) As Dictionary(Of McInstanceCardType, List(Of McInstance))
-        Dim Results As New Dictionary(Of McInstanceCardType, List(Of McInstance))
-        Try
-            Dim CardCount As Integer = ReadIni(Folder & "PCL.ini", "CardCount", -1)
-            If CardCount = -1 Then Return Nothing
-            For i = 0 To CardCount - 1
-                Dim CardType As McInstanceCardType = ReadIni(Folder & "PCL.ini", "CardKey" & (i + 1), ":")
-                Dim InstanceList As New List(Of McInstance)
-
-                '循环读取版本
-                For Each VersionName As String In ReadIni(Folder & "PCL.ini", "CardValue" & (i + 1), ":").Split(":")
-                    If VersionName = "" Then Continue For
-                    Dim FolderVersions As String = $"{Folder}versions\{VersionName}\"
-                    If FileUtils.Exists(FolderVersions & ".pclignore") Then
-                        If IsFirstMcInstanceListLoad Then
-                            Logger.Info($"清理残留的忽略项目：{FolderVersions}") '#2781
-                            FileUtils.Delete(FolderVersions & ".pclignore")
-                        Else
-                            Logger.Info($"跳过要求忽略的项目：{FolderVersions}")
-                            Continue For
-                        End If
-                    End If
-                    Try
-
-                        '读取单个版本
-                        Dim Instance As New McInstance(FolderVersions)
-                        InstanceList.Add(Instance)
-                        Instance.Info = ReadIni(Instance.PathVersion & "PCL\Setup.ini", "CustomInfo", "")
-                        If Instance.Info = "" Then Instance.Info = ReadIni(Instance.PathVersion & "PCL\Setup.ini", "Info", Instance.Info)
-                        Instance.Logo = ReadIni(Instance.PathVersion & "PCL\Setup.ini", "Logo", Instance.Logo)
-                        Instance.State = ReadIni(Instance.PathVersion & "PCL\Setup.ini", "State", Instance.State)
-                        Instance.IsStar = ReadIni(Instance.PathVersion & "PCL\Setup.ini", "IsStar", False)
-                        Instance.DisplayType = ReadIni(Folder & "PCL\Setup.ini", "DisplayType", McInstanceCardType.Auto)
-                        Dim Manifest As McInstallManifest = If(Instance.State = McInstance.McInstanceState.Error, Nothing, Configs.McInstallManifest.Get(Instance.Config))
-                        '检查 manifest 是否有过期文件，并进行更新
-                        If Manifest IsNot Nothing AndAlso Manifest.SchemaVersion <= Versions.McInstallManifestVersion AndAlso Manifest.ManagedFiles.Any(Function(File) File.Component IsNot Nothing) Then
-                            Dim LatestManifest = Manifest.RefreshModComponents(Instance.PathIndie)
-                            If LatestManifest IsNot Manifest Then
-                                Manifest = LatestManifest
-                                Configs.McInstallManifest.Set(Manifest, Instance.Config)
-                                Instance.Config.Save()
-                            End If
-                        End If
-                        Dim CachedVanillaName = ReadIni(Instance.PathVersion & "PCL\Setup.ini", "VersionVanillaName", "Unknown")
-                        If Instance.State <> McInstance.McInstanceState.Error AndAlso (Manifest IsNot Nothing OrElse CachedVanillaName <> "Unknown") Then
-                            Dim Version As McVersion
-                            If Manifest IsNot Nothing Then
-                                '从 manifest 中读取版本信息
-                                Version = New McVersion(Manifest.Components) With {
-                                    .OptiFineAsMod = Manifest.ManagedFiles.Any(Function(File) File.Component = "OptiFine")}
-                            Else
-                                '从 Setup.ini 中读取版本信息
-                                Dim ReadCachedInfo =
-                                Function(Key As String) As String
-                                    Dim Value = ReadIni(Instance.PathVersion & "PCL\Setup.ini", Key, Nothing)
-                                    Return If(Value = "", Nothing, Value) '对老版本 Setup.ini 的空值兼容
-                                End Function
-                                Version = New McVersion(CachedVanillaName) With {.OptiFine = ReadCachedInfo("VersionOptiFine")}
-                                For Each Loader In {ModLoaders.Fabric, ModLoaders.Forge, ModLoaders.NeoForge}
-                                    Dim CachedVersion = ReadCachedInfo($"Version{Loader}")
-                                    If CachedVersion IsNot Nothing Then Version.ModLoaderVersions(Loader) = CachedVersion
-                                Next
-                                If ReadIni(Instance.PathVersion & "PCL\Setup.ini", "VersionLiteLoader", False) Then Version.ModLoaderVersions(ModLoaders.LiteLoader) = "未知版本"
-                            End If
-                            Version.ReleaseTime = ReadIni(Instance.PathVersion & "PCL\Setup.ini", "ReleaseTime", New Date(1970, 1, 1, 15, 0, 0))
-                            Version.IsFool = Version.IsFool OrElse Instance.State = McInstance.McInstanceState.Fool
-                            Version.IsSnapshot = Version.IsSnapshot OrElse Instance.State = McInstance.McInstanceState.Snapshot OrElse Instance.Name.ContainsIgnoreCase("combat")
-                            Instance.Version = Version
-                            If Manifest IsNot Nothing Then Instance.RefreshInfo()
-                        Else
-                            Instance.Load()
-                        End If
-
-                        '重新检查错误版本
-                        If Instance.State = McInstance.McInstanceState.Error Then
-                            '重新尝试获取版本信息
-                            Dim OldDesc As String = Instance.Info
-                            Instance.State = McInstance.McInstanceState.Original
-                            Instance.Check()
-                            '校验错误原因是否改变
-                            Dim CustomInfo As String = ReadIni(Instance.PathVersion & "PCL\Setup.ini", "CustomInfo")
-                            If Instance.State = McInstance.McInstanceState.Original OrElse (CustomInfo = "" AndAlso Not OldDesc = Instance.Info) Then
-                                Logger.Info($"版本 {Instance.Name} 的错误状态已变更，新的状态为：{Instance.Info}")
-                                Return Nothing
-                            End If
-                        End If
-
-                        '校验未加载的版本
-                        If Instance.Logo = "" Then
-                            Logger.Info($"版本 {Instance.Name} 未被加载")
-                            Return Nothing
-                        End If
-
-                    Catch ex As Exception
-                        Logger.Warn(ex, $"读取版本加载缓存失败（{VersionName}）")
-                        Return Nothing
-                    End Try
-                Next
-
-                If InstanceList.Any Then Results.Add(CardType, InstanceList)
-            Next
-            Return Results
-        Catch ex As Exception
-            Logger.Warn(ex, "读取版本缓存失败")
-            Return Nothing
-        End Try
+    ''' <summary>
+    ''' 决定版本的加载顺序：上次启动的版本最先，其次是上次选择的版本，最后是其余版本。
+    ''' 这样玩家最可能马上要玩的版本会最先被解析出来。
+    ''' </summary>
+    Private Function OrderVersionFolders(Infos As List(Of DirectoryInfo), Folder As String) As List(Of DirectoryInfo)
+        Dim PriorityNames As New List(Of String)
+        For Each Key As String In New String() {"LastLaunchVersion", "Version"}
+            Dim Value As String = ReadIni(Folder & "PCL.ini", Key)
+            If Value <> "" AndAlso Not PriorityNames.Contains(Value) Then PriorityNames.Add(Value)
+        Next
+        Dim Result As New List(Of DirectoryInfo)
+        For Each ItemName As String In PriorityNames
+            Dim TargetName As String = ItemName 'For Each 的变量会被 lambda 共享，必须复制一份
+            Dim Matched As DirectoryInfo = Infos.FirstOrDefault(Function(Info) Info.Name = TargetName)
+            If Matched IsNot Nothing AndAlso Not Result.Contains(Matched) Then Result.Add(Matched)
+        Next
+        For Each Info As DirectoryInfo In Infos
+            If Not Result.Contains(Info) Then Result.Add(Info)
+        Next
+        Return Result
     End Function
-    Private Function InitMcInstanceListWithoutCache(Folder As String) As Dictionary(Of McInstanceCardType, List(Of McInstance))
-        Dim InstanceList As New List(Of McInstance)
 
-#Region "循环加载每个版本的信息"
-        For Each VersionFolderInfo As DirectoryInfo In DirectoryUtils.GetInfo(Folder & "versions").GetDirectories
+    ''' <summary>
+    ''' 读取单个版本。优先使用该版本自己的加载缓存，缓存不可用时才重新解析 JSON。
+    ''' 返回 Nothing 表示这个版本应当被跳过（例如被要求忽略）。
+    ''' </summary>
+    Private Function LoadOneInstance(Folder As String, FolderInfo As DirectoryInfo, UseCache As Boolean) As McInstance
+        Try
             '文件夹可能在枚举途中被删掉（例如取消安装时清理目录），这里必须容错，
             '否则一次 DirectoryNotFoundException 会让整个版本列表加载失败
-            Dim HasFiles As Boolean
-            Try
-                If Not VersionFolderInfo.Exists Then Continue For
-                HasFiles = VersionFolderInfo.EnumerateFiles.Any()
-            Catch ex As Exception
-                Logger.Info($"跳过读取失败的版本文件夹：{VersionFolderInfo.FullName}（{ex.GetType().Name}）")
-                Continue For
-            End Try
-            If Not HasFiles Then
-                Logger.Info($"跳过空文件夹：{VersionFolderInfo.FullName}")
-                Continue For
+            If Not FolderInfo.Exists Then Return Nothing
+            If Not FolderInfo.EnumerateFiles.Any() Then
+                Logger.Info($"跳过空文件夹：{FolderInfo.FullName}")
+                Return Nothing
             End If
-            If (VersionFolderInfo.Name = "cache" OrElse VersionFolderInfo.Name = "BLClient" OrElse VersionFolderInfo.Name = "PCL") AndAlso
-                Not FileUtils.Exists(VersionFolderInfo.FullName & "\" & VersionFolderInfo.Name & ".json") Then
-                Logger.Info($"跳过可能不是版本文件夹的项目：{VersionFolderInfo.FullName}")
-                Continue For
+            Dim VersionName As String = FolderInfo.Name
+            If (VersionName = "cache" OrElse VersionName = "BLClient" OrElse VersionName = "PCL") AndAlso
+                Not FileUtils.Exists(FolderInfo.FullName & "\" & VersionName & ".json") Then
+                Logger.Info($"跳过可能不是版本文件夹的项目：{FolderInfo.FullName}")
+                Return Nothing
             End If
-            Dim VersionFolder As String = VersionFolderInfo.FullName & "\"
+            Dim VersionFolder As String = FolderInfo.FullName & "\"
             If FileUtils.Exists(VersionFolder & ".pclignore") Then
                 If IsFirstMcInstanceListLoad Then
                     Logger.Info($"清理残留的忽略项目：{VersionFolder}") '#2781
                     FileUtils.Delete(VersionFolder & ".pclignore")
                 Else
                     Logger.Info($"跳过要求忽略的项目：{VersionFolder}")
-                    Continue For
+                    Return Nothing
                 End If
             End If
-            Dim Instance As New McInstance(VersionFolder)
-            InstanceList.Add(Instance)
-            Instance.Load()
-        Next
-#End Region
+        Catch ex As Exception
+            Logger.Info($"跳过读取失败的版本文件夹：{FolderInfo.FullName}（{ex.GetType().Name}）")
+            Return Nothing
+        End Try
+        '先尝试复用缓存
+        If UseCache Then
+            Dim Cached As McInstance = TryLoadInstanceFromCache(Folder, FolderInfo.Name)
+            If Cached IsNot Nothing Then Return Cached
+        End If
+        '完整解析
+        Return New McInstance(FolderInfo.FullName & "\").Load()
+    End Function
 
+    ''' <summary>
+    ''' 尝试从单个版本自己的加载缓存中读出信息。缓存不可用时返回 Nothing，由调用方重新解析该版本。
+    ''' </summary>
+    Private Function TryLoadInstanceFromCache(Folder As String, VersionName As String) As McInstance
+        Dim FolderVersions As String = $"{Folder}versions\{VersionName}\"
+        Try
+            '读取单个版本
+            Dim Instance As New McInstance(FolderVersions)
+            Instance.Info = ReadIni(Instance.PathVersion & "PCL\Setup.ini", "CustomInfo", "")
+            If Instance.Info = "" Then Instance.Info = ReadIni(Instance.PathVersion & "PCL\Setup.ini", "Info", Instance.Info)
+            Instance.Logo = ReadIni(Instance.PathVersion & "PCL\Setup.ini", "Logo", Instance.Logo)
+            Instance.State = ReadIni(Instance.PathVersion & "PCL\Setup.ini", "State", Instance.State)
+            Instance.IsStar = ReadIni(Instance.PathVersion & "PCL\Setup.ini", "IsStar", False)
+            Instance.DisplayType = ReadIni(Folder & "PCL\Setup.ini", "DisplayType", McInstanceCardType.Auto)
+            Dim Manifest As McInstallManifest = If(Instance.State = McInstance.McInstanceState.Error, Nothing, Configs.McInstallManifest.Get(Instance.Config))
+            '检查 manifest 是否有过期文件，并进行更新
+            If Manifest IsNot Nothing AndAlso Manifest.SchemaVersion <= Versions.McInstallManifestVersion AndAlso Manifest.ManagedFiles.Any(Function(File) File.Component IsNot Nothing) Then
+                Dim LatestManifest = Manifest.RefreshModComponents(Instance.PathIndie)
+                If LatestManifest IsNot Manifest Then
+                    Manifest = LatestManifest
+                    Configs.McInstallManifest.Set(Manifest, Instance.Config)
+                    Instance.Config.Save()
+                End If
+            End If
+            Dim CachedVanillaName = ReadIni(Instance.PathVersion & "PCL\Setup.ini", "VersionVanillaName", "Unknown")
+            If Instance.State <> McInstance.McInstanceState.Error AndAlso (Manifest IsNot Nothing OrElse CachedVanillaName <> "Unknown") Then
+                Dim Version As McVersion
+                If Manifest IsNot Nothing Then
+                    '从 manifest 中读取版本信息
+                    Version = New McVersion(Manifest.Components) With {
+                        .OptiFineAsMod = Manifest.ManagedFiles.Any(Function(File) File.Component = "OptiFine")}
+                Else
+                    '从 Setup.ini 中读取版本信息
+                    Dim ReadCachedInfo =
+                    Function(Key As String) As String
+                        Dim Value = ReadIni(Instance.PathVersion & "PCL\Setup.ini", Key, Nothing)
+                        Return If(Value = "", Nothing, Value) '对老版本 Setup.ini 的空值兼容
+                    End Function
+                    Version = New McVersion(CachedVanillaName) With {.OptiFine = ReadCachedInfo("VersionOptiFine")}
+                    For Each Loader In {ModLoaders.Fabric, ModLoaders.Forge, ModLoaders.NeoForge}
+                        Dim CachedVersion = ReadCachedInfo($"Version{Loader}")
+                        If CachedVersion IsNot Nothing Then Version.ModLoaderVersions(Loader) = CachedVersion
+                    Next
+                    If ReadIni(Instance.PathVersion & "PCL\Setup.ini", "VersionLiteLoader", False) Then Version.ModLoaderVersions(ModLoaders.LiteLoader) = "未知版本"
+                End If
+                Version.ReleaseTime = ReadIni(Instance.PathVersion & "PCL\Setup.ini", "ReleaseTime", New Date(1970, 1, 1, 15, 0, 0))
+                Version.IsFool = Version.IsFool OrElse Instance.State = McInstance.McInstanceState.Fool
+                Version.IsSnapshot = Version.IsSnapshot OrElse Instance.State = McInstance.McInstanceState.Snapshot OrElse Instance.Name.ContainsIgnoreCase("combat")
+                Instance.Version = Version
+                If Manifest IsNot Nothing Then Instance.RefreshInfo()
+            Else
+                Instance.Load()
+            End If
+
+            '重新检查错误版本
+            If Instance.State = McInstance.McInstanceState.Error Then
+                '重新尝试获取版本信息
+                Dim OldDesc As String = Instance.Info
+                Instance.State = McInstance.McInstanceState.Original
+                Instance.Check()
+                '校验错误原因是否改变
+                Dim CustomInfo As String = ReadIni(Instance.PathVersion & "PCL\Setup.ini", "CustomInfo")
+                If Instance.State = McInstance.McInstanceState.Original OrElse (CustomInfo = "" AndAlso Not OldDesc = Instance.Info) Then
+                    Logger.Info($"版本 {Instance.Name} 的错误状态已变更，新的状态为：{Instance.Info}")
+                    Return Nothing
+                End If
+            End If
+
+            '校验未加载的版本
+            If Instance.Logo = "" Then
+                Logger.Info($"版本 {Instance.Name} 未被加载")
+                Return Nothing
+            End If
+
+
+            Return Instance
+
+        Catch ex As Exception
+            Logger.Warn(ex, $"读取版本加载缓存失败（{VersionName}）")
+            Return Nothing
+        End Try
+    End Function
+    ''' <summary>
+    ''' 将版本列表按现有规则分类到各个卡片，并完成排序。
+    ''' </summary>
+    Private Function ClassifyInstances(Source As List(Of McInstance)) As Dictionary(Of McInstanceCardType, List(Of McInstance))
+        '复制一份：分类过程中会不断从列表中摘走已经归类好的版本
+        Dim InstanceList As New List(Of McInstance)(Source)
         Dim Results As New Dictionary(Of McInstanceCardType, List(Of McInstance))
 
 #Region "将版本分类到各个卡片"
@@ -1313,17 +1428,6 @@ OnLoaded:
             End Function)
         Next
 
-#End Region
-#Region "保存卡片缓存"
-        WriteIni(Folder & "PCL.ini", "CardCount", Results.Count)
-        For i = 0 To Results.Count - 1
-            WriteIni(Folder & "PCL.ini", "CardKey" & (i + 1), Results.Keys(i))
-            Dim Value As String = ""
-            For Each Instance As McInstance In Results.Values(i)
-                Value += Instance.Name & ":"
-            Next
-            WriteIni(Folder & "PCL.ini", "CardValue" & (i + 1), Value)
-        Next
 #End Region
 
         Return Results

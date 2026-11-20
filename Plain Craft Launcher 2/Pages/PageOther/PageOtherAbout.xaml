@@ -49,6 +49,17 @@
                                     x:Name="BtnAboutUpdate" />
                 </Grid>
             </local:MyCard>
+            <local:MyCard Margin="0,0,0,15" Title="官方 QQ 群">
+                <StackPanel Margin="25,40,21,20">
+                    <TextBlock TextWrapping="Wrap" LineHeight="19" Text="遇到问题、想提建议，或者只是想找人聊聊，都欢迎加群。" />
+                    <TextBlock Margin="0,10,0,0" FontSize="16" FontWeight="Bold" Text="群号：1136846754" />
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <local:MyButton x:Name="BtnQqGroupCopy" MinWidth="140" Height="35" Padding="13,0" Text="复制群号" ColorType="Highlight" />
+                        <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" FontSize="12" Opacity="0.65" TextWrapping="Wrap"
+                                   Text="复制后打开 QQ，在「加群 / 查找群」里粘贴群号即可。" />
+                    </StackPanel>
+                </StackPanel>
+            </local:MyCard>
             <local:MyCard Margin="0,0,0,15" Title="特别鸣谢">
                 <Grid Margin="21,40,21,16">
                     <Grid.RowDefinitions>

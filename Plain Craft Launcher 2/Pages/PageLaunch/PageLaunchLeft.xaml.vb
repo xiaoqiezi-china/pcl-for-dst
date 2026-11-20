@@ -75,9 +75,22 @@ Public Class PageLaunchLeft
             '确认 Minecraft 版本存在
             Dim Selection As String = ReadIni(McFolderSelected & "PCL.ini", "Version")
             Dim Instance As McInstance = If(Selection = "", Nothing, New McInstance(Selection))
-            If Instance Is Nothing OrElse Not PathUtils.IsParentOf(McFolderSelected, Instance.PathVersion) OrElse Not Instance.Check() Then
-                '无效的版本
-                Logger.Info($"当前选择的 Minecraft 版本无效：{If(Instance Is Nothing, "null", Instance.PathVersion)}", If(IsNothing(Instance), LogBehavior.None, LogBehavior.ToastIfDebug))
+            If Instance IsNot Nothing AndAlso Not (PathUtils.IsParentOf(McFolderSelected, Instance.PathVersion) AndAlso Instance.Check()) Then Instance = Nothing
+            If Instance Is Nothing Then
+                '记录里的版本无效，先退到上次启动的版本：
+                '它最可能是玩家这次马上要玩的，先去解析它，可以避开等待整个版本列表加载完成
+                Dim LastLaunch As String = ReadIni(McFolderSelected & "PCL.ini", "LastLaunchVersion")
+                If LastLaunch <> "" AndAlso LastLaunch <> Selection Then
+                    Dim LastInstance As New McInstance(LastLaunch)
+                    If PathUtils.IsParentOf(McFolderSelected, LastInstance.PathVersion) AndAlso LastInstance.Check() Then
+                        Logger.Info($"当前选择的 Minecraft 版本无效，回退到上次启动的版本：{LastInstance.PathVersion}")
+                        Instance = LastInstance
+                    End If
+                End If
+            End If
+            If Instance Is Nothing Then
+                '依然无效，只能等版本列表加载完再挑一个
+                Logger.Info($"当前选择的 Minecraft 版本无效：{If(Selection = "", "null", Selection)}")
                 If Not McInstanceListLoader.State = LoadState.Finished Then LoaderFolderRun(McInstanceListLoader, McFolderSelected, LoaderFolderRunType.ForceRun, MaxDepth:=1, ExtraPath:="versions\", WaitForExit:=True)
                 If Not McInstanceList.Any() OrElse McInstanceList.First.Value(0).Logo.Contains("RedstoneBlock") Then
                     Instance = Nothing
@@ -939,7 +952,7 @@ Finish:
         End If
         '获取当前状态
         Dim CurrentState As Integer
-        If (Not IsLoadFinished) OrElse McInstanceListLoader.State = LoadState.Loading OrElse McFolderListLoader.State = LoadState.Loading Then
+        If (Not IsLoadFinished) OrElse (McInstanceSelected Is Nothing AndAlso (McInstanceListLoader.State = LoadState.Loading OrElse McFolderListLoader.State = LoadState.Loading)) Then
             CurrentState = 0
         Else
             If McInstanceSelected Is Nothing Then
