@@ -16,6 +16,12 @@ on:
       - '.github/workflows/**'
   workflow_dispatch:
 
+# 默认的 GITHUB_TOKEN 是只读的，没有这一行就无法往 Release 上传附件，
+# 表现为「HTTP 403: Resource not accessible by integration」。
+# 自动更新只认 Release 附件，所以这段权限是更新链路的必要条件。
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build
