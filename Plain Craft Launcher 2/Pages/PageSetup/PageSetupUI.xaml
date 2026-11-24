@@ -47,10 +47,10 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock VerticalAlignment="Center" HorizontalAlignment="Left" Text="外观" Margin="0,0,20,0" />
                             <local:MyRadioBox local:SettingService.Key="DstAppearance" local:SettingService.Value="0"
-                                              Grid.Column="1" Text="PCL" x:Name="RadioAppearance0"
-                                              ToolTip="PCL 原版外观：顶部横排导航，跟随下方的深浅设置与主题色。" />
+                                              Grid.Column="1" Text="DPCL" x:Name="RadioAppearance0"
+                                              ToolTip="DPCL 原版外观：顶部横排导航，跟随下方的深浅设置与主题色。" />
                             <local:MyRadioBox local:SettingService.Key="DstAppearance" local:SettingService.Value="1"
-                                              Grid.Column="2" Text="PCL Inder" x:Name="RadioAppearance1"
+                                              Grid.Column="2" Text="DPCL Inder" x:Name="RadioAppearance1"
                                               ToolTip="左侧竖排导航、深色简约风格。选定后不跟随主题色与深浅设置。" />
                         </Grid>
                         <local:MyCheckBox x:Name="CheckDarkMode" Text="深色模式" Margin="0,2,0,10"
@@ -112,7 +112,7 @@
                             <TextBlock Text="主题色（点击色块选颜色，右键恢复自动）" FontSize="12" Opacity="0.65" Margin="0,0,0,8" />
                             <WrapPanel x:Name="PanCustomColorList" Orientation="Horizontal" />
                         </StackPanel>
-                        <local:MyCheckBox local:SettingService.Key="UiLauncherLogo" Text="打开启动器时显示 PCL 图标" Margin="-1,0,0,1" Height="22" />
+                        <local:MyCheckBox local:SettingService.Key="UiLauncherLogo" Text="打开启动器时显示 DPCL 图标" Margin="-1,0,0,1" Height="22" />
                     </StackPanel>
                 </Grid>
             </local:MyCard>
@@ -171,7 +171,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock VerticalAlignment="Center" HorizontalAlignment="Left" Text="背景模糊" Margin="0,0,25,0" />
                         <local:MySlider local:SettingService.Key="UiBackgroundBlur" x:Name="SliderBackgroundBlur" MaxValue="40" Grid.Column="1" 
-                                        ToolTip="高度的模糊会严重掉帧，请谨慎。&#13;不建议在制作整合包时开启模糊，以确保 PCL 在低性能电脑上可以流畅运行。" />
+                                        ToolTip="高度的模糊会严重掉帧，请谨慎。&#13;不建议在制作整合包时开启模糊，以确保 DPCL 在低性能电脑上可以流畅运行。" />
                     </Grid>
                     <local:MyCheckBox local:SettingService.Key="UiBackgroundColorful" Text="叠加彩色背景" Margin="-1,0,0,8" Height="22" />
                     <Grid Height="35" Margin="0,2,0,0">
@@ -180,7 +180,7 @@
                             <ColumnDefinition Width="Auto" SharedSizeGroup="Button" />
                             <ColumnDefinition Width="Auto" SharedSizeGroup="Button" />
                         </Grid.ColumnDefinitions>
-                        <local:MyButton x:Name="BtnBackgroundOpen" MinWidth="140" Text="打开文件夹" Padding="13,0" Margin="0,0,20,0" ToolTip="将背景图片放到该文件夹，PCL 将会在每次打开时随机加载其中的一张图片"/>
+                        <local:MyButton x:Name="BtnBackgroundOpen" MinWidth="140" Text="打开文件夹" Padding="13,0" Margin="0,0,20,0" ToolTip="将背景图片放到该文件夹，DPCL 将会在每次打开时随机加载其中的一张图片"/>
                         <local:MyButton x:Name="BtnBackgroundRefresh" MinWidth="140" Text="刷新背景图片" Padding="13,0" Margin="0,0,20,0" ToolTip="随机加载文件夹内的一张背景图片" Grid.Column="1"/>
                         <local:MyButton x:Name="BtnBackgroundClear" MinWidth="140" Text="清空背景图片" Visibility="Collapsed" Padding="13,0" Margin="0,0,20,0" ColorType="Red" Grid.Column="2"/>
                     </Grid>
@@ -278,10 +278,10 @@
                             <local:MyComboBoxItem local:SettingService.Value="6" Content="OpenBMCLAPI 仪表盘 Lite（作者：Silverteal、Mxmilu666）" />
                             <!--<local:MyComboBoxItem local:SettingService.Value="7" Content="PCL 主页市场（作者：凌云）" />-->
                             <!--<local:MyComboBoxItem local:SettingService.Value="8" Content="PCL 新闻速报（作者：Joker2184）" />-->
-                            <local:MyComboBoxItem local:SettingService.Value="9" Content="PCL 新功能说明书（作者：WForst-Breeze）" />
+                            <local:MyComboBoxItem local:SettingService.Value="9" Content="DPCL 新功能说明书（作者：WForst-Breeze）" />
                             <!--<local:MyComboBoxItem local:SettingService.Value="10" Content="OpenMCIM 仪表盘（作者：SALTWOOD）" />-->
                             <local:MyComboBoxItem local:SettingService.Value="11" Content="杂志主页（作者：CreeperIsASpy）" />
-                            <local:MyComboBoxItem local:SettingService.Value="12" Content="PCL GitHub 仪表盘（作者：Deep-Dark-Forest）" />
+                            <local:MyComboBoxItem local:SettingService.Value="12" Content="DPCL GitHub 仪表盘（作者：Deep-Dark-Forest）" />
                             <local:MyComboBoxItem local:SettingService.Value="13" Content="Minecraft 更新摘要（作者：pynickle）" />
                             <local:MyComboBoxItem local:SettingService.Value="14" Content="今日新闻热点（作者：EYicheng）" />
                             <local:MyComboBoxItem local:SettingService.Value="15" Content="Minecraft 芝士站（作者：awaEric233）" />
@@ -395,7 +395,7 @@
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="Button" />
                             </Grid.ColumnDefinitions>
                             <local:MyButton x:Name="BtnSkinSave" Text="保存皮肤" MinWidth="140" Padding="13,0" Margin="0,0,20,0" Grid.Row="1" />
-                            <local:MyButton x:Name="BtnSkinCache" Text="刷新" MinWidth="140" Padding="13,0" Margin="0,0,20,0" ToolTip="刷新并重新下载 PCL 当前显示的皮肤" Grid.Row="1" Grid.Column="1" />
+                            <local:MyButton x:Name="BtnSkinCache" Text="刷新" MinWidth="140" Padding="13,0" Margin="0,0,20,0" ToolTip="刷新并重新下载 DPCL 当前显示的皮肤" Grid.Row="1" Grid.Column="1" />
                         </Grid>
                     </Grid>
                     <Grid x:Name="PanSkinChange" Margin="0,14,0,2" Height="35" Visibility="Collapsed">

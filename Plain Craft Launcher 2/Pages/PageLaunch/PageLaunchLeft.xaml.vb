@@ -653,7 +653,7 @@ UseDefault:
                 End Try
             Case 4 '自定义
                 If Not FileUtils.Exists(Paths.AppDataThenName & "CustomSkin.png") Then
-                    Hint("未找到离线皮肤自定义文件，可能它已被删除。PCL 将使用默认的 Steve 皮肤！")
+                    Hint("未找到离线皮肤自定义文件，可能它已被删除。DPCL 将使用默认的 Steve 皮肤！")
                     Settings.Set("LaunchSkinType", 1)
                     GoTo UseDefault
                 End If

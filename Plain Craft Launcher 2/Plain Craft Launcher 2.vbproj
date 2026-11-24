@@ -227,6 +227,8 @@
     <Compile Include="Modules\Config\ModLinkDiagnostics.vb" />
     <Compile Include="Modules\Config\ModReleaseFeed.vb" />
     <Compile Include="Modules\Config\ModUpdateSource.vb" />
+    <Compile Include="Modules\DstAi.vb" />
+    <Compile Include="Modules\DstDeepseekCe.vb" />
     <Compile Include="Modules\DstI18nTool.vb" />
     <Compile Include="Modules\DstMode\DstModeCore.vb" />
     <Compile Include="Modules\DstMode\ModDstMode.vb" />
@@ -1145,7 +1147,9 @@
   <ItemGroup>
     <Resource Include="Images\Heads\ChongQing.png" />
     <Resource Include="Images\Heads\HerobrineXia.png" />
-
+    <Resource Include="Images\Heads\xiaoqie.jpg" />
+    <Resource Include="Images\Heads\deepseek.png" />
+    <Resource Include="Images\Heads\trop.jpg" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
 </Project>

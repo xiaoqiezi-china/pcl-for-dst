@@ -59,7 +59,7 @@ Friend Module ModConfigFile
             If FileUtils.Exists(IniFullPath) Then Return
             DirectoryUtils.Create(Paths.Base & "PCL\")
             Dim Sb As New StringBuilder
-            Sb.AppendLine("; PCL 本地配置")
+            Sb.AppendLine("; DPCL 本地配置")
             Sb.AppendLine("; 改完重启启动器生效。更新启动器不会覆盖这个文件。")
             Sb.AppendLine()
             Sb.AppendLine("[" & SectionCredential & "]")

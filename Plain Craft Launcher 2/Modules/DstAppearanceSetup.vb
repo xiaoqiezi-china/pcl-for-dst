@@ -33,11 +33,11 @@ Public Module DstAppearanceSetup
         Try
             Dim Text As String =
                 "选择一套界面外观：" & vbCrLf & vbCrLf &
-                "· PCL：PCL 原版外观，顶部横排导航，跟随主题色与深浅设置。" & vbCrLf &
-                "· PCL Inder：左侧竖排导航，深色简约配色。" & vbCrLf & vbCrLf &
+                "· DPCL：DPCL 原版外观，顶部横排导航，跟随主题色与深浅设置。" & vbCrLf &
+                "· DPCL Inder：左侧竖排导航，深色简约配色。" & vbCrLf & vbCrLf &
                 "之后随时可以在「设置 → 个性化 → 外观」里切换。"
             '按钮 1 = PCL Inder，按钮 2 = PCL；默认推荐 PCL（与原版一致）
-            Dim Choice As Integer = MyMsgBox(Text, "选择界面外观", "PCL Inder", "PCL")
+            Dim Choice As Integer = MyMsgBox(Text, "选择界面外观", "DPCL Inder", "DPCL")
             Dim Value As Integer = If(Choice = 1, 1, 0)
             Settings.Set("DstAppearance", Value)
             Settings.Set("DstAppearanceAsked", True)

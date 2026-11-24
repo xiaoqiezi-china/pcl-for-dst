@@ -9,7 +9,7 @@ Public Module ModModpack
     ''' </summary>
     Public Sub ModpackInstall()
         If RestrictMcDownload Then
-            Hint("为遵守相关法律法规，PCL 暂时不再提供 MC 下载功能，非常抱歉 qwq……", HintType.Red)
+            Hint("为遵守相关法律法规，DPCL 暂时不再提供 MC 下载功能，非常抱歉 qwq……", HintType.Red)
             Return
         End If
         Dim File As String = Dialogs.SelectFile("选择整合包压缩文件", False, filter:={({"rar", "zip", "mrpack"}, "整合包文件")}).FirstOrDefault() '选择整合包文件
@@ -79,13 +79,13 @@ Public Module ModModpack
                 If ex.GetDisplay(True).Contains("Error.WinIOError") Then
                     Throw New Exception("打开整合包文件失败", ex)
                 ElseIf PathUtils.GetExtension(File) = "rar" Then
-                    Throw New Exception("PCL 无法处理 rar 格式的压缩包，请在解压后重新压缩为 zip 格式再试", ex)
+                    Throw New Exception("DPCL 无法处理 rar 格式的压缩包，请在解压后重新压缩为 zip 格式再试", ex)
                 Else
                     Throw New Exception("打开整合包文件失败，文件可能损坏或为不支持的压缩包格式", ex)
                 End If
             End Try
             '执行对应的安装方法
-            If RestrictMcDownload Then Throw New Exception("为遵守相关法律法规，PCL 暂时不再提供 MC 下载功能，非常抱歉 qwq……")
+            If RestrictMcDownload Then Throw New Exception("为遵守相关法律法规，DPCL 暂时不再提供 MC 下载功能，非常抱歉 qwq……")
             Select Case PackType
                 Case 0
                     Logger.Info("整合包种类：CurseForge")
@@ -158,7 +158,7 @@ Public Module ModModpack
             $"目标 {InstanceName} 包含以下暂不支持的组件" & vbCrLf &
             Detail & vbCrLf &
             "这可能是例如 GTNH 等特殊整合包，强行执行无法完整安装。" & vbCrLf &
-            "您可以使用 Prism Launcher 来进行安装。安装后可以使用 PCL(DST) 进行启动。"
+            "您可以使用 Prism Launcher 来进行安装。安装后可以使用 DPCL(DST) 进行启动。"
         'Button2 是副选键，ESC 会命中它，所以"取消"必须放在第二位
         Select Case MyMsgBox(Text, "暂不支持的安装包", "去 Prism 官网", "取消", "仍然尝试安装")
             Case 1
@@ -166,7 +166,7 @@ Public Module ModModpack
                 Logger.Info($"已引导用户改用 Prism 安装：{InstanceName}（不支持的组件：{String.Join(", ", Components)}）")
                 Return False
             Case 3
-                Logger.Warn($"用户坚持用 PCL 安装不支持的整合包：{InstanceName}")
+                Logger.Warn($"用户坚持用 DPCL 安装不支持的整合包：{InstanceName}")
                 Return True
             Case Else
                 Logger.Info($"用户取消了不支持的整合包安装：{InstanceName}")
@@ -749,7 +749,7 @@ Public Module ModModpack
         Next
         If Not Addons.ContainsKey("game") Then Throw New Exception("该 MCBBS 整合包未提供游戏版本信息，无法安装！")
         If Addons.ContainsKey("quilt") Then
-            Hint("PCL 不支持安装 Quilt 整合包！", HintType.Red)
+            Hint("DPCL 不支持安装 Quilt 整合包！", HintType.Red)
             Throw New OperationCanceledException
         End If
         Dim ModLoaderVersions As New Dictionary(Of ModLoaders, String)
@@ -812,9 +812,9 @@ Public Module ModModpack
                 For Each ExeFile In DirectoryUtils.EnumerateFiles(TargetFolder, searchPattern:="*.exe")
                     Dim Info = FileVersionInfo.GetVersionInfo(ExeFile)
                     Logger.Info($"文件 {ExeFile} 的产品名标识为 {Info.ProductName}")
-                    If Info.ProductName = "Plain Craft Launcher" Then
+                    If Info.ProductName = "DST Plain Craft Launcher" OrElse Info.ProductName = "Plain Craft Launcher" Then
                         Launcher = ExeFile
-                        Logger.Info($"发现整合包附带的 PCL 启动器：{ExeFile}")
+                        Logger.Info($"发现整合包附带的 DPCL 启动器：{ExeFile}")
                     ElseIf (Info.ProductName.ContainsIgnoreCase("Launcher") OrElse Info.ProductName.Contains("启动")) AndAlso
                         Not Info.ProductName = "Plain Craft Launcher Admin Manager" Then
                         If Launcher Is Nothing Then

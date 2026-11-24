@@ -548,6 +548,26 @@ GroupDone:
         ClipboardSet(ResourceItem.LabTitle.Text & ResourceItem.LabTitleRaw.Text)
     End Sub
 
+    ''' <summary>
+    ''' 问 AI 这个模组怎么样。
+    ''' <para>
+    ''' 链接直接用 <see cref="ResourceProject.Website"/>：它已经是该工程所在平台的标准地址
+    ''' （CurseForge 工程给 CurseForge 页，Modrinth 工程给 Modrinth 页），
+    ''' 不用再自己判断。
+    ''' </para>
+    ''' </summary>
+    Private Sub BtnIntroAi_Click(sender As Object, e As EventArgs) Handles BtnIntroAi.Click
+        Try
+            Dim Name As String = Project.TranslatedName
+            Dim Url As String = Project.Website
+            Dim Text As String = $"请帮我在网络上搜索{Name}此模组的信息，告诉我这个模组的玩法和评价，模组的链接是{Url}。"
+            '模组信息要现查，所以搜索与深度思考都开着
+            DstAi.Ask(Text, Search:=True, Thinking:=True)
+        Catch ex As Exception
+            Logger.Error(ex, "询问 AI 失败", LogBehavior.Alert)
+        End Try
+    End Sub
+
     'Mod / 数据包 互相跳转
     Private Sub HintAlternative_Click() Handles HintAlternative.Click
         TargetResourceType = If(TargetResourceType = ResourceTypes.Mod, ResourceTypes.DataPack, ResourceTypes.Mod)

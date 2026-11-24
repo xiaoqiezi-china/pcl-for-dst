@@ -11,22 +11,14 @@ Public Class PageOtherAbout
         IsLoaded = True
 
         ItemAboutPcl.Info = ItemAboutPcl.Info.Replace("%VERSION%", VersionDisplay).Replace("%VERSIONCODE%", VersionCode).Replace("%BRANCH%", CInt(BuildType))
-        If BuildType = BuildTypes.Debug Then
-            BtnDonateDonate.Visibility = Visibility.Collapsed
-            BtnDonateOutput.Visibility = Visibility.Visible
-        End If
 
     End Sub
 
-    Public Shared Sub CopyIdentify() Handles BtnDonateCopy.Click
+    ''' <summary>设备识别码。设置页与本页共用，因此不挂在具体按钮事件上。</summary>
+    Public Shared Sub CopyIdentify()
         ClipboardSet(Identify)
     End Sub
-    Private Sub BtnDonateCodeInput_Click() Handles BtnDonateInput.Click
-        InputPotatoCode(False)
-    End Sub
-    Private Sub BtnDonateOutput_Click(sender As Object, e As EventArgs) Handles BtnDonateOutput.Click
-        GeneratePotatoCode()
-    End Sub
+
     Private Sub BtnAboutUpdate_Click(sender As Object, e As MouseButtonEventArgs) Handles BtnAboutUpdate.Click
         UpdateCheckByButton()
     End Sub

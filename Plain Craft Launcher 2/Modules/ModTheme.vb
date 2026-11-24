@@ -125,7 +125,7 @@ Friend Module ModTheme
         ConfigUtils.SaveAll()
         RunInUi(
         Sub()
-            ShowRestartHint("外观已切换为 " & If(Value = AppearanceStyle.Indra, "PCL Inder", "PCL") & "，需要重启启动器才能完全生效。")
+            ShowRestartHint("外观已切换为 " & If(Value = AppearanceStyle.Indra, "DPCL Inder", "DPCL") & "，需要重启启动器才能完全生效。")
         End Sub)
     End Sub
 

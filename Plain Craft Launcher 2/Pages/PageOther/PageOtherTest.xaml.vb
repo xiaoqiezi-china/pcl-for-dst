@@ -70,7 +70,7 @@ Public Class PageOtherTest
     ''' <summary>启动页「你知道吗」的提示语池。</summary>
     Private Shared ReadOnly LaunchHints As String() = {
         "Trop!!!!!!!",
-        "PCL 的原作者是龙腾跃猫",
+        "DPCL 的原作者是龙腾跃猫",
         "1+1=3",
         "你好中国！",
         "迎接另一个晨曦",
@@ -133,6 +133,10 @@ Public Class PageOtherTest
         End If
         RefreshI18nUi()
         RefreshMemoryUi()
+        '卡片里的下拉框绑定的是设置项，切回来时要把它拨到当前值上
+        SettingService.RefreshSettings(Me)
+        RefreshDscUi()
+        CheckDscLatestVersion()
         TickUpdate(Nothing, Nothing)
     End Sub
 
@@ -817,6 +821,173 @@ Public Class PageOtherTest
         UpdateI18nVersionUi()
         If Installed Then CheckI18nLatestVersion()
     End Sub
+
+#Region "DeepseekCE"
+
+    '远端最新版本号；空串表示还没查到
+    Private DscLatestVersion As String = ""
+    Private DscLatestCheckedTick As Long = 0
+    Private DscLatestChecking As Boolean = False
+
+    ''' <summary>
+    ''' 按本机实际状态刷新卡片：装没装决定按钮，版本对比决定版本号颜色。
+    ''' </summary>
+    Private Sub RefreshDscUi()
+        If BtnDscInstall Is Nothing OrElse LabDscVersion Is Nothing Then Return
+
+        Dim Installed As Boolean = DstDeepseekCe.IsInstalled
+        Dim Version As String = If(Installed, DstDeepseekCe.InstalledVersion, "")
+        '没查到远端版本时不能断言「最新」，只如实显示本地版本
+        Dim Outdated As Boolean = Installed AndAlso DscLatestVersion <> "" AndAlso
+                                  DstDeepseekCe.IsNewerVersion(DscLatestVersion, Version)
+
+        BtnDscInstall.Visibility = If(Installed, Visibility.Collapsed, Visibility.Visible)
+        BtnDscUninstall.Visibility = If(Installed, Visibility.Visible, Visibility.Collapsed)
+        BtnDscOpen.Visibility = If(Installed, Visibility.Visible, Visibility.Collapsed)
+        BtnDscUpdate.Visibility = If(Outdated, Visibility.Visible, Visibility.Collapsed)
+
+        If Not Installed Then
+            LabDscState.Text = "尚未安装。点击「安装」获取最新版本。"
+            LabDscVersion.Visibility = Visibility.Collapsed
+            Return
+        End If
+
+        LabDscVersion.Visibility = Visibility.Visible
+        If Version = "" Then
+            LabDscState.Text = "已安装，但读不到版本号。"
+            LabDscVersion.Text = "版本未知"
+            LabDscVersion.ClearValue(TextBlock.ForegroundProperty)
+            LabDscVersion.Opacity = 0.55
+        ElseIf Outdated Then
+            LabDscState.Text = "检测到新版本，可以更新。"
+            LabDscVersion.Text = "版本 " & Version & "（可更新至 " & DscLatestVersion & "）"
+            LabDscVersion.Opacity = 1
+            LabDscVersion.Foreground = New MyColor(226, 45, 31)
+        ElseIf DscLatestVersion = "" Then
+            LabDscState.Text = "已安装。暂时查询不到最新版本，可稍后重试。"
+            LabDscVersion.Text = "版本 " & Version
+            LabDscVersion.ClearValue(TextBlock.ForegroundProperty)
+            LabDscVersion.Opacity = 0.55
+        Else
+            LabDscState.Text = "已安装，且已是最新版本。"
+            LabDscVersion.Text = "版本 " & Version & "（已是最新）"
+            LabDscVersion.Opacity = 1
+            LabDscVersion.Foreground = New MyColor(33, 177, 33)
+        End If
+    End Sub
+
+    ''' <summary>
+    ''' 后台查一次远端最新版本号，查完回到界面刷新。
+    ''' <para>
+    ''' 十分钟内不重复查：卡片每次切换回本页都会触发一次，
+    ''' 每次都打 GitHub 的话匿名配额很快就没了。
+    ''' </para>
+    ''' </summary>
+    Private Sub CheckDscLatestVersion(Optional IsForce As Boolean = False)
+        If DscLatestChecking Then Return
+        If Not IsForce AndAlso DscLatestCheckedTick > 0 AndAlso GetTimeMs() - DscLatestCheckedTick < 600000 Then Return
+        DscLatestChecking = True
+        RunInThread(
+        Sub()
+            Dim Latest As String = ""
+            Try
+                Latest = DstDeepseekCe.FetchLatestVersion()
+            Catch ex As Exception
+                Logger.Warn(ex, "查询 Deepseek CE 最新版本失败")
+            End Try
+            RunInUi(
+            Sub()
+                DscLatestChecking = False
+                '查询失败不清掉上一次的结果，避免网络抖一下就把「有新版本」抹了
+                If Latest <> "" Then
+                    DscLatestVersion = Latest
+                    DscLatestCheckedTick = GetTimeMs()
+                End If
+                RefreshDscUi()
+            End Sub)
+        End Sub)
+    End Sub
+
+    Private Sub BtnDscInstall_Click(sender As Object, e As EventArgs) Handles BtnDscInstall.Click
+        StartDscInstall("安装 Deepseek CE")
+    End Sub
+
+    Private Sub BtnDscUpdate_Click(sender As Object, e As EventArgs) Handles BtnDscUpdate.Click
+        StartDscInstall("更新 Deepseek CE")
+    End Sub
+
+    ''' <summary>
+    ''' 下载并安装，进度交给任务列表；装完（或失败）回到本页刷新卡片。
+    ''' </summary>
+    Private Sub StartDscInstall(Desc As String)
+        If Not (BtnDscInstall.IsEnabled AndAlso BtnDscUpdate.IsEnabled) Then Return
+        BtnDscInstall.IsEnabled = False
+        BtnDscUpdate.IsEnabled = False
+        LabDscState.Text = Desc & "中，进度见右下角任务列表……"
+        Try
+            Dim Combo As LoaderCombo(Of Integer) = DstDeepseekCe.DownloadAndInstall()
+            AddHandler Combo.OnStateChangedUi,
+                Sub(Loader As LoaderBase, NewState As LoadState, OldState As LoadState)
+                    If NewState <> LoadState.Finished AndAlso NewState <> LoadState.Failed AndAlso NewState <> LoadState.Canceled Then Return
+                    BtnDscInstall.IsEnabled = True
+                    BtnDscUpdate.IsEnabled = True
+                    If NewState = LoadState.Finished Then
+                        RefreshDscUi()
+                        CheckDscLatestVersion(IsForce:=True)
+                    ElseIf NewState = LoadState.Failed Then
+                        Dim Reason As String = If(Loader.Error Is Nothing, "未知原因", Loader.Error.Message)
+                        RefreshDscUiVersionOnly("安装失败：" & Reason)
+                    Else
+                        RefreshDscUiVersionOnly("已取消安装。")
+                    End If
+                End Sub
+        Catch ex As Exception
+            BtnDscInstall.IsEnabled = True
+            BtnDscUpdate.IsEnabled = True
+            LabDscState.Text = "安装失败：" & ex.Message
+            Logger.Warn(ex, "启动 Deepseek CE 安装失败")
+        End Try
+    End Sub
+
+    ''' <summary>失败时先按真实状态刷新，再把结果文字覆盖上去。</summary>
+    Private Sub RefreshDscUiVersionOnly(Message As String)
+        RefreshDscUi()
+        LabDscState.Text = Message
+    End Sub
+
+    Private Sub BtnDscUninstall_Click(sender As Object, e As EventArgs) Handles BtnDscUninstall.Click
+        If MyMsgBox("确定要卸载 Deepseek CE 吗？" & vbCrLf & "卸载后「询问 AI」等按钮将无法使用。",
+                    "卸载 Deepseek CE", "卸载", "取消", IsWarn:=True) <> 1 Then Return
+
+        BtnDscUninstall.IsEnabled = False
+        LabDscState.Text = "正在卸载……"
+        RunInThread(
+        Sub()
+            Dim ErrText As String = ""
+            Try
+                DstDeepseekCe.Uninstall()
+            Catch ex As Exception
+                ErrText = ex.Message
+                Logger.Warn(ex, "卸载 Deepseek CE 失败")
+            End Try
+            RunInUi(
+            Sub()
+                BtnDscUninstall.IsEnabled = True
+                RefreshDscUi()
+                If ErrText <> "" Then LabDscState.Text = "卸载失败：" & ErrText
+            End Sub)
+        End Sub)
+    End Sub
+
+    Private Sub BtnDscOpen_Click(sender As Object, e As EventArgs) Handles BtnDscOpen.Click
+        Try
+            DstDeepseekCe.Launch("")
+        Catch ex As Exception
+            Logger.Error(ex, "打开 Deepseek CE 失败", LogBehavior.Alert)
+        End Try
+    End Sub
+
+#End Region
 
     Private Sub BtnDlStart_Click(sender As Object, e As EventArgs) Handles BtnDlStart.Click
         Dim Url As String = If(TextDlUrl.Text, "").Trim()

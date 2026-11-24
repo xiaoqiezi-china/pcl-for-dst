@@ -8,10 +8,10 @@ Imports System.Runtime.InteropServices
 
 '查看程序集特性的值
 
-<Assembly: AssemblyTitle("Plain Craft Launcher 启动器")>
+<Assembly: AssemblyTitle("DST Plain Craft Launcher 启动器")>
 <Assembly: AssemblyDescription("Minecraft 启动器")>
 <Assembly: AssemblyCompany("")>
-<Assembly: AssemblyProduct("Plain Craft Launcher")>
+<Assembly: AssemblyProduct("DST Plain Craft Launcher")>
 <Assembly: AssemblyCopyright("Copyright © 成都瓜皮龙科技有限公司")>
 <Assembly: AssemblyConfiguration("PCL2 Config Mark")>
 <Assembly: ComVisible(False)>
@@ -51,6 +51,6 @@ Imports System.Runtime.InteropServices
 ' 可以指定所有值，也可以使用以下所示的 "*" 预置版本号和修订号
 ' 方法是按如下所示使用“*”
 
-<Assembly: AssemblyVersion("1.1.2.0")>
-<Assembly: AssemblyFileVersion("1.1.2.0")>
+<Assembly: AssemblyVersion("1.1.3.0")>
+<Assembly: AssemblyFileVersion("1.1.3.0")>
 <Assembly: NeutralResourcesLanguage("")>

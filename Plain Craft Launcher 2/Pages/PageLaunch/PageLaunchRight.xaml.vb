@@ -961,7 +961,7 @@ Public Class PageLaunchRight
                     RefreshReal()
                 End SyncLock
             Catch ex As Exception
-                Logger.Error(ex, "加载 PCL 主页自定义信息失败", If(ModeDebug, LogBehavior.Alert, LogBehavior.Toast))
+                Logger.Error(ex, "加载 DPCL 主页自定义信息失败", If(ModeDebug, LogBehavior.Alert, LogBehavior.Toast))
             End Try
         End Sub)
     End Sub
@@ -1018,7 +1018,7 @@ Public Class PageLaunchRight
                         Logger.Info("主页预设：更新日志")
                         Url = "https://pclhomeplazaoss.lingyunawa.top:26994/d/Homepages/Joker2184/UpdateHomepage.xaml"
                     Case 9
-                        Logger.Info("主页预设：PCL 新功能说明书")
+                        Logger.Info("主页预设：DPCL 新功能说明书")
                         Url = "https://raw.gitcode.com/WForst-Breeze/WhatsNewPCL/raw/main/Custom.xaml"
                     Case 10
                         Logger.Info("主页预设：OpenMCIM Dashboard")
@@ -1027,10 +1027,10 @@ Public Class PageLaunchRight
                         Logger.Info("主页预设：杂志主页")
                         Url = "https://gh-proxy.com/https://github.com/Neclyon/Magazine-Homepage-PCL/raw/main/output/Custom.xaml"
                     Case 12
-                        Logger.Info("主页预设：PCL GitHub 仪表盘")
+                        Logger.Info("主页预设：DPCL GitHub 仪表盘")
                         Url = "https://ddf.pcl-community.top/Custom.xaml"
                     Case 13
-                        Logger.Info("主页预设：PCL 更新摘要")
+                        Logger.Info("主页预设：DPCL 更新摘要")
                         Url = "https://raw.gitcode.com/ENC_Euphony/PCL-AI-Summary-HomePage/raw/master/Custom.xaml"
                     Case 14
                         Logger.Info("主页预设：今日新闻热点")

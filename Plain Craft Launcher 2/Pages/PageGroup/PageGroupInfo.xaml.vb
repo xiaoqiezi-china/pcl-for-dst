@@ -392,7 +392,33 @@ Public Class PageGroupInfo
             Grid.SetColumn(Bubble, 1)
             Row.Children.Add(Bubble)
         End If
-        Return Row
+        '外面再包一层：多选时要能在整行上做高亮与点击命中，气泡本身不便改动
+        Dim Wrap As New Border With {
+            .Tag = Item.Key,
+            .CornerRadius = New CornerRadius(8),
+            .Padding = New Thickness(4, 2, 4, 2),
+            .Background = Brushes.Transparent
+        }
+        Wrap.Child = Row
+        ApplyRowSelection(Wrap, Item.Key)
+
+        '平时右键给一个「多选」入口；选图片时图片自己的菜单会盖过它
+        If Not IsSelecting Then Wrap.ContextMenu = BuildRowMenu(Item)
+
+        AddHandler Wrap.PreviewMouseLeftButtonUp,
+            Sub(s, ev)
+                If Not IsSelecting Then Return
+                '多选模式下整行都是点击目标，图片、链接等子元素不应再抢走这次点击
+                ev.Handled = True
+                ToggleSelect(Item)
+            End Sub
+        AddHandler Wrap.PreviewMouseRightButtonUp,
+            Sub(s, ev)
+                If Not IsSelecting Then Return
+                ev.Handled = True
+                OpenMenuAt(Wrap, BuildRangeMenu(Item))
+            End Sub
+        Return Wrap
     End Function
 
     ''' <summary>把一条消息的 CQ 内容渲染成 文本 / 图片 / 视频 / 文件。</summary>
@@ -478,16 +504,45 @@ Public Class PageGroupInfo
         Return Wrap
     End Function
 
-    ''' <summary>给消息里的图片挂右键菜单：另存为 / 设置为背景。</summary>
+    ''' <summary>给消息里的图片挂右键菜单：另存为 / 设置为背景 / 发送给 AI。</summary>
     Private Sub AttachImageMenu(Target As FrameworkElement, Url As String)
         Dim Menu As New ContextMenu()
         Dim ItemSave As New MenuItem With {.Header = "另存为"}
         AddHandler ItemSave.Click, Sub() SaveImageAs(Url)
         Dim ItemBack As New MenuItem With {.Header = "设置为背景"}
         AddHandler ItemBack.Click, Sub() SetImageAsBackground(Url)
+        Dim ItemAi As New MenuItem With {.Header = "发送给AI"}
+        AddHandler ItemAi.Click, Sub() SendChatImageToAi(Url)
         Menu.Items.Add(ItemSave)
         Menu.Items.Add(ItemBack)
+        Menu.Items.Add(ItemAi)
         Target.ContextMenu = Menu
+    End Sub
+
+    ''' <summary>
+    ''' 把一张群图片交给 Deepseek CE。
+    ''' <para>
+    ''' QQ 的图片地址不是本地文件，得先落到临时目录才能作为附件；
+    ''' 只发这张图，不带文字也不改客户端的搜索/思考开关。
+    ''' </para>
+    ''' </summary>
+    Private Sub SendChatImageToAi(Url As String)
+        RunInThread(
+        Sub()
+            Try
+                Dim Folder As String = PathTemp & "ChatImages\"
+                DirectoryUtils.Create(Folder)
+                Dim Target As String = Folder & "群图片-" & Date.Now.ToString("yyyyMMdd-HHmmss-fff") & "." & GuessImageExtension(Url)
+                NetDownloadByClient(Url, Target, SimulateBrowserHeaders:=True)
+                RunInUi(
+                Sub()
+                    If Not DstAi.AskFilesOnly({Target}) Then Return
+                End Sub)
+            Catch ex As Exception
+                Logger.Warn(ex, "把群图片交给 AI 失败")
+                RunInUi(Sub() Hint("发送给 AI 失败：" & ex.Message, HintType.Red))
+            End Try
+        End Sub)
     End Sub
 
     ''' <summary>从地址里猜扩展名；猜不到按 jpg 处理（WPF 解码不看扩展名）。</summary>
@@ -842,5 +897,331 @@ Public Class PageGroupInfo
 
 #End Region
 
+
+
+#Region "消息多选"
+
+    '是否处于多选状态
+    Private IsSelecting As Boolean = False
+    '已选消息的 Key
+    Private ReadOnly SelectedKeys As New HashSet(Of String)
+    '范围选择的起点：按「选择到此位置的所有消息」时从这里算到点击的那条
+    Private AnchorKey As String = ""
+
+    ''' <summary>平时挂在消息行上的右键菜单：只给一个进入多选的入口。</summary>
+    Private Function BuildRowMenu(Item As DstBot.DstMessage) As ContextMenu
+        Dim Menu As New ContextMenu()
+        Dim ItemMulti As New MenuItem With {.Header = "多选"}
+        AddHandler ItemMulti.Click, Sub() EnterSelectMode(Item)
+        Menu.Items.Add(ItemMulti)
+        Return Menu
+    End Function
+
+    ''' <summary>多选状态下的右键菜单：范围选择与退出。</summary>
+    Private Function BuildRangeMenu(Item As DstBot.DstMessage) As ContextMenu
+        Dim Menu As New ContextMenu()
+        Dim ItemRange As New MenuItem With {.Header = "选择到此位置的所有消息"}
+        AddHandler ItemRange.Click, Sub() SelectRangeTo(Item)
+        Menu.Items.Add(ItemRange)
+        Dim ItemExit As New MenuItem With {.Header = "取消多选"}
+        AddHandler ItemExit.Click, Sub() ExitSelectMode()
+        Menu.Items.Add(ItemExit)
+        Return Menu
+    End Function
+
+    ''' <summary>在指定行旁边弹出菜单（右键已被我们自己接管，不能靠默认的 ContextMenu）。</summary>
+    Private Sub OpenMenuAt(Target As FrameworkElement, Menu As ContextMenu)
+        Menu.PlacementTarget = Target
+        Menu.Placement = Primitives.PlacementMode.MousePoint
+        Menu.IsOpen = True
+    End Sub
+
+    ''' <summary>
+    ''' 进入多选。带上被右键的那条消息作为起点，
+    ''' 之后「选择到此位置的所有消息」才有参照。
+    ''' </summary>
+    Private Sub EnterSelectMode(Item As DstBot.DstMessage)
+        If IsSelecting Then Return
+        IsSelecting = True
+        SelectedKeys.Clear()
+        AnchorKey = If(Item Is Nothing, "", Item.Key)
+        If Item IsNot Nothing Then SelectedKeys.Add(Item.Key)
+
+        '头部整行换成多选工具条
+        LabChatTitle.Visibility = Visibility.Collapsed
+        LabChatQuota.Visibility = Visibility.Collapsed
+        BtnChatSummarize.Visibility = Visibility.Collapsed
+        BtnChatRefresh.Visibility = Visibility.Collapsed
+        PanSelectBar.Visibility = Visibility.Visible
+
+        RefreshSelectCount()
+        RefreshAllRowMenus()
+        RefreshRowSelections()
+    End Sub
+
+    ''' <summary>退出多选，清掉所有选中状态。</summary>
+    Private Sub ExitSelectMode()
+        If Not IsSelecting Then Return
+        IsSelecting = False
+        SelectedKeys.Clear()
+        AnchorKey = ""
+
+        PanSelectBar.Visibility = Visibility.Collapsed
+        LabChatTitle.Visibility = Visibility.Visible
+        LabChatQuota.Visibility = Visibility.Visible
+        BtnChatSummarize.Visibility = Visibility.Visible
+        BtnChatRefresh.Visibility = Visibility.Visible
+
+        RefreshAllRowMenus()
+        RefreshRowSelections()
+    End Sub
+
+    ''' <summary>在多选与普通状态下，行上的右键菜单内容不同，切换时要重建。</summary>
+    Private Sub RefreshAllRowMenus()
+        For Each Row In EnumerateRows()
+            Dim Msg As DstBot.DstMessage = Nothing
+            For Each Item In Visible
+                If Item.Key = TryCast(Row.Tag, String) Then Msg = Item : Exit For
+            Next
+            If Msg Is Nothing Then Continue For
+            Row.ContextMenu = If(IsSelecting, Nothing, BuildRowMenu(Msg))
+        Next
+    End Sub
+
+    ''' <summary>点一下消息就切换它的选中状态；首次点击时把它记住为范围起点。</summary>
+    Private Sub ToggleSelect(Item As DstBot.DstMessage)
+        If SelectedKeys.Contains(Item.Key) Then
+            SelectedKeys.Remove(Item.Key)
+        Else
+            SelectedKeys.Add(Item.Key)
+            '标准聊天软件的做法：点选的那条成为新的范围起点
+            AnchorKey = Item.Key
+        End If
+        RefreshSelectCount()
+        RefreshRowSelections()
+    End Sub
+
+    ''' <summary>
+    ''' 从范围起点选到点击的这条，首尾都算在内。
+    ''' 起点缺失时退化为只选这一条。
+    ''' </summary>
+    Private Sub SelectRangeTo(Item As DstBot.DstMessage)
+        Dim Anchor As Integer = -1
+        Dim Target As Integer = -1
+        For i = 0 To AllMessages.Count - 1
+            If AllMessages(i).Key = AnchorKey Then Anchor = i
+            If AllMessages(i).Key = Item.Key Then Target = i
+        Next
+        If Target < 0 Then Return
+        If Anchor < 0 Then Anchor = Target
+        If Anchor > Target Then Dim Swap As Integer = Anchor : Anchor = Target : Target = Swap
+
+        For i = Anchor To Target
+            SelectedKeys.Add(AllMessages(i).Key)
+        Next
+        '范围选完，参照点移到这一端，方便连续往前/往后扩选
+        AnchorKey = Item.Key
+        RefreshSelectCount()
+        RefreshRowSelections()
+    End Sub
+
+    Private Sub RefreshSelectCount()
+        If LabSelectCount Is Nothing Then Return
+        LabSelectCount.Text = $"已选择 {SelectedKeys.Count} 条消息"
+        BtnSelectSendAi.IsEnabled = SelectedKeys.Count > 0
+    End Sub
+
+    ''' <summary>当前渲染出来的所有消息行（虚拟化之后只有可见的那些）。</summary>
+    Private Iterator Function EnumerateRows() As IEnumerable(Of Border)
+        For Each Child As Object In EnumerateVisuals(PanChat)
+            Dim Row As Border = TryCast(Child, Border)
+            If Row IsNot Nothing AndAlso TypeOf Row.Tag Is String Then Yield Row
+        Next
+    End Function
+
+    Private Iterator Function EnumerateVisuals(Root As DependencyObject) As IEnumerable(Of DependencyObject)
+        If Root Is Nothing Then Return
+        Dim Count As Integer = VisualTreeHelper.GetChildrenCount(Root)
+        For i = 0 To Count - 1
+            Dim Child As DependencyObject = VisualTreeHelper.GetChild(Root, i)
+            Yield Child
+            For Each Sub_ As DependencyObject In EnumerateVisuals(Child)
+                Yield Sub_
+            Next
+        Next
+    End Function
+
+    ''' <summary>把选中状态画到行上；滚出视野后再滚回来的行会在构建时按同一份状态重绘。</summary>
+    Private Sub RefreshRowSelections()
+        For Each Row In EnumerateRows()
+            ApplyRowSelection(Row, TryCast(Row.Tag, String))
+        Next
+    End Sub
+
+    ''' <summary>单行的选中外观。</summary>
+    Private Sub ApplyRowSelection(Row As Border, Key As String)
+        If Row Is Nothing Then Return
+        If IsSelecting AndAlso SelectedKeys.Contains(Key) Then
+            Row.Background = New SolidColorBrush(New MyColor(60, Color8.R, Color8.G, Color8.B))
+            Row.BorderBrush = New SolidColorBrush(Color3)
+            Row.BorderThickness = New Thickness(1)
+        Else
+            Row.Background = Brushes.Transparent
+            Row.BorderThickness = New Thickness(0)
+        End If
+    End Sub
+
+    ''' <summary>
+    ''' AI 总结：问用户要「最近多少条」，打包成 dialogue.txt 直接交给 AI。
+    ''' <para>
+    ''' 和手动多选是两条路：这条只按条数截取，一步到位；
+    ''' 想精确挑某几条仍然走消息右键的「多选」。
+    ''' </para>
+    ''' </summary>
+    Private Sub BtnChatSummarize_Click(sender As Object, e As MouseButtonEventArgs) Handles BtnChatSummarize.Click
+        If AllMessages.Count = 0 Then
+            Hint("还没有可以总结的消息", HintType.Red)
+            Return
+        End If
+        Dim Input As String = MyMsgBoxInput("AI 总结", "要总结最近多少条消息？",
+                                            "50", HintText:="输入条数，最多 " & AllMessages.Count & " 条")
+        If String.IsNullOrWhiteSpace(Input) Then Return
+
+        Dim Count As Integer
+        If Not Integer.TryParse(Input.Trim(), Count) OrElse Count <= 0 Then
+            Hint("请输入一个大于 0 的整数", HintType.Red)
+            Return
+        End If
+        '用户可能填得比现有消息还多，按实际能拿到的来
+        If Count > AllMessages.Count Then Count = AllMessages.Count
+
+        '取最后 Count 条
+        Dim Picked As New HashSet(Of String)
+        For i = AllMessages.Count - Count To AllMessages.Count - 1
+            Picked.Add(AllMessages(i).Key)
+        Next
+
+        Dim Text As String = BuildDialogueText(Picked)
+        If Text.Trim() = "" Then
+            Hint("这些消息没有可发送的文字内容", HintType.Red)
+            Return
+        End If
+        Try
+            Dim Path_ As String = WriteDialogue(Picked)
+            If Path_ = "" Then Return
+            DstAi.Ask($"请帮我总结以下群聊记录的主要内容，共 {Count} 条。", {Path_}, Search:=False, Thinking:=True)
+        Catch ex As Exception
+            Logger.Error(ex, "AI 总结失败", LogBehavior.Alert)
+        End Try
+    End Sub
+
+    ''' <summary>把选中的消息写到临时 dialogue.txt，返回路径；失败返回空串。</summary>
+    Private Function WriteDialogue(Keys As HashSet(Of String)) As String
+        Dim Folder As String = PathTemp & "DeepseekCE\"
+        DirectoryUtils.Create(Folder)
+        Dim Target As String = Folder & "dialogue.txt"
+        FileUtils.Write(Target, BuildDialogueText(Keys), Encoding.UTF8)
+        Return Target
+    End Function
+
+    ''' <summary>
+    ''' 「截至至此」：从当前选中处一路扩到最新一条。
+    ''' 一条都没选时视作从最早一条开始，等价于全选。
+    ''' </summary>
+    Private Sub BtnSelectToEnd_Click(sender As Object, e As MouseButtonEventArgs) Handles BtnSelectToEnd.Click
+        If AllMessages.Count = 0 Then Return
+        Dim Start As Integer = 0
+        Dim Found As Boolean = False
+        For i = 0 To AllMessages.Count - 1
+            If SelectedKeys.Contains(AllMessages(i).Key) Then
+                Start = i
+                Found = True
+                Exit For
+            End If
+        Next
+        If Not Found AndAlso AnchorKey <> "" Then
+            For i = 0 To AllMessages.Count - 1
+                If AllMessages(i).Key = AnchorKey Then
+                    Start = i
+                    Exit For
+                End If
+            Next
+        End If
+        For i = Start To AllMessages.Count - 1
+            SelectedKeys.Add(AllMessages(i).Key)
+        Next
+        RefreshSelectCount()
+        RefreshRowSelections()
+    End Sub
+
+    Private Sub BtnSelectCancelChat_Click(sender As Object, e As MouseButtonEventArgs) Handles BtnSelectCancelChat.Click
+        ExitSelectMode()
+    End Sub
+
+    ''' <summary>
+    ''' 把选中的消息按时间顺序拼成 dialogue.txt 交给 AI。
+    ''' <para>
+    ''' 只发这一个文件：这些消息本身就是上下文，再塞别的文字反而干扰。
+    ''' </para>
+    ''' </summary>
+    Private Sub BtnSelectSendAi_Click(sender As Object, e As MouseButtonEventArgs) Handles BtnSelectSendAi.Click
+        If SelectedKeys.Count = 0 Then
+            Hint("请先选择要发送的消息", HintType.Red)
+            Return
+        End If
+        If BuildDialogueText(SelectedKeys).Trim() = "" Then
+            Hint("选中的消息没有可发送的文字内容", HintType.Red)
+            Return
+        End If
+        Try
+            Dim Target As String = WriteDialogue(SelectedKeys)
+            If Target = "" Then Return
+            If DstAi.AskFilesOnly({Target}) Then ExitSelectMode()
+        Catch ex As Exception
+            Logger.Error(ex, "把聊天记录交给 AI 失败", LogBehavior.Alert)
+        End Try
+    End Sub
+
+    ''' <summary>按时间顺序把指定消息写成「[时间] 昵称: 内容」。</summary>
+    Private Function BuildDialogueText(Keys As HashSet(Of String)) As String
+        Dim Sb As New Text.StringBuilder()
+        For Each Item In AllMessages
+            If Not Keys.Contains(Item.Key) Then Continue For
+            Sb.Append("[").Append(If(Item.TimeText, "")).Append("] ")
+            Sb.Append(If(Item.UserName, "")).Append(": ")
+            Sb.Append(MessagePlainText(Item.Content)).AppendLine()
+        Next
+        Return Sb.ToString()
+    End Function
+
+    ''' <summary>
+    ''' 把 CQ 码还原成能读的一行字：图片等非文字内容用方括号占位，
+    ''' 免得交出去的记录里全是 [CQ:image,...] 这种机器码。
+    ''' </summary>
+    Private Function MessagePlainText(Content As String) As String
+        Try
+            Dim Segments As List(Of DstBot.CqSegment) = DstBot.ParseCq(Content)
+            If Segments Is Nothing OrElse Segments.Count = 0 Then Return Content
+            Dim Sb As New Text.StringBuilder()
+            For Each Segment In Segments
+                Select Case Segment.Kind
+                    Case "text" : Sb.Append(Segment.Text)
+                    Case "image" : Sb.Append("[图片]")
+                    Case "face" : Sb.Append("[表情]")
+                    Case "at" : Sb.Append("[@" & If(Segment.Text, "") & "]")
+                    Case "video" : Sb.Append("[视频]")
+                    Case "file" : Sb.Append("[文件 " & If(Segment.FileName, "") & "]")
+                    Case "record" : Sb.Append("[语音]")
+                    Case Else : Sb.Append("[消息]")
+                End Select
+            Next
+            Return Sb.ToString()
+        Catch ex As Exception
+            Logger.Warn(ex, "转换聊天记录文本失败")
+            Return Content
+        End Try
+    End Function
+
+#End Region
 
 End Class

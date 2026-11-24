@@ -55,8 +55,8 @@ Public Class PageDownloadModify
         '获取 Components
         Dim Manifest = Configs.McInstallManifest.Get(Task.Input.Config)
         If Manifest IsNot Nothing AndAlso Manifest.SchemaVersion > Versions.McInstallManifestVersion Then
-            Logger.Warn($"安装清单由更新版本的 PCL 创建（清单版本：{Manifest.SchemaVersion}，当前版本：{Versions.McInstallManifestVersion}）")
-            Throw New Exception($"更新 PCL 后才能修改它！点击【设置 → 其他 → 检查更新】以更新。")
+            Logger.Warn($"安装清单由更新版本的 DPCL 创建（清单版本：{Manifest.SchemaVersion}，当前版本：{Versions.McInstallManifestVersion}）")
+            Throw New Exception($"更新 DPCL 后才能修改它！点击【设置 → 其他 → 检查更新】以更新。")
         End If
         If Manifest IsNot Nothing Then
             Dim LatestManifest = Manifest.RefreshModComponents(Task.Input.PathIndie)
@@ -682,10 +682,10 @@ Public Class PageDownloadModify
         End If
         Dim IsMinecraftVersionChanged = InitialTarget.MinecraftVersion <> Target.MinecraftVersion
         If Not IsVanillaVersionReliable AndAlso Not IsMinecraftVersionChanged Then
-            Warnings.Add($"PCL 未能精准识别该版本，请确认它是不是 Minecraft {InitialTarget.MinecraftVersion}，如果不正确，请取消并选择正确的版本！")
+            Warnings.Add($"DPCL 未能精准识别该版本，请确认它是不是 Minecraft {InitialTarget.MinecraftVersion}，如果不正确，请取消并选择正确的版本！")
         End If
         If Not Configs.HintModifyInstanceWarning.Get() Then
-            Warnings.Add("如果该版本安装了 PCL 不兼容的加载器，或经过第三方修改，这些改动将会丢失！")
+            Warnings.Add("如果该版本安装了 DPCL 不兼容的加载器，或经过第三方修改，这些改动将会丢失！")
         End If
         Dim IsModLoaderChanged As Boolean = False
         For Each Loader In InitialTarget.ModLoaderVersions.Keys.Union(Target.ModLoaderVersions.Keys)

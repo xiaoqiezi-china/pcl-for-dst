@@ -240,7 +240,7 @@ Extracted:
                                     LogMc += Line & vbLf
                                 ElseIf Line.Contains("以下为游戏输出的最后一段内容") Then
                                     HasLauncherMark = True
-                                    Logger.Info("找到 PCL 输出的游戏实时日志头")
+                                    Logger.Info("找到 DPCL 输出的游戏实时日志头")
                                 End If
                             Next
                             '导入后 500 行
@@ -855,6 +855,24 @@ NextStack:
 
     '4：根据原因输出信息
     Private OutputFiles As New List(Of String)
+
+    ''' <summary>
+    ''' 给「询问 AI」准备崩溃附件：优先用实际存在的日志文件，
+    ''' 没有文件时把弹窗里那份输出落到临时文件再发走，保证 AI 拿到的是完整现场。
+    ''' </summary>
+    Private Function BuildCrashAiFile() As String
+        Try
+            If DirectFile IsNot Nothing Then
+                If FileUtils.Exists(DirectFile.Value.Key) Then Return DirectFile.Value.Key
+                Dim TempPath As String = PathTemp & "CrashForAi.txt"
+                FileUtils.Write(TempPath, DirectFile.Value.Value.Join(vbCrLf))
+                Return TempPath
+            End If
+        Catch ex As Exception
+            Logger.Warn(ex, "准备崩溃报告附件失败")
+        End Try
+        Return ""
+    End Function
     ''' <summary>
     ''' 弹出崩溃弹窗，并指导导出崩溃报告。
     ''' </summary>
@@ -864,6 +882,7 @@ NextStack:
         Dim Detail As String = GetAnalyzeResult(IsManualAnalyze)
         Select Case MyMsgBox(Detail, If(IsManualAnalyze, "错误报告分析结果", "Minecraft 出现错误"),
             "确定", If(IsManualAnalyze OrElse DirectFile Is Nothing, "", "查看输出"), If(IsManualAnalyze, "", "导出错误报告"),
+            AiEnabled:=True, AiFile:=BuildCrashAiFile(),
             Button2Action:=If(IsManualAnalyze OrElse DirectFile Is Nothing, Nothing,
             Sub()
                 '弹窗选择：查看输出
@@ -931,7 +950,7 @@ NextStack:
         '没有结果的处理
         If Not CrashReasons.Any() Then
             If IsHandAnalyze Then
-                Return "很抱歉，PCL 无法确定错误原因。"
+                Return "很抱歉，DPCL 无法确定错误原因。"
             Else
                 Return $"很抱歉，你的游戏出现了一些问题……{vbCrLf}如果要寻求帮助，请把错误报告文件发给对方，而不是发送这个窗口的照片或者截图。"
             End If
@@ -974,13 +993,13 @@ NextStack:
                     End If
                 Case CrashReason.堆栈分析发现关键字
                     If Additional.IsSingle Then
-                        Results.Add("你的游戏遇到了一些问题，PCL 为此找到了一个可疑的关键词：" & Additional.First & "。\n\n如果你知道某个关键词对应的 Mod，那么有可能就是它引起的错误，你也可以查看错误报告获取详情。\h")
+                        Results.Add("你的游戏遇到了一些问题，DPCL 为此找到了一个可疑的关键词：" & Additional.First & "。\n\n如果你知道某个关键词对应的 Mod，那么有可能就是它引起的错误，你也可以查看错误报告获取详情。\h")
                     Else
                         Results.Add("你的游戏遇到了一些问题，PCL 为此找到了以下可疑的关键词：\n - " & Additional.Join(", ") & "\n\n如果你知道某个关键词对应的 Mod，那么有可能就是它引起的错误，你也可以查看错误报告获取详情。\h")
                     End If
                 Case CrashReason.堆栈分析发现Mod名称, CrashReason.怀疑Mod导致游戏崩溃
                     If Additional.IsSingle Then
-                        Results.Add("PCL 怀疑名为 " & Additional.First & " 的 Mod 导致了游戏出错，但不能完全确定。\n你可以尝试禁用此 Mod，然后观察游戏是否还会崩溃。\n\e\h")
+                        Results.Add("DPCL 怀疑名为 " & Additional.First & " 的 Mod 导致了游戏出错，但不能完全确定。\n你可以尝试禁用此 Mod，然后观察游戏是否还会崩溃。\n\e\h")
                     Else
                         Results.Add("PCL 怀疑以下 Mod 导致了游戏出错，但不能完全确定：\n - " & Additional.Join("\n - ") & "\n\n你可以尝试依次禁用上述 Mod，然后观察游戏是否还会崩溃。\n\e\h")
                     End If
@@ -1103,7 +1122,7 @@ NextStack:
                 Case CrashReason.没有可用的分析文件
                     Results.Add("你的游戏出现了一些问题，但 PCL 未能找到相关记录文件，因此无法进行分析。\h")
                 Case Else
-                    Results.Add("PCL 获取到了没有详细信息的错误原因（" & CrashReasons.First.Key & "），请向 PCL 作者提交反馈以获取详情。\h")
+                    Results.Add("DPCL 获取到了没有详细信息的错误原因（" & CrashReasons.First.Key & "），请向 PCL 作者提交反馈以获取详情。\h")
             End Select
         Next
 
@@ -1116,7 +1135,7 @@ NextStack:
                 If(Not Results.Any(Function(r) r.EndsWithF("\h")) OrElse IsHandAnalyze, "",
                     vbCrLf & "如果要寻求帮助，请把错误报告文件发给对方，而不是发送这个窗口的照片或者截图。" &
                     If(If(PageSetupSystem.IsLauncherNewest(), True), "",
-                    vbCrLf & vbCrLf & "此外，你正在使用老版本 PCL，更新 PCL 或许也能解决这个问题。" & vbCrLf & "你可以点击 [设置 → 其他 → 启动器 → 检查更新] 更新 PCL。"))
+                    vbCrLf & vbCrLf & "此外，你正在使用老版本 DPCL，更新 DPCL 或许也能解决这个问题。" & vbCrLf & "你可以点击 [设置 → 其他 → 启动器 → 检查更新] 更新 DPCL。"))
     End Function
 
 End Class

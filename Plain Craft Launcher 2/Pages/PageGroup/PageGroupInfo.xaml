@@ -17,10 +17,11 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <!-- 悬浮置顶的头部 -->
+                <!-- 悬浮置顶的头部：平时是标题 + 刷新，进入多选后整行换成多选工具条 -->
                 <Grid Grid.Row="0" Margin="25,40,25,6">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="1*" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
@@ -28,7 +29,20 @@
                                Text="正在获取群消息……" />
                     <TextBlock x:Name="LabChatQuota" Grid.Column="1" VerticalAlignment="Center" Margin="10,0,10,0"
                                FontSize="11.5" Opacity="0.5" Text="" />
-                    <local:MyButton x:Name="BtnChatRefresh" Grid.Column="2" Text="刷新" Height="28" MinWidth="80" />
+                    <local:MyButton x:Name="BtnChatSummarize" Grid.Column="2" Text="AI总结" Height="28" MinWidth="82"
+                                    Margin="0,0,10,0" ToolTip="选择最近若干条消息，打包成 dialogue.txt 交给 AI 总结" />
+                    <local:MyButton x:Name="BtnChatRefresh" Grid.Column="3" Text="刷新" Height="28" MinWidth="80" />
+
+                    <StackPanel x:Name="PanSelectBar" Grid.Column="0" Grid.ColumnSpan="4"
+                                Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                        <TextBlock x:Name="LabSelectCount" VerticalAlignment="Center" FontSize="12"
+                                   Margin="0,0,14,0" Text="已选择 0 条消息" />
+                        <local:MyButton x:Name="BtnSelectSendAi" Text="发送给 AI" Height="28" MinWidth="112"
+                                        ColorType="Highlight" />
+                        <local:MyButton x:Name="BtnSelectToEnd" Text="截至至此" Height="28" MinWidth="86" Margin="10,0,0,0"
+                                        ToolTip="从当前选中处一路选到最新一条消息" />
+                        <local:MyButton x:Name="BtnSelectCancelChat" Text="取消" Height="28" MinWidth="70" Margin="10,0,0,0" />
+                    </StackPanel>
                 </Grid>
 
                 <!-- 卡片内部独立滚动区：用虚拟化面板，只有可见的消息才真正创建控件 -->

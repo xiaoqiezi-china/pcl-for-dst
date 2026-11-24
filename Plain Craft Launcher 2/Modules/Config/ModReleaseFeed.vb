@@ -122,8 +122,12 @@ Friend Class ReleaseFeed
     ''' 要取哪个后缀的附件。启动器更新取 <c>.exe</c>，副程序取 <c>.zip</c>。
     ''' 传空串则取第一个附件。
     ''' </param>
-    Public Function FetchLatest(Optional AssetSuffix As String = ".exe") As ReleaseInfo
-        Dim Result As ReleaseInfo = FetchFromApi(AssetSuffix)
+    ''' <param name="AssetFilter">
+    ''' 额外的附件名筛选。同一后缀下可能有多个附件（例如安装版与便携版都是 .exe），
+    ''' 用它把范围收窄到真正要的那一个；Nothing 表示只按后缀取第一个。
+    ''' </param>
+    Public Function FetchLatest(Optional AssetSuffix As String = ".exe", Optional AssetFilter As Func(Of String, Boolean) = Nothing) As ReleaseInfo
+        Dim Result As ReleaseInfo = FetchFromApi(AssetSuffix, AssetFilter)
         'API 拿不到就退一步：只要版本号，至少能提示有新版
         If Not Result.Ok Then
             Dim VersionOnly As ReleaseInfo = FetchVersionOnly()
@@ -138,18 +142,18 @@ Friend Class ReleaseFeed
     End Function
 
     ''' <summary>走 API 拿完整的 Release 信息。</summary>
-    Private Function FetchFromApi(AssetSuffix As String) As ReleaseInfo
+    Private Function FetchFromApi(AssetSuffix As String, AssetFilter As Func(Of String, Boolean)) As ReleaseInfo
         '官方 api.github.com 在国内并不稳定，也不能只靠它：
         '按官方 → gh-proxy 依次试，第一个拿到的用
         Dim Result As New ReleaseInfo
         For Each Mirror As String In ApiMirrors
-            Result = FetchFromApiOnce(If(Mirror = "", ApiReleases, Mirror & ApiReleases), AssetSuffix)
+            Result = FetchFromApiOnce(If(Mirror = "", ApiReleases, Mirror & ApiReleases), AssetSuffix, AssetFilter)
             If Result.Ok Then Return Result
         Next
         Return Result
     End Function
 
-    Private Function FetchFromApiOnce(Url As String, AssetSuffix As String) As ReleaseInfo
+    Private Function FetchFromApiOnce(Url As String, AssetSuffix As String, AssetFilter As Func(Of String, Boolean)) As ReleaseInfo
         Dim Result As New ReleaseInfo
         Try
             Dim Json As String = HttpGetText(Url)
@@ -171,7 +175,8 @@ Friend Class ReleaseFeed
             If Assets IsNot Nothing Then
                 For Each Item As JToken In Assets
                     Dim Name As String = If(Item("name"), "").ToString()
-                    If AssetSuffix = "" OrElse Name.EndsWith(AssetSuffix, StringComparison.OrdinalIgnoreCase) Then
+                    If (AssetSuffix = "" OrElse Name.EndsWith(AssetSuffix, StringComparison.OrdinalIgnoreCase)) AndAlso
+                       (AssetFilter Is Nothing OrElse AssetFilter(Name)) Then
                         Result.AssetName = Name
                         Result.AssetUrl = If(Item("browser_download_url"), "").ToString()
                         'GitHub 给出 sha256:… 形式的摘要，用来校验下载到的文件

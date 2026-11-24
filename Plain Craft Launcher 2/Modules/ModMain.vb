@@ -196,6 +196,10 @@ EndHint:
         Public Button3Action As Action = Nothing
         Public IsWarn As Boolean = False
         Public ForceWait As Boolean = False
+        ''' <summary>是否显示「询问 AI」按钮。报错弹窗默认有。</summary>
+        Public AiEnabled As Boolean = False
+        ''' <summary>点「询问 AI」时执行的动作。</summary>
+        Public AiAction As Action = Nothing
         Public WaitFrame As New DispatcherFrame(True)
         ''' <summary>
         ''' 弹窗是否已经关闭。
@@ -227,12 +231,27 @@ EndHint:
     ''' <param name="Button2Action">点击第二个按钮将执行该方法，不关闭弹窗。</param>
     ''' <param name="Button3Action">点击第三个按钮将执行该方法，不关闭弹窗。</param>
     ''' <param name="IsWarn">是否为警告弹窗，若为 True，弹窗配色和背景会变为红色。</param>
+    ''' <param name="AiFile">
+    ''' 这条报错对应的文件（日志、崩溃报告等）。给了就把文件作为附件发给 AI，
+    ''' 不给则只把弹窗里的文字发过去。
+    ''' </param>
+    ''' <param name="AiEnabled">
+    ''' 是否显示「询问 AI」。留空时跟随 <paramref name="IsWarn"/>（警告弹窗默认有）；
+    ''' 崩溃分析这类不以红色警告呈现、但同样需要 AI 分析的弹窗显式传 True。
+    ''' </param>
     Public Function MyMsgBox(Caption As String, Optional Title As String = "提示",
                              Optional Button1 As String = "确定", Optional Button2 As String = "", Optional Button3 As String = "",
                              Optional IsWarn As Boolean = False, Optional HighLight As Boolean = True, Optional ForceWait As Boolean = False,
-                             Optional Button1Action As Action = Nothing, Optional Button2Action As Action = Nothing, Optional Button3Action As Action = Nothing) As Integer
+                             Optional Button1Action As Action = Nothing, Optional Button2Action As Action = Nothing, Optional Button3Action As Action = Nothing,
+                             Optional AiFile As String = Nothing, Optional AiEnabled As Boolean? = Nothing) As Integer
         '将弹窗列入队列
         Dim Converter As New MyMsgBoxConverter With {.Type = MyMsgBoxType.Text, .Button1 = Button1, .Button2 = Button2, .Button3 = Button3, .Text = Caption, .IsWarn = IsWarn, .Title = Title, .HighLight = HighLight, .ForceWait = True, .Button1Action = Button1Action, .Button2Action = Button2Action, .Button3Action = Button3Action}
+        '报错弹窗自动带「询问 AI」：这里统一挂上，各调用点不用一个个改。
+        '个别弹窗外观不是红色警告（例如崩溃分析结果），用 AiEnabled 单独打开。
+        If If(AiEnabled.HasValue, AiEnabled.Value, IsWarn) Then
+            Converter.AiEnabled = True
+            Converter.AiAction = BuildErrorAiAction(Caption, AiFile)
+        End If
         If Button2.Length > 0 OrElse ForceWait Then
             '若有多个按钮则开始等待
             If FrmMain Is Nothing OrElse FrmMain.PanMsg Is Nothing AndAlso RunInUi() Then
@@ -272,6 +291,30 @@ EndHint:
             Return 1
         End If
     End Function
+    ''' <summary>
+    ''' 为一条报错拼出「询问 AI」的动作。
+    ''' <para>
+    ''' 有文件就带上文件，让客户端能直接读日志/崩溃报告；
+    ''' 没有文件就把已知文本发过去。两种都开深度思考与联网搜索——
+    ''' 报错分析几乎总要查资料。
+    ''' </para>
+    ''' </summary>
+    Private Function BuildErrorAiAction(Caption As String, AiFile As String) As Action
+        Return Sub()
+                   Try
+                       If Not String.IsNullOrWhiteSpace(AiFile) AndAlso FileUtils.Exists(AiFile) Then
+                           DstAi.Ask($"我在游玩{DstAi.GameVersionText}时遇到了报错，已经将报错文件发送给您，请帮助我分析和解决问题。",
+                                     New String() {AiFile}, Search:=True, Thinking:=True)
+                       Else
+                           DstAi.Ask($"我在游玩{DstAi.GameVersionText}时遇到了问题，导致我无法正常游玩，这是我已知的信息{Caption}",
+                                     Search:=True, Thinking:=True)
+                       End If
+                   Catch ex As Exception
+                       Logger.Error(ex, "询问 AI 失败", LogBehavior.Toast)
+                   End Try
+               End Sub
+    End Function
+
     ''' <summary>
     ''' 显示输入框并返回输入的文本。若点击第二个按钮，则返回 Nothing。
     ''' </summary>

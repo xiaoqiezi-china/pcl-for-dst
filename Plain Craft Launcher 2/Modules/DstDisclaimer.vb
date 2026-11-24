@@ -10,7 +10,7 @@ Public Module DstDisclaimer
         "启动器自身的更新来自 GitHub，与任何第三方服务器无关。"
 
     Public Const DisclaimerText As String =
-        "本启动器基于 PCL 二次修改制作。请勿用于商用，请尊重原作者版权。" & vbCrLf & vbCrLf & DisclaimerBody
+        "本启动器基于 DPCL 二次修改制作。请勿用于商用，请尊重原作者版权。" & vbCrLf & vbCrLf & DisclaimerBody
 
     Private Showing As Boolean = False
 

@@ -15,6 +15,7 @@ Public Class PageInstanceFavorites
         BtnSelectShare.Logo = Logo.IconButtonCard
         BtnSelectDelete.Logo = Logo.IconButtonCross
         BtnSelectCancel.Logo = Logo.IconButtonCross
+        BtnSelectAi.Logo = Logo.IconButtonInfo
 
         If View Is Nothing Then
             View = New FavoriteListView(PanList)
@@ -115,6 +116,9 @@ Public Class PageInstanceFavorites
         If Selected Then LabSelect.Text = $"已选择 {Count} 项"
         '安装只对 Mod 有意义
         BtnSelectInstall.IsEnabled = Selected AndAlso CurrentType = CInt(ResourceTypes.Mod)
+        '发给 AI 只对游戏截图有意义：社区资源没有本地文件可递
+        BtnSelectAi.Visibility = If(CurrentType = CInt(ResourceTypes.Screenshot), Visibility.Visible, Visibility.Collapsed)
+        BtnSelectAi.IsEnabled = Selected
         '给底部操作条预留高度，避免盖住列表
         CardList.Margin = New Thickness(0, 0, 0, If(Selected, 95, 15))
 
@@ -144,6 +148,27 @@ Public Class PageInstanceFavorites
     End Sub
     ''' <summary>多选条当前是否处于显示状态。</summary>
     Private SelectBarShown As Boolean = False
+
+    ''' <summary>
+    ''' 把选中的游戏截图交给 Deepseek CE。
+    ''' <para>
+    ''' 只递文件本身：用户想的是「让 AI 看看这几张图」，
+    ''' 不需要额外文字，也不该顺手改掉客户端的搜索/思考开关。
+    ''' </para>
+    ''' </summary>
+    Private Sub BtnSelectAi_Click(sender As Object, e As RouteEventArgs) Handles BtnSelectAi.Click
+        Dim Files As New List(Of String)
+        For Each Entry In GetSelectedEntries()
+            If Entry.ResourceType <> CInt(ResourceTypes.Screenshot) Then Continue For
+            Dim Shot As String = Entry.Key.Replace("screenshot:", "")
+            If FileUtils.Exists(Shot) Then Files.Add(Shot)
+        Next
+        If Files.Count = 0 Then
+            Hint("选中的截图文件都找不到了", HintType.Red)
+            Return
+        End If
+        DstAi.AskFilesOnly(Files)
+    End Sub
 
     Private Sub BtnSelectCancel_Click(sender As Object, e As RouteEventArgs) Handles BtnSelectCancel.Click
         View?.ClearSelection()

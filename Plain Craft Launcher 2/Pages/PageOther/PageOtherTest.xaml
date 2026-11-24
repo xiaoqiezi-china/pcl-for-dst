@@ -327,6 +327,75 @@
                 </StackPanel>
             </local:MyCard>
 
+            <!-- DeepseekCE：Deepseek 桌面客户端的内置安装入口，同时也是「询问 AI」的被调用方。
+                 安装包从 GitHub Release 取，优先走镜像源；装没装以卸载注册表项为准。 -->
+            <local:MyCard Margin="0,0,0,15" Title="DeepseekCE">
+                <Grid Margin="25,34,25,18">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="1*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Grid.Column="0" Width="46" Height="46" CornerRadius="10"
+                            VerticalAlignment="Top" Background="{DynamicResource ColorBrush7}"
+                            BorderThickness="1" BorderBrush="{DynamicResource ColorBrush6}">
+                        <Image Source="/Plain Craft Launcher 2;component/Images/Heads/deepseek.png" Margin="5" />
+                    </Border>
+
+                    <StackPanel Grid.Row="0" Grid.Column="1" Margin="16,0,0,0">
+                        <TextBlock Text="Deepseek CE桌面客户端" FontSize="13.5" FontWeight="Bold" Margin="0,1,0,0" />
+                        <TextBlock Margin="0,6,0,0" FontSize="12" Opacity="0.65" TextWrapping="Wrap"
+                                   Text="从Github中获取最新的版本" />
+                        <WrapPanel Margin="0,14,0,0">
+                            <local:MyButton x:Name="BtnDscInstall" MinWidth="96" Height="32" Padding="13,0" Margin="0,0,10,0"
+                                            Text="安装" ColorType="Highlight" />
+                            <local:MyButton x:Name="BtnDscUninstall" MinWidth="96" Height="32" Padding="13,0" Margin="0,0,10,0"
+                                            Text="卸载" Visibility="Collapsed" />
+                            <local:MyButton x:Name="BtnDscOpen" MinWidth="96" Height="32" Padding="13,0" Margin="0,0,10,0"
+                                            Text="打开" Visibility="Collapsed" />
+                            <local:MyButton x:Name="BtnDscUpdate" MinWidth="96" Height="32" Padding="13,0"
+                                            Text="更新" ColorType="Highlight" Visibility="Collapsed" />
+                        </WrapPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,14,0,0">
+                        <local:MyCheckBox x:Name="CheckDscEnabled" Height="26" local:SettingService.Key="DstAiEnabled"
+                                          Text="是否启用 DeepseekCE"
+                                          ToolTip="开启后，启动器里的「询问 AI」「发送给 AI」「AI总结」等按钮才能用。" />
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="DscName" />
+                                <ColumnDefinition Width="1*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Left" Text="调用方式" Margin="0,0,20,0" />
+                            <local:MyComboBox x:Name="ComboDscInvoke" Grid.Column="1" Height="30"
+                                              local:SettingService.Key="DstAiInvokeMode"
+                                              ToolTip="询问 AI 时，是只把内容填进客户端，还是连发送一起做。">
+                                <local:MyComboBoxItem Content="仅填充内容" local:SettingService.Value="0" IsSelected="True" />
+                                <local:MyComboBoxItem Content="填充并发送" local:SettingService.Value="1" />
+                            </local:MyComboBox>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- 底部：状态说明 + 右下角版本 -->
+                    <Grid Grid.Row="2" Grid.ColumnSpan="2" Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="LabDscState" FontSize="12" Opacity="0.7" TextWrapping="Wrap"
+                                   VerticalAlignment="Bottom" />
+                        <TextBlock x:Name="LabDscVersion" Grid.Column="1" Margin="12,0,0,0" FontSize="11.5"
+                                   VerticalAlignment="Bottom" TextAlignment="Right" Visibility="Collapsed" />
+                    </Grid>
+                </Grid>
+            </local:MyCard>
+
             <!-- 内存优化：回收各进程工作集，并给出高占用进程让用户自己决定结束谁 -->
             <local:MyCard Margin="0,0,0,15" Title="内存优化">
                 <StackPanel Margin="25,34,25,18">

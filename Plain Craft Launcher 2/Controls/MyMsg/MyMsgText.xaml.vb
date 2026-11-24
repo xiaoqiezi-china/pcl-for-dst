@@ -10,9 +10,12 @@ Public Class MyMsgText
             Btn1.Name = Btn1.Name & GetUuid()
             Btn2.Name = Btn2.Name & GetUuid()
             Btn3.Name = Btn3.Name & GetUuid()
+            BtnAi.Name = BtnAi.Name & GetUuid()
             MyConverter = Converter
             LabTitle.Text = Converter.Title
             LabCaption.Text = Converter.Text
+            '报错弹窗才给「询问 AI」，普通提示给了也没有可问的内容
+            BtnAi.Visibility = If(Converter.AiEnabled, Visibility.Visible, Visibility.Collapsed)
             Btn1.Text = Converter.Button1
             If Converter.IsWarn Then
                 Btn1.ColorType = MyButton.ColorState.Red
@@ -67,6 +70,20 @@ Public Class MyMsgText
             AaDouble(Sub(i) TransformRotate.Angle += i, 6 - TransformRotate.Angle, 150, 0, New AniEaseInFluent(AniEasePower.Weak)),
             AaCode(Sub() CType(Parent, Grid).Children.Remove(Me), , True)
         }, "MyMsgBox " & Uuid)
+    End Sub
+
+    ''' <summary>
+    ''' 把这条报错交给 AI 分析，弹窗本身不关：
+    ''' 用户可能想先看一眼 AI 怎么说，再决定要不要继续操作。
+    ''' </summary>
+    Public Sub BtnAi_Click() Handles BtnAi.Click
+        If MyConverter.IsExited Then Return
+        BtnAi.IsEnabled = False
+        Try
+            MyConverter.AiAction()
+        Finally
+            BtnAi.IsEnabled = True
+        End Try
     End Sub
 
     Public Sub Btn1_Click() Handles Btn1.Click

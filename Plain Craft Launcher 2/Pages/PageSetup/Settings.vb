@@ -109,7 +109,7 @@ Public Class Settings
         New Setting("LaunchFolderSelect", ""),
         New Setting("LaunchFolders", "", Source:=Sources.Registry),
         New Setting("LaunchArgumentTitle", ""),
-        New Setting("LaunchArgumentInfo", "PCL"),
+        New Setting("LaunchArgumentInfo", "DPCL"),
         New Setting("LaunchArgumentJavaSelect", "", Source:=Sources.Registry),
         New Setting("LaunchArgumentJavaAll", "[]", Source:=Sources.Registry),
         New Setting("LaunchArgumentIndie", 0),
@@ -210,6 +210,8 @@ Public Class Settings
         New Setting("DstHomeShowBot", True),
         New Setting("DstShowPing", True, OnChanged:=AddressOf PageLaunchRight.OnShowPingChanged),
         New Setting("DstScreenshotFavMode", 1), '截图收藏策略：0=只记路径 1=复制到启动器目录 2=复制到系统图片目录
+        New Setting("DstAiInvokeMode", 0), '调用 Deepseek CE 的方式：0=仅填充内容 1=填充并发送
+        New Setting("DstAiEnabled", False), '是否启用 Deepseek CE 的 AI 功能（百宝箱里的总开关）
         New Setting("DstBotToken", "", Source:=Sources.Registry, Encrypted:=True),
         New Setting("DstBotUseCustom", False),
         New Setting("DstQqNumber", ""),
@@ -416,7 +418,7 @@ Public Class Settings
                     Catch ex As Exception
                         '统一到 Software\PCL 之后，这里会读到其它 PCL 版本用不同识别码写下的密文，
                         '解不开是预期行为：直接回落默认值并重新写入，不必每次启动都刷一堆异常堆栈
-                        Logger.Info($"设置项 {Key} 无法解密（可能来自其它 PCL 版本），已重置为默认值")
+                        Logger.Info($"设置项 {Key} 无法解密（可能来自其它 DPCL 版本），已重置为默认值")
                         GotValue = Entry.DefaultValue
                         Entry.Set(Entry.DefaultValue, Instance)
                         Entry.Save(Instance)
