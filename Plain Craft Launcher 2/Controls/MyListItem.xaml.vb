@@ -250,8 +250,26 @@ Public Class MyListItem
     ''' </para>
     ''' </summary>
     Private Sub UpdateTitleLimit()
-        If LabTitle Is Nothing OrElse PanTitleRow Is Nothing OrElse ColumnMain Is Nothing Then Return
+        If LabTitle Is Nothing OrElse PanTitleRow Is Nothing Then Return
+        '只有带标识的行才需要限制标题宽度（防止长标题把标识顶出可视区）。
+        '没有标识的列表项——侧边栏、菜单等——必须保持原来的自适应行为，
+        '否则这里算出的宽度会把「启动」压成「启...」。
+        If _BadgePanel Is Nothing Then
+            If Not Double.IsNaN(LabTitle.MaxWidth) Then LabTitle.ClearValue(MaxWidthProperty)
+            Return
+        End If
         Try
+            '按本控件的实际宽度反推，不依赖 ColumnMain.ActualWidth：
+            '后者在首次布局、以及尺寸还没算出来的时候是 0，
+            '照着 0 去算会把标题压成「启...」这种两三个字。
+            Dim Total As Double = ActualWidth
+            If Total <= 0 Then
+                LabTitle.ClearValue(MaxWidthProperty)
+                Return
+            End If
+            Dim Used As Double = ColumnCheck.Width.Value + ColumnPaddingLeft.Width.Value + ColumnLogo.Width.Value +
+                                 ColumnPaddingRight.Width.Value + PanTitleRow.Margin.Left + PanTitleRow.Margin.Right
+            If _RightArea IsNot Nothing Then Used += _RightArea.ActualWidth
             Dim BadgeWidth As Double = 0
             If _BadgePanel IsNot Nothing Then
                 If _BadgePanel.ActualWidth > 0 Then
@@ -261,11 +279,13 @@ Public Class MyListItem
                     BadgeWidth = GetBadgeReserve(CType(_BadgePanel.Child, TextBlock).Text)
                 End If
             End If
-            Dim Available As Double = ColumnMain.ActualWidth - PanTitleRow.Margin.Left - PanTitleRow.Margin.Right
-            '无标识时也保留一点余量，避免标题压到右侧按钮
-            Dim Limit As Double = Available - BadgeWidth
-            If Limit < 24 Then Limit = Math.Max(24, Available)
-            LabTitle.MaxWidth = Limit
+            Dim Limit As Double = Total - Used - BadgeWidth
+            '算出的宽度不合理（布局还没完成等）就先不限制，宁可让这一帧不省略也不要压扁标题
+            If Limit < 16 Then
+                LabTitle.ClearValue(MaxWidthProperty)
+            Else
+                LabTitle.MaxWidth = Limit
+            End If
         Catch ex As Exception
             Logger.Warn(ex, "计算标题可用宽度失败")
         End Try
