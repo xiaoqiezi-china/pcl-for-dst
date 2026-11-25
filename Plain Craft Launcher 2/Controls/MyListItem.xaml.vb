@@ -145,6 +145,8 @@ Public Class MyListItem
                             .UseLayoutRounding = False
                         End With
                         SetColumnSpan(Btn, 10) : SetRowSpan(Btn, 10)
+                        Dim OldParent As Panel = TryCast(Btn.Parent, Panel)
+                        OldParent?.Children.Remove(Btn)
                         Children.Add(Btn)
                         ButtonStack = Btn
                     Next
@@ -156,12 +158,168 @@ Public Class MyListItem
                     For Each Btn As MyIconButton In value
                         If Btn.Height.Equals(Double.NaN) Then Btn.Height = 25
                         If Btn.Width.Equals(Double.NaN) Then Btn.Width = 25
+                        '同一个按钮对象可能因为重复设置而被加两次，加之前先从原父级摘掉
+                        Dim OldParent As Panel = TryCast(Btn.Parent, Panel)
+                        OldParent?.Children.Remove(Btn)
                         CType(ButtonStack, StackPanel).Children.Add(Btn)
                     Next
                     Children.Add(ButtonStack)
             End Select
         End Set
     End Property
+
+    '右侧常驻区域
+    ''' <summary>
+    ''' 标题行右侧的常驻区域，按从左到右排列：版本标识、常驻按钮。
+    ''' <para>
+    ''' 与悬停才出现的图标按钮分开：那组按钮会随着悬停加宽右边距滑出来，
+    ''' 常驻的东西挤在一起会被反复顶开。
+    ''' </para>
+    ''' </summary>
+    Private ReadOnly Property RightArea As StackPanel
+        Get
+            If _RightArea Is Nothing Then
+                Dim Panel As New StackPanel With {
+                    .Orientation = Orientation.Horizontal,
+                    .VerticalAlignment = VerticalAlignment.Center,
+                    .HorizontalAlignment = HorizontalAlignment.Right,
+                    .Margin = New Thickness(0, 0, 2, 0)
+                }
+                SetColumn(Panel, 4)
+                SetRow(Panel, 1)
+                SetRowSpan(Panel, 2)
+                Children.Add(Panel)
+                _RightArea = Panel
+            End If
+            Return _RightArea
+        End Get
+    End Property
+    Private _RightArea As StackPanel = Nothing
+
+    '标识
+    ''' <summary>
+    ''' 紧跟标题右侧的小标识，例如整合包的「整合包」/「可更新」。
+    ''' </summary>
+    Public Property Badge As String
+        Get
+            Return _Badge
+        End Get
+        Set(value As String)
+            If _Badge = value Then Return
+            _Badge = value
+            If String.IsNullOrWhiteSpace(value) Then
+                If _BadgePanel IsNot Nothing Then
+                    PanTitleRow.Children.Remove(_BadgePanel)
+                    _BadgePanel = Nothing
+                End If
+                ColumnBadge.Width = New GridLength(0)
+                Return
+            End If
+            If _BadgePanel Is Nothing Then
+                Dim Lab As New TextBlock With {
+                    .FontSize = 10.5,
+                    .IsHitTestVisible = False,
+                    .VerticalAlignment = VerticalAlignment.Center
+                }
+                Lab.SetResourceReference(TextBlock.ForegroundProperty, "ColorBrushWhite")
+                Dim Panel As New Border With {
+                    .CornerRadius = New CornerRadius(4),
+                    .Padding = New Thickness(6, 0, 6, 1),
+                    .VerticalAlignment = VerticalAlignment.Center,
+                    .Margin = New Thickness(6, 0, 0, 0),
+                    .IsHitTestVisible = False,
+                    .Child = Lab
+                }
+                Panel.SetResourceReference(Border.BackgroundProperty, "ColorBrush3")
+                SetColumn(Panel, 1)
+                PanTitleRow.Children.Add(Panel)
+                _BadgePanel = Panel
+            End If
+            CType(_BadgePanel.Child, TextBlock).Text = value
+        End Set
+    End Property
+    Private _Badge As String = ""
+    Private _BadgePanel As Border = Nothing
+
+    ''' <summary>
+    ''' 限制标题宽度，给标识让位。
+    ''' <para>
+    ''' 标题行是「标题 + 标识」两个 Auto 列并且左对齐，标识要贴着标题；
+    ''' 但 Auto 列不限制标题自身宽度，长标题会把标识顶出可视区。
+    ''' 所以按本列可用宽度反推标题上限。
+    ''' </para>
+    ''' </summary>
+    Private Sub UpdateTitleLimit()
+        If LabTitle Is Nothing OrElse PanTitleRow Is Nothing OrElse ColumnMain Is Nothing Then Return
+        Try
+            Dim BadgeWidth As Double = 0
+            If _BadgePanel IsNot Nothing Then
+                If _BadgePanel.ActualWidth > 0 Then
+                    BadgeWidth = _BadgePanel.ActualWidth + _BadgePanel.Margin.Left + _BadgePanel.Margin.Right
+                ElseIf _BadgePanel.Child IsNot Nothing Then
+                    '标识刚创建还没布局，先用字宽估算
+                    BadgeWidth = GetBadgeReserve(CType(_BadgePanel.Child, TextBlock).Text)
+                End If
+            End If
+            Dim Available As Double = ColumnMain.ActualWidth - PanTitleRow.Margin.Left - PanTitleRow.Margin.Right
+            '无标识时也保留一点余量，避免标题压到右侧按钮
+            Dim Limit As Double = Available - BadgeWidth
+            If Limit < 24 Then Limit = Math.Max(24, Available)
+            LabTitle.MaxWidth = Limit
+        Catch ex As Exception
+            Logger.Warn(ex, "计算标题可用宽度失败")
+        End Try
+    End Sub
+
+    ''' <summary>按文字估算标识宽度（字体 10.5，中文字宽约等于字号）。</summary>
+    Private Shared Function GetBadgeReserve(Text As String) As Double
+        Dim Width As Double = 0
+        If Not String.IsNullOrEmpty(Text) Then
+            For Each C As Char In Text
+                Width += If(AscW(C) > 255, 10.5, 6.2)
+            Next
+        End If
+        Return Width + 18
+    End Function
+
+    '常驻按钮
+    ''' <summary>
+    ''' 一直显示在右侧的图标按钮（不受悬停影响），排在版本标识的右边。
+    ''' </summary>
+    Public Property PersistentButtons As IEnumerable(Of MyIconButton)
+        Get
+            Return _PersistentButtons
+        End Get
+        Set(value As IEnumerable(Of MyIconButton))
+            _PersistentButtons = value
+            If _PersistentButtonsArea IsNot Nothing Then
+                RightArea.Children.Remove(_PersistentButtonsArea)
+                _PersistentButtonsArea = Nothing
+            End If
+            If value Is Nothing Then Return
+            Dim Buttons As List(Of MyIconButton) = value.Where(Function(B) B IsNot Nothing).ToList()
+            If Not Buttons.Any() Then Return
+            Dim Stack As New StackPanel With {
+                .Orientation = Orientation.Horizontal,
+                .VerticalAlignment = VerticalAlignment.Center,
+                .Margin = New Thickness(4, 0, 0, 0)
+            }
+            For Each Btn In Buttons
+                If Btn.Height.Equals(Double.NaN) Then Btn.Height = 25
+                If Btn.Width.Equals(Double.NaN) Then Btn.Width = 25
+                Btn.Margin = New Thickness(2, 0, 2, 0)
+                Btn.VerticalAlignment = VerticalAlignment.Center
+                '同一个按钮对象可能被重复设置，加之前先从原父级摘掉
+                Dim OldParent As Panel = TryCast(Btn.Parent, Panel)
+                OldParent?.Children.Remove(Btn)
+                Stack.Children.Add(Btn)
+            Next
+            RightArea.Children.Add(Stack)
+            _PersistentButtonsArea = Stack
+        End Set
+    End Property
+    Private _PersistentButtons As IEnumerable(Of MyIconButton) = Nothing
+    Private _PersistentButtonsArea As StackPanel = Nothing
 
     '标题
     Public ReadOnly Property Inlines As InlineCollection
@@ -336,7 +494,8 @@ Public Class MyListItem
                 PathLogo.Margin = New Thickness(If(Height < 40, 6, 8), 8, If(Height < 40, 4, 6), 8)
             End If
         End If
-        LabTitle.Margin = New Thickness(4, 0, 0, If(Height < 40, 0, 2))
+        LabTitle.Margin = New Thickness(0, 0, 0, If(Height < 40, 0, 2))
+        UpdateTitleLimit()
     End Sub
 
     '勾选状态
@@ -546,9 +705,12 @@ Public Class MyListItem
     Public IsMouseOverAnimationEnabled As Boolean = True
     Public Sub RefreshColor(sender As Object, e As EventArgs) Handles Me.MouseEnter, Me.MouseLeave, Me.PreviewMouseLeftButtonDown, Me.PreviewMouseLeftButtonUp
         '菜单虚拟化检测
+        '先清空再调用：ContentHandler 里会改 Children，可能连锁触发本方法重入，
+        '若此刻还没清空，同一批按钮会被加进 Children 两次，WPF 直接抛“已经是另一个元素的逻辑子元素”。
         If ContentHandler IsNot Nothing Then
-            ContentHandler(Me, e)
+            Dim Handler As Action(Of MyListItem, EventArgs) = ContentHandler
             ContentHandler = Nothing
+            Handler(Me, e)
         End If
         '判断当前颜色
         Dim StateNew As String, Time As Integer

@@ -10,7 +10,9 @@
         <ColumnDefinition x:Name="ColumnCheck" Width="2"/>
         <ColumnDefinition x:Name="ColumnPaddingLeft" Width="0" />
         <ColumnDefinition x:Name="ColumnLogo" Width="4" />
-        <ColumnDefinition Width="1*"/>
+        <ColumnDefinition x:Name="ColumnMain" Width="1*"/>
+        <!-- 常驻右侧区域（常驻按钮）：Auto 宽度，正文自动让出位置 -->
+        <ColumnDefinition x:Name="ColumnRight" Width="Auto" />
         <ColumnDefinition x:Name="ColumnPaddingRight" Width="4" />
     </Grid.ColumnDefinitions>
     <Grid.RowDefinitions>
@@ -21,7 +23,16 @@
     </Grid.RowDefinitions>
     <!--<Border x:Name="RectBack" CornerRadius="3" RenderTransformOrigin="0.5,0.5" SnapsToDevicePixels="True" IsHitTestVisible="False" Opacity="0" Grid.ColumnSpan="4" Background="{DynamicResource ColorBrush7}" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1" />-->
     <!--<StackPanel VerticalAlignment="Center">-->
-    <TextBlock Grid.Row="1" SnapsToDevicePixels="False" UseLayoutRounding="False" HorizontalAlignment="Left" x:Name="LabTitle" IsHitTestVisible="False" Grid.Column="3" Text="{Binding Title, ElementName=PanBack}" TextTrimming="CharacterEllipsis" FontSize="{Binding FontSize, ElementName=PanBack}" Foreground="{Binding Foreground, ElementName=PanBack}" Margin="4,0,0,0" />
+    <!-- 标题行：标题 + 紧跟其后的标识（例如「整合包」）。
+         标题列用 1*，长度受本行约束、超长时自己省略；标识列用 Auto，
+         因此标识永远紧贴标题右侧，不会像原先那样被甩到窗口最右边。 -->
+    <Grid Grid.Row="1" Grid.Column="3" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="4,0,0,0" x:Name="PanTitleRow">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition x:Name="ColumnBadge" Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" SnapsToDevicePixels="False" UseLayoutRounding="False" HorizontalAlignment="Left" x:Name="LabTitle" IsHitTestVisible="False" Text="{Binding Title, ElementName=PanBack}" TextTrimming="CharacterEllipsis" FontSize="{Binding FontSize, ElementName=PanBack}" Foreground="{Binding Foreground, ElementName=PanBack}" VerticalAlignment="Center" />
+    </Grid>
     <!--<TextBlock Grid.Row="2" SnapsToDevicePixels="False" UseLayoutRounding="False" HorizontalAlignment="Left" x:Name="LabInfo" IsHitTestVisible="False" Grid.Column="2" TextTrimming="CharacterEllipsis" Visibility="Collapsed" FontSize="12" Foreground="{StaticResource ColorBrushGray2}" Margin="4,0,0,0" />-->
     <!--</StackPanel>-->
 </Grid>

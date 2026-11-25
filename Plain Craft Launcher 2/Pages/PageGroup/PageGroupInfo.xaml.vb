@@ -967,11 +967,13 @@ Public Class PageGroupInfo
         AnchorKey = ""
 
         PanSelectBar.Visibility = Visibility.Collapsed
+        BtnSelectToEnd.Visibility = Visibility.Collapsed
         LabChatTitle.Visibility = Visibility.Visible
         LabChatQuota.Visibility = Visibility.Visible
         BtnChatSummarize.Visibility = Visibility.Visible
         BtnChatRefresh.Visibility = Visibility.Visible
 
+        RefreshSelectCount()
         RefreshAllRowMenus()
         RefreshRowSelections()
     End Sub
@@ -1006,29 +1008,72 @@ Public Class PageGroupInfo
     ''' 起点缺失时退化为只选这一条。
     ''' </summary>
     Private Sub SelectRangeTo(Item As DstBot.DstMessage)
-        Dim Anchor As Integer = -1
-        Dim Target As Integer = -1
         For i = 0 To AllMessages.Count - 1
-            If AllMessages(i).Key = AnchorKey Then Anchor = i
-            If AllMessages(i).Key = Item.Key Then Target = i
+            If AllMessages(i).Key = Item.Key Then
+                SelectRangeToIndex(i)
+                Return
+            End If
         Next
-        If Target < 0 Then Return
-        If Anchor < 0 Then Anchor = Target
-        If Anchor > Target Then Dim Swap As Integer = Anchor : Anchor = Target : Target = Swap
+    End Sub
 
-        For i = Anchor To Target
+    ''' <summary>
+    ''' 从范围起点一路选到指定下标，首尾都算。
+    ''' 起点缺失时只选这一条；起点在目标之后就反向选。
+    ''' </summary>
+    Private Sub SelectRangeToIndex(Target As Integer)
+        If Target < 0 OrElse Target >= AllMessages.Count Then Return
+        Dim Anchor As Integer = -1
+        If AnchorKey <> "" Then
+            For i = 0 To AllMessages.Count - 1
+                If AllMessages(i).Key = AnchorKey Then
+                    Anchor = i
+                    Exit For
+                End If
+            Next
+        End If
+        If Anchor < 0 Then Anchor = Target
+        Dim FromIndex As Integer = Math.Min(Anchor, Target)
+        Dim ToIndex As Integer = Math.Max(Anchor, Target)
+        For i = FromIndex To ToIndex
             SelectedKeys.Add(AllMessages(i).Key)
         Next
-        '范围选完，参照点移到这一端，方便连续往前/往后扩选
-        AnchorKey = Item.Key
+        '起点保持不变：连续点几次是「从同一起点不断往外扩」，不会越点越乱
         RefreshSelectCount()
         RefreshRowSelections()
     End Sub
+
+    ''' <summary>
+    ''' 当前画面最上面那条消息在 AllMessages 里的下标；一条都没渲染时返回 -1。
+    ''' <para>
+    ''' 虚拟化下只有可见的行才有容器，所以从窗口开头扫，
+    ''' 第一个底部还在视口下沿之上的就是屏幕上沿那条。
+    ''' </para>
+    ''' </summary>
+    Private Function FindTopVisibleMessageIndex() As Integer
+        If PanChat Is Nothing OrElse PanChatScroll Is Nothing Then Return -1
+        Dim Top As Double = PanChatScroll.VerticalOffset
+        For i = 0 To Visible.Count - 1
+            Dim Container As FrameworkElement = TryCast(PanChat.ItemContainerGenerator.ContainerFromIndex(i), FrameworkElement)
+            If Container Is Nothing Then Continue For
+            Dim Y As Double
+            Try
+                Y = Container.TransformToAncestor(PanChat).Transform(New Point(0, 0)).Y
+            Catch ex As Exception
+                Continue For
+            End Try
+            If Y + Container.ActualHeight > Top + 2 Then Return ViewStart + i
+        Next
+        Return -1
+    End Function
 
     Private Sub RefreshSelectCount()
         If LabSelectCount Is Nothing Then Return
         LabSelectCount.Text = $"已选择 {SelectedKeys.Count} 条消息"
         BtnSelectSendAi.IsEnabled = SelectedKeys.Count > 0
+        '浮层的「截至至此」要有起点才有意义，没选任何消息时不显示
+        If BtnSelectToEnd IsNot Nothing Then
+            BtnSelectToEnd.Visibility = If(IsSelecting AndAlso SelectedKeys.Count > 0, Visibility.Visible, Visibility.Collapsed)
+        End If
     End Sub
 
     ''' <summary>当前渲染出来的所有消息行（虚拟化之后只有可见的那些）。</summary>
@@ -1125,33 +1170,15 @@ Public Class PageGroupInfo
     End Function
 
     ''' <summary>
-    ''' 「截至至此」：从当前选中处一路扩到最新一条。
-    ''' 一条都没选时视作从最早一条开始，等价于全选。
+    ''' 「截至至此」：从范围起点选到当前画面上沿那条消息，和微信的「选择到这里」一个意思。
     ''' </summary>
     Private Sub BtnSelectToEnd_Click(sender As Object, e As MouseButtonEventArgs) Handles BtnSelectToEnd.Click
-        If AllMessages.Count = 0 Then Return
-        Dim Start As Integer = 0
-        Dim Found As Boolean = False
-        For i = 0 To AllMessages.Count - 1
-            If SelectedKeys.Contains(AllMessages(i).Key) Then
-                Start = i
-                Found = True
-                Exit For
-            End If
-        Next
-        If Not Found AndAlso AnchorKey <> "" Then
-            For i = 0 To AllMessages.Count - 1
-                If AllMessages(i).Key = AnchorKey Then
-                    Start = i
-                    Exit For
-                End If
-            Next
+        Dim Target As Integer = FindTopVisibleMessageIndex()
+        If Target < 0 Then
+            Hint("当前画面里没有可用的消息", HintType.Blue)
+            Return
         End If
-        For i = Start To AllMessages.Count - 1
-            SelectedKeys.Add(AllMessages(i).Key)
-        Next
-        RefreshSelectCount()
-        RefreshRowSelections()
+        SelectRangeToIndex(Target)
     End Sub
 
     Private Sub BtnSelectCancelChat_Click(sender As Object, e As MouseButtonEventArgs) Handles BtnSelectCancelChat.Click

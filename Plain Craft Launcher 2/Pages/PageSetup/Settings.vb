@@ -211,7 +211,7 @@ Public Class Settings
         New Setting("DstShowPing", True, OnChanged:=AddressOf PageLaunchRight.OnShowPingChanged),
         New Setting("DstScreenshotFavMode", 1), '截图收藏策略：0=只记路径 1=复制到启动器目录 2=复制到系统图片目录
         New Setting("DstAiInvokeMode", 0), '调用 Deepseek CE 的方式：0=仅填充内容 1=填充并发送
-        New Setting("DstAiEnabled", False), '是否启用 Deepseek CE 的 AI 功能（百宝箱里的总开关）
+        New Setting("DstAiEnabled", True), '是否启用 Deepseek CE 的 AI 功能（百宝箱里的总开关）；默认开，用户不想要再自己关
         New Setting("DstBotToken", "", Source:=Sources.Registry, Encrypted:=True),
         New Setting("DstBotUseCustom", False),
         New Setting("DstQqNumber", ""),

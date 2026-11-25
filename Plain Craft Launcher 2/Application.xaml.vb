@@ -209,7 +209,7 @@ RetryCacheCheck:
                 CheckPermissionWithException(PathTemp)
             Catch ex As Exception
                 If PathUtils.IsSame(PathTemp, Path.GetTempPath() & "PCL\") Then
-                    MyMsgBox("DPCL 无法访问缓存文件夹，可能导致程序出错或无法正常使用！" & vbCrLf & vbCrLf & "错误原因：" & ex.GetDisplay(True), "缓存文件夹不可用")
+                    MyMsgBox("DPCL 无法访问缓存文件夹，可能导致程序出错或无法正常使用！" & vbCrLf & vbCrLf & "错误原因：" & ex.GetDisplay(True), "缓存文件夹不可用", AiEnabled:=True)
                 Else
                     MyMsgBox("手动设置的缓存文件夹不可用，DPCL 将使用默认缓存文件夹。" & vbCrLf & vbCrLf & "错误原因：" & ex.GetDisplay(True), "缓存文件夹不可用")
                     Settings.Set("SystemSystemCache", "")

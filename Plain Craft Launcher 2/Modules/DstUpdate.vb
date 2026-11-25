@@ -263,7 +263,7 @@ Friend Module DstUpdate
         CheckLauncherUpdate(
         Sub(Info)
             If Info.Err <> "" Then
-                MyMsgBox($"检查更新失败：{Info.Err}", "更新检查", "关闭", IsWarn:=True)
+                MyMsgBox($"检查更新失败：{Info.Err}", "更新检查", "关闭", IsWarn:=True, AiEnabled:=True)
                 Return
             End If
             Dim Text As String = $"当前版本：{VersionDisplay}" & vbCrLf &
@@ -400,7 +400,7 @@ Friend Module DstUpdate
                 Sub()
                     Select Case Combo.State
                         Case LoadState.Failed
-                            RunInUi(Sub() MyMsgBox($"下载更新失败：{Combo.Error.GetDisplay(False)}", "更新失败", "关闭", IsWarn:=True))
+                            RunInUi(Sub() MyMsgBox($"下载更新失败：{Combo.Error.GetDisplay(False)}", "更新失败", "关闭", IsWarn:=True, AiEnabled:=True))
                         Case LoadState.Canceled
                             RunInUi(Sub() Hint("已取消更新", HintType.Blue))
                     End Select
@@ -412,7 +412,7 @@ Friend Module DstUpdate
             Catch ex As Exception
                 ex.ThrowIfCanceled()
                 Logger.Warn(ex, "下载启动器更新失败")
-                RunInUi(Sub() MyMsgBox($"下载更新失败：{FriendlyError(ex.Message)}", "更新失败", "关闭", IsWarn:=True))
+                RunInUi(Sub() MyMsgBox($"下载更新失败：{FriendlyError(ex.Message)}", "更新失败", "关闭", IsWarn:=True, AiEnabled:=True))
             End Try
         End Sub)
     End Sub
@@ -447,7 +447,7 @@ Friend Module DstUpdate
             FormMain.EndProgramForce(ProcessReturnValues.TaskDone)
         Catch ex As Exception
             Logger.Warn(ex, "准备更新失败")
-            MyMsgBox($"准备更新失败：{FriendlyError(ex.Message)}", "更新失败", "关闭", IsWarn:=True)
+            MyMsgBox($"准备更新失败：{FriendlyError(ex.Message)}", "更新失败", "关闭", IsWarn:=True, AiEnabled:=True)
         End Try
     End Sub
 

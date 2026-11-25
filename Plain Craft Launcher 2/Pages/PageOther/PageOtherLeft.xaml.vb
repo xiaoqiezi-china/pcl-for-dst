@@ -9,6 +9,10 @@ Public Class PageOtherLeft
         If ItemAbout.Checked AndAlso Settings.Get(Of Boolean)("UiHiddenOtherAbout") Then IsHiddenPage = True
         If ItemTest.Checked AndAlso Settings.Get(Of Boolean)("UiHiddenOtherTest") Then IsHiddenPage = True
         If PageSetupUI.HiddenForceShow Then IsHiddenPage = False
+        '没有配置远程服务时，群消息与公告两个入口不露出来
+        Dim ShowChat As Visibility = If(DstBot.HasService, Visibility.Visible, Visibility.Collapsed)
+        ItemChat.Visibility = ShowChat
+        ItemReport.Visibility = ShowChat
         '若页面错误，或尚未加载，则继续
         If IsLoad AndAlso Not IsHiddenPage Then Return
         IsLoad = True
@@ -49,7 +53,7 @@ Public Class PageOtherLeft
     ''' <summary>
     ''' 勾选事件改变页面。
     ''' </summary>
-    Private Sub PageCheck(sender As FrameworkElement, e As RouteEventArgs) Handles ItemAbout.Check, ItemHelp.Check, ItemTest.Check
+    Private Sub PageCheck(sender As FrameworkElement, e As RouteEventArgs) Handles ItemAbout.Check, ItemHelp.Check, ItemTest.Check, ItemChat.Check, ItemReport.Check
         '尚未初始化控件属性时，sender.Tag 为 Nothing，会导致切换到页面 0
         '若使用 IsLoaded，则会导致模拟点击不被执行（模拟点击切换页面时，控件的 IsLoaded 为 False）
         If sender.Tag IsNot Nothing Then PageChange(Val(sender.Tag))
@@ -67,6 +71,12 @@ Public Class PageOtherLeft
         Case FormMain.PageSubType.OtherTest
                 If FrmOtherTest Is Nothing Then FrmOtherTest = New PageOtherTest
                 Return FrmOtherTest
+            Case FormMain.PageSubType.OtherChat
+                If FrmGroupInfo Is Nothing Then FrmGroupInfo = New PageGroupInfo
+                Return FrmGroupInfo
+            Case FormMain.PageSubType.OtherReport
+                If FrmGroupReport Is Nothing Then FrmGroupReport = New PageGroupReport
+                Return FrmGroupReport
             Case Else
                 Throw New Exception("未知的更多子页面种类：" & ID)
         End Select
@@ -82,6 +92,8 @@ Public Class PageOtherLeft
         Try
             PageChangeRun(PageGet(ID))
             PageID = ID
+            '公告页每次进来都按当前群重拉一遍
+            If ID = FormMain.PageSubType.OtherReport Then FrmGroupReport?.Refresh()
         Catch ex As Exception
             Logger.Error(ex, $"切换分页面失败（ID {ID}）")
         Finally

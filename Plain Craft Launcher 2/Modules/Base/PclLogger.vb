@@ -33,12 +33,12 @@ Public Class PclLogger
             Case LogBehavior.Toast
                 Hint(BriefText, HintType.Red, False)
             Case LogBehavior.Alert
-                MyMsgBox(DetailText, "错误", IsWarn:=True, AiFile:=LogFilePath)
+                MyMsgBox(DetailText, "错误", IsWarn:=True, AiFile:=LogFilePath, AiEnabled:=True)
             Case LogBehavior.AlertThenFeedback
                 If PageSetupSystem.IsLauncherNewest Then
-                    If MyMsgBox(DetailText & vbCrLf & vbCrLf & "是否反馈此问题？如果不反馈，这个问题可能永远无法得到解决！", "错误", "反馈", "取消", IsWarn:=True, AiFile:=LogFilePath) = 1 Then Feedback(False, True)
+                    If MyMsgBox(DetailText & vbCrLf & vbCrLf & "是否反馈此问题？如果不反馈，这个问题可能永远无法得到解决！", "错误", "反馈", "取消", IsWarn:=True, AiFile:=LogFilePath, AiEnabled:=True) = 1 Then Feedback(False, True)
                 Else
-                    MyMsgBox(DetailText & vbCrLf & vbCrLf & "将 DPCL 更新至最新版或许可以解决这个问题……", "错误", IsWarn:=True, AiFile:=LogFilePath)
+                    MyMsgBox(DetailText & vbCrLf & vbCrLf & "将 DPCL 更新至最新版或许可以解决这个问题……", "错误", IsWarn:=True, AiFile:=LogFilePath, AiEnabled:=True)
                 End If
             Case LogBehavior.AlertThenCrash
                 Static FirstTrigger As Boolean = True

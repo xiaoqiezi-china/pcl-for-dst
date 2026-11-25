@@ -14,8 +14,9 @@ Public Class MyMsgText
             MyConverter = Converter
             LabTitle.Text = Converter.Title
             LabCaption.Text = Converter.Text
-            '报错弹窗才给「询问 AI」，普通提示给了也没有可问的内容
-            BtnAi.Visibility = If(Converter.AiEnabled, Visibility.Visible, Visibility.Collapsed)
+            '报错弹窗才给「询问 AI」，普通提示给了也没有可问的内容；
+            '总开关关掉后不再显示，避免点了只弹一条提示。
+            BtnAi.Visibility = If(Converter.AiEnabled AndAlso DstAi.IsEnabled, Visibility.Visible, Visibility.Collapsed)
             Btn1.Text = Converter.Button1
             If Converter.IsWarn Then
                 Btn1.ColorType = MyButton.ColorState.Red
@@ -78,6 +79,14 @@ Public Class MyMsgText
     ''' </summary>
     Public Sub BtnAi_Click() Handles BtnAi.Click
         If MyConverter.IsExited Then Return
+        '弹窗系统一次只显示一个，这里再弹提示会排在当前报错之后才出现，看起来就是点了没反应。
+        '所以没装客户端时直接改按钮说明并跳到百宝箱，由用户自己装好再回来。
+        If Not DstDeepseekCe.IsInstalled Then
+            BtnAi.IsEnabled = False
+            BtnAi.Text = "未安装 DeepseekCE"
+            DstAi.GotoSettingPage()
+            Return
+        End If
         BtnAi.IsEnabled = False
         Try
             MyConverter.AiAction()
@@ -122,8 +131,16 @@ Public Class MyMsgText
         If e.GetPosition(ShapeLine).Y <= 2 Then FrmMain.DragMove()
     End Sub
 
-    ''' <summary>Esc 等同于点“取消/关闭”这类副选键。没有取消类按钮时不响应，避免误触发。</summary>
+    ''' <summary>
+    ''' 回车等同于点第一个按钮；焦点停在「询问 AI」上时回车依然归它，免得顺手确认掉报错。
+    ''' Esc 等同于点“取消/关闭”这类副选键，没有取消类按钮时不响应。
+    ''' </summary>
     Private Sub MsgKeyDown(sender As Object, e As KeyEventArgs) Handles Me.PreviewKeyDown
+        If e.Key = Key.Enter Then
+            e.Handled = True
+            If Keyboard.FocusedElement Is BtnAi AndAlso BtnAi.IsEnabled Then BtnAi_Click() Else Btn1_Click()
+            Return
+        End If
         If e.Key <> Key.Escape Then Return
         Dim CancelWords As String() = {"取消", "关闭", "否", "算了", "返回"}
         If Btn2.Visibility = Visibility.Visible AndAlso Btn2.IsEnabled AndAlso CancelWords.Any(Function(W) Btn2.Text.Contains(W)) Then

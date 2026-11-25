@@ -28,7 +28,8 @@ Public Module ModModpack
     ''' 构建并启动安装给定的整合包文件的加载器，并返回该加载器。若失败则抛出异常。
     ''' 必须在工作线程执行。
     ''' </summary>
-    Public Function ModpackInstall(File As String, Optional InstanceName As String = Nothing, Optional Logo As String = Nothing) As LoaderCombo(Of String)
+    Public Function ModpackInstall(File As String, Optional InstanceName As String = Nothing, Optional Logo As String = Nothing,
+                                   Optional Source As ModpackSource = Nothing) As LoaderCombo(Of String)
         Logger.Info($"整合包安装请求：{If(File, "null")}")
         Dim Archive As ZipArchive = Nothing
         Dim ArchiveBaseFolder As String = ""
@@ -89,7 +90,7 @@ Public Module ModModpack
             Select Case PackType
                 Case 0
                     Logger.Info("整合包种类：CurseForge")
-                    Return InstallPackCurseForge(File, Archive, ArchiveBaseFolder, InstanceName, Logo)
+                    Return InstallPackCurseForge(File, Archive, ArchiveBaseFolder, InstanceName, Logo, Source)
                 Case 1
                     Logger.Info("整合包种类：HMCL")
                     Return InstallPackHMCL(File, Archive, ArchiveBaseFolder)
@@ -101,7 +102,7 @@ Public Module ModModpack
                     Return InstallPackMCBBS(File, Archive, ArchiveBaseFolder, InstanceName)
                 Case 4
                     Logger.Info("整合包种类：Modrinth")
-                    Return InstallPackModrinth(File, Archive, ArchiveBaseFolder, InstanceName, Logo)
+                    Return InstallPackModrinth(File, Archive, ArchiveBaseFolder, InstanceName, Logo, Source)
                 Case 9
                     Logger.Info("整合包种类：带启动器的压缩包")
                     Return InstallPackLauncherPack(File, Archive, ArchiveBaseFolder)
@@ -187,7 +188,8 @@ Public Module ModModpack
 
     'CurseForge
     Private Function InstallPackCurseForge(FileAddress As String, Archive As ZipArchive, ArchiveBaseFolder As String,
-                                           Optional InstanceName As String = Nothing, Optional Logo As String = Nothing) As LoaderCombo(Of String)
+                                           Optional InstanceName As String = Nothing, Optional Logo As String = Nothing,
+                                           Optional Source As ModpackSource = Nothing) As LoaderCombo(Of String)
 
         '读取 Json 文件
         Dim Json As JObject
@@ -372,6 +374,8 @@ Public Module ModModpack
                 Logger.Info($"删除安装整合包文件：{FileAddress}")
                 FileUtils.Delete(FileAddress)
             End If
+            '记录来源，供整合包自动更新使用
+            ModModpackUpdate.WriteSource(VersionFolder, Source)
         End Sub) With {.ProgressWeight = 0.1, .Show = False})
 
         '重复任务检查
@@ -390,7 +394,8 @@ Public Module ModModpack
     End Function
 
     'Modrinth
-    Private Function InstallPackModrinth(FileAddress As String, Archive As ZipArchive, ArchiveBaseFolder As String, Optional InstanceName As String = Nothing, Optional Logo As String = Nothing) As LoaderCombo(Of String)
+    Private Function InstallPackModrinth(FileAddress As String, Archive As ZipArchive, ArchiveBaseFolder As String, Optional InstanceName As String = Nothing, Optional Logo As String = Nothing,
+                                         Optional Source As ModpackSource = Nothing) As LoaderCombo(Of String)
 
         '读取 Json 文件
         Dim Json As JObject
@@ -500,6 +505,8 @@ Public Module ModModpack
                 Logger.Info($"删除安装整合包文件：{FileAddress}")
                 FileUtils.Delete(FileAddress)
             End If
+            '记录来源，供整合包自动更新使用
+            ModModpackUpdate.WriteSource(VersionFolder, Source)
         End Sub) With {.ProgressWeight = 0.1, .Show = False})
 
         '重复任务检查

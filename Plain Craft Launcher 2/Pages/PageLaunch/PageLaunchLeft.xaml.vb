@@ -842,7 +842,6 @@ Finish:
                 FrmLaunchRight.ApplyOfflineUi()
                 FrmLaunchRight.ReloadForGroupChange()
             End If
-            If FrmGroupLeft IsNot Nothing Then FrmGroupLeft.ApplyOfflineUi()
             If FrmGroupStar IsNot Nothing Then FrmGroupStar.ApplyOfflineUi()
             '聊天页与公告页也要跟着切换，否则探测完成前已经加载的页面会停在旧状态
             If FrmGroupInfo IsNot Nothing Then FrmGroupInfo.ApplyOfflineUi()

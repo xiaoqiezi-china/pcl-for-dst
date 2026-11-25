@@ -345,11 +345,21 @@ GroupDone:
             Dim Loaders As New List(Of LoaderBase)
             Dim Target As String = $"{McFolderSelected}versions\{InstanceName}\原始整合包.{If(Project.Platform = ResourcePlatforms.CurseForge, "zip", "mrpack")}"
             Dim LogoFileAddress As String = ResourceItem.PathLogo.ActualSource
+            '记下这个整合包的出身，安装完成后写进版本的 config.json，供后续自动更新使用
+            Dim Source As New ModpackSource With {
+                .Platform = Project.Platform.ToString,
+                .ProjectId = Project.Id,
+                .ProjectName = Project.TranslatedName,
+                .VersionId = File.Id,
+                .VersionName = If(String.IsNullOrWhiteSpace(File.Version), File.Display, File.Version),
+                .GameVersion = File.GameVersions.FirstOrDefault(),
+                .VersionDate = File.ReleaseDate,
+                .Url = $"https://{If(Project.Platform = ResourcePlatforms.CurseForge, "www.curseforge.com/minecraft/modpacks/", "modrinth.com/modpack/")}{Project.Id}"}
             Loaders.Add(New LoaderDownload("下载整合包文件", {
                 File.ToNetFile(Target, ResourceVersion.DownloadReason.Standalone, File.GameVersions.FirstOrDefault, File.ModLoaders)
             }) With {.ProgressWeight = 10, .Block = True})
             Loaders.Add(New LoaderTask(Of Integer, Integer)("准备安装整合包",
-            Sub() ModpackInstall(Target, InstanceName, If(FileUtils.Exists(LogoFileAddress), LogoFileAddress, Nothing))) With {.ProgressWeight = 0.1})
+            Sub() ModpackInstall(Target, InstanceName, If(FileUtils.Exists(LogoFileAddress), LogoFileAddress, Nothing), Source)) With {.ProgressWeight = 0.1})
 
             '启动
             Dim Loader As New LoaderCombo(Of String)(LoaderName, Loaders) With {.OnStateChanged =
@@ -549,7 +559,7 @@ GroupDone:
     End Sub
 
     ''' <summary>
-    ''' 问 AI 这个模组怎么样。
+    ''' 问 AI 这个资源怎么样。
     ''' <para>
     ''' 链接直接用 <see cref="ResourceProject.Website"/>：它已经是该工程所在平台的标准地址
     ''' （CurseForge 工程给 CurseForge 页，Modrinth 工程给 Modrinth 页），
@@ -560,13 +570,35 @@ GroupDone:
         Try
             Dim Name As String = Project.TranslatedName
             Dim Url As String = Project.Website
-            Dim Text As String = $"请帮我在网络上搜索{Name}此模组的信息，告诉我这个模组的玩法和评价，模组的链接是{Url}。"
-            '模组信息要现查，所以搜索与深度思考都开着
+            Dim Kind As String = GetResourceKindName()
+            Dim Text As String = $"请帮我在网络上搜索{Name}此{Kind}的信息，告诉我这个{Kind}的玩法和评价，{Kind}的链接是{Url}。" &
+                                 "在寻找正面评价的同时，尽量寻找负面评价做对比，并给出评价来源。"
+            '资源信息要现查，所以搜索与深度思考都开着
             DstAi.Ask(Text, Search:=True, Thinking:=True)
         Catch ex As Exception
             Logger.Error(ex, "询问 AI 失败", LogBehavior.Alert)
         End Try
     End Sub
+
+    ''' <summary>
+    ''' 当前页面对应的资源种类，用来把提示词里的称呼写对。
+    ''' <para>
+    ''' 优先用工程自身的类型；类型是「任意」或「Mod 与数据包二选一」这类
+    ''' 无法确定具体种类的组合时，退回本页正在浏览的那个分类。
+    ''' </para>
+    ''' </summary>
+    Private Function GetResourceKindName() As String
+        Dim Types As ResourceTypes = Project.Types
+        If Types = ResourceTypes.Any OrElse Types = ResourceTypes.ModOrDataPack Then Types = TargetResourceType
+        If Types.HasFlagF(ResourceTypes.ModPack) Then Return "整合包"
+        If Types.HasFlagF(ResourceTypes.Shader) Then Return "光影包"
+        If Types.HasFlagF(ResourceTypes.ResourcePack) Then Return "资源包"
+        If Types.HasFlagF(ResourceTypes.DataPack) Then Return "数据包"
+        If Types.HasFlagF(ResourceTypes.Map) Then Return "地图"
+        If Types.HasFlagF(ResourceTypes.Plugin) Then Return "服务端插件"
+        If Types.HasFlagF(ResourceTypes.Mod) Then Return "模组"
+        Return "资源"
+    End Function
 
     'Mod / 数据包 互相跳转
     Private Sub HintAlternative_Click() Handles HintAlternative.Click

@@ -114,6 +114,28 @@ Friend Module DstAi
         Return Ask("", Files, Search:=Nothing, Thinking:=Nothing)
     End Function
 
+    ''' <summary>
+    ''' 跳到百宝箱的 DeepseekCE 卡片，并把它滚进视野。
+    ''' <para>
+    ''' 页面是首次进入时才创建的，卡片也要等这一轮布局，所以滚动放到后台优先级里做。
+    ''' </para>
+    ''' </summary>
+    Public Sub GotoSettingPage()
+        RunInUi(
+        Sub()
+            FrmMain.PageChange(FormMain.PageType.Other, FormMain.PageSubType.OtherTest)
+            FrmMain.Dispatcher.InvokeAsync(
+            New Action(
+            Sub()
+                Try
+                    FrmOtherTest?.ScrollToDsc()
+                Catch ex As Exception
+                    Logger.Warn(ex, "定位 DeepseekCE 卡片失败")
+                End Try
+            End Sub), System.Windows.Threading.DispatcherPriority.Background)
+        End Sub)
+    End Sub
+
     ''' <summary>总开关没开时引导去百宝箱打开。</summary>
     Private Sub PromptEnable()
         RunInUi(
@@ -121,7 +143,7 @@ Friend Module DstAi
             If MyMsgBox("AI 功能还没有启用。" & vbCrLf &
                         "到百宝箱的 DeepseekCE 卡片里勾选「是否启用 DeepseekCE」即可使用。",
                         "AI 功能未启用", "去启用", "取消") = 1 Then
-                FrmMain.PageChange(FormMain.PageType.Other, FormMain.PageSubType.OtherTest)
+                GotoSettingPage()
             End If
         End Sub)
     End Sub
@@ -130,10 +152,10 @@ Friend Module DstAi
     Private Sub PromptInstall()
         RunInUi(
         Sub()
-            If MyMsgBox("还没有安装 Deepseek CE 桌面客户端。" & vbCrLf &
+            If MyMsgBox("当前未安装 DeepseekCE，无法调用 AI。" & vbCrLf &
                         "百宝箱里可以一键安装，装好之后这些按钮就能用了。",
-                        "需要先安装 Deepseek CE", "去安装", "取消") = 1 Then
-                FrmMain.PageChange(FormMain.PageType.Other, FormMain.PageSubType.OtherTest)
+                        "未安装 DeepseekCE", "去安装", "取消") = 1 Then
+                GotoSettingPage()
             End If
         End Sub)
     End Sub

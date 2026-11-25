@@ -132,7 +132,7 @@ Public Class PageLaunchRight
     End Sub
 
     Private Sub BtnDstReportAll_Click(sender As Object, e As EventArgs) Handles BtnDstReportAll.Click
-        FrmMain.PageChange(FormMain.PageType.Group, FormMain.PageSubType.GroupReport)
+        FrmMain.PageChange(FormMain.PageType.Other, FormMain.PageSubType.OtherReport)
     End Sub
 
     Private Sub RefreshReport()

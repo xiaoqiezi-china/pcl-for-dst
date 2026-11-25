@@ -897,7 +897,7 @@ Public Class PageLinkMain
             FailReason = Brief
             LinkLoader.Failed(New Exception(Detail))
         Else
-            MyMsgBox(Detail, "联机出错：" & Brief, IsWarn:=True)
+            MyMsgBox(Detail, "联机出错：" & Brief, IsWarn:=True, AiEnabled:=True)
             ChangeState(LinkStates.Waiting)
             Telemetry("联机失败", "Exception", FilterUserName(Brief & "：" & Detail, "*"))
         End If

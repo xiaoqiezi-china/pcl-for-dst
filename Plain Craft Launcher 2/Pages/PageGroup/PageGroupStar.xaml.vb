@@ -1,5 +1,5 @@
 ''' <summary>
-''' QQ 页的收藏夹：分类子夹 + 与模组管理一致的列表与多选条，支持一键安装到当前整合包、分享收藏。
+''' 下载页的收藏夹：分类子夹 + 与模组管理一致的列表与多选条，支持一键安装到当前整合包、分享收藏。
 ''' </summary>
 Public Class PageGroupStar
 
@@ -165,12 +165,6 @@ Public Class PageGroupStar
         If PanList Is Nothing Then Return
         If View Is Nothing Then Return
         View.Reload(CType(CurrentType, ResourceTypes))
-        '截图分类没有资源详情页，那行说明换成收藏策略的提示
-        If LabListHint IsNot Nothing Then
-            LabListHint.Text = If(CurrentType = CInt(ResourceTypes.Screenshot),
-                "收藏时会按设置里的策略处理文件，可在「设置 → 其他 → 截图收藏」中更改。",
-                "左键点击勾选，右键或悬停后的「详情」按钮进入资源详情页。")
-        End If
         RefreshSelectBar()
     End Sub
 

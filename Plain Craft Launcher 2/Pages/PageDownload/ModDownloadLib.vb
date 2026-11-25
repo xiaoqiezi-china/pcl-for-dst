@@ -2034,7 +2034,7 @@ Retry:
                             Hint(CurrentLoader.Name & "成功，但重命名失败！", HintType.Green)
                         End If
                     Case LoadState.Failed
-                        MyMsgBox(CurrentLoader.Error.GetDisplay(True), CurrentLoader.Name & "失败", IsWarn:=True)
+                        MyMsgBox(CurrentLoader.Error.GetDisplay(True), CurrentLoader.Name & "失败", IsWarn:=True, AiEnabled:=True)
                     Case LoadState.Canceled
                         Hint(CurrentLoader.Name & "已取消！", HintType.Blue)
                 End Select
@@ -2134,7 +2134,7 @@ Retry:
                 Hint(Loader.Name & "成功！", HintType.Green)
                 'TODO: 自动选择安装成功的版本
             Case LoadState.Failed
-                MyMsgBox(Loader.Error.GetDisplay(True), Loader.Name & "失败", IsWarn:=True)
+                MyMsgBox(Loader.Error.GetDisplay(True), Loader.Name & "失败", IsWarn:=True, AiEnabled:=True)
             Case LoadState.Canceled
                 Hint(Loader.Name & "已取消！", HintType.Blue)
             Case LoadState.Loading

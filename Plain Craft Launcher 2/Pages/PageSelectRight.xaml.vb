@@ -363,6 +363,26 @@ Public Class PageSelectRight
             AddHandler sender.MouseRightButtonUp, Sub() PageInstanceOverall.OpenInstanceFolder(Instance)
             sender.Buttons = {BtnStar, BtnDel, BtnCont}
         End If
+        '整合包：扫描到新版本时常驻一个高亮按钮；没扫描到就跟着悬停按钮一起出现，
+        '用来手动重新检查这一个包，平时不占地方。
+        If Instance.ModpackSource IsNot Nothing Then
+            Dim BtnUpdate As New MyIconButton With {.LogoScale = 1.05, .Logo = Logo.IconButtonUpdate}
+            If ModModpackUpdate.HasUpdate(Instance.PathVersion) Then
+                'Custom 主题才会用 Foreground 着色，默认的 Color 主题会被主题色覆盖
+                BtnUpdate.Theme = MyIconButton.Themes.Custom
+                BtnUpdate.Foreground = New SolidColorBrush(Color3)
+                BtnUpdate.ToolTip = "更新整合包"
+                AddHandler BtnUpdate.Click, Sub() ModModpackUpdate.StartUpdate(Instance)
+                sender.PersistentButtons = {BtnUpdate}
+            Else
+                BtnUpdate.ToolTip = "检查整合包更新"
+                AddHandler BtnUpdate.Click, Sub() ModModpackUpdate.CheckOne(Instance)
+                '排在悬停按钮组最左边，和原来的顺序保持一致
+                Dim HoverButtons As New List(Of MyIconButton) From {BtnUpdate}
+                HoverButtons.AddRange(sender.Buttons)
+                sender.Buttons = HoverButtons
+            End If
+        End If
     End Sub
 
 #End Region

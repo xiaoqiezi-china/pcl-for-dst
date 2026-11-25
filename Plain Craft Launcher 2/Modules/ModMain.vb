@@ -236,19 +236,19 @@ EndHint:
     ''' 不给则只把弹窗里的文字发过去。
     ''' </param>
     ''' <param name="AiEnabled">
-    ''' 是否显示「询问 AI」。留空时跟随 <paramref name="IsWarn"/>（警告弹窗默认有）；
-    ''' 崩溃分析这类不以红色警告呈现、但同样需要 AI 分析的弹窗显式传 True。
+    ''' 是否显示「询问 AI」，默认不显示。
+    ''' 只有崩溃、启动失败、下载失败这类「技术性故障」才该传 True；
+    ''' 确认删除、操作选择、纯通知类弹窗即使标红也不该给，用户问不出有意义的东西。
     ''' </param>
     Public Function MyMsgBox(Caption As String, Optional Title As String = "提示",
                              Optional Button1 As String = "确定", Optional Button2 As String = "", Optional Button3 As String = "",
                              Optional IsWarn As Boolean = False, Optional HighLight As Boolean = True, Optional ForceWait As Boolean = False,
                              Optional Button1Action As Action = Nothing, Optional Button2Action As Action = Nothing, Optional Button3Action As Action = Nothing,
-                             Optional AiFile As String = Nothing, Optional AiEnabled As Boolean? = Nothing) As Integer
+                             Optional AiFile As String = Nothing, Optional AiEnabled As Boolean = False) As Integer
         '将弹窗列入队列
         Dim Converter As New MyMsgBoxConverter With {.Type = MyMsgBoxType.Text, .Button1 = Button1, .Button2 = Button2, .Button3 = Button3, .Text = Caption, .IsWarn = IsWarn, .Title = Title, .HighLight = HighLight, .ForceWait = True, .Button1Action = Button1Action, .Button2Action = Button2Action, .Button3Action = Button3Action}
-        '报错弹窗自动带「询问 AI」：这里统一挂上，各调用点不用一个个改。
-        '个别弹窗外观不是红色警告（例如崩溃分析结果），用 AiEnabled 单独打开。
-        If If(AiEnabled.HasValue, AiEnabled.Value, IsWarn) Then
+        '「询问 AI」按需开启：标红不等于可问，删除确认、设置警告这类问了也没用。
+        If AiEnabled Then
             Converter.AiEnabled = True
             Converter.AiAction = BuildErrorAiAction(Caption, AiFile)
         End If
@@ -436,7 +436,6 @@ EndHint:
     Public FrmSetupSystem As PageSetupSystem
     Public FrmSetupLink As PageSetupLink
     Public FrmSetupDst As PageSetupDst
-    Public FrmGroupLeft As PageGroupLeft
     Public FrmGroupInfo As PageGroupInfo
     Public FrmGroupReport As PageGroupReport
     Public FrmGroupStar As PageGroupStar

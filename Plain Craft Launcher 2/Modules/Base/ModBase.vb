@@ -6,7 +6,7 @@ Public Module ModBase
 #Region "声明"
 
     '下列版本信息由更新器自动修改
-    Public Const VersionBaseName As String = "1.1.3"
+    Public Const VersionBaseName As String = "1.1.4"
     Public Const CommitHash As String = "" 'Commit Hash，由 GitHub Workflow 自动替换
 #If RELEASE Then
     Public Const VersionCode As Integer = 1000 '正式版
@@ -148,6 +148,10 @@ Public Module ModBase
         ''' 图标按钮，上箭头，0.95x
         ''' </summary>
         Public Const IconButtonArrowUp As String = "M554 333V853h-85V333l-228 228-60-60L512 170l331 331-60 60L554 333z"
+        ''' <summary>
+        ''' 图标按钮，向上托起的箭头，1x
+        ''' </summary>
+        Public Const IconButtonUpdate As String = "M640 768H384l-32-32V509H213L190 454l298-298h45l298 298L810 509h-138v226z m-224-64h192V477l32-32h93L512 223 290 445H384l32 32zM352 831h320v64h-320z"
         ''' <summary>
         ''' 图标按钮，下箭头，0.95x
         ''' </summary>

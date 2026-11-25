@@ -284,7 +284,7 @@ Friend Module DstBot
         Dim Content As String = G.LatestReport.Content
         If Content.Length > 400 Then Content = Content.Substring(0, 400) & "……"
         RunInUi(Sub() MyMsgBox(Content, $"群公告更新 · {G.GroupName}", "知道了", "查看全部",
-                               Button2Action:=Sub() FrmMain.PageChange(FormMain.PageType.Group, FormMain.PageSubType.GroupReport)))
+                               Button2Action:=Sub() FrmMain.PageChange(FormMain.PageType.Other, FormMain.PageSubType.OtherReport)))
     End Sub
 
 #End Region
@@ -822,18 +822,18 @@ Friend Module DstBot
         End Get
     End Property
 
-    Public ReadOnly Property ApiBase As String
-        Get
-            If UseCustom Then
-                Dim Raw As String = Settings.Get(Of String)("DstBotApiUrl").Trim()
-                If Raw <> "" Then Return Raw.TrimEnd("/"c)
-            End If
-            '配置文件里的服务地址优先于编译期内置：
-            '发布版把初始地址释放到 config.ini，更新启动器后它还在
-            Dim FromFile As String = ModConfigFile.Read(ModConfigFile.SectionCloud, "ApiBase").Trim()
-            If FromFile <> "" Then Return FromFile.TrimEnd("/"c)
-            Return DstBotPresetApi
-        End Get
+    Public ReadOnly Property ApiBase As String
+        Get
+            If UseCustom Then
+                Dim Raw As String = Settings.Get(Of String)("DstBotApiUrl").Trim()
+                If Raw <> "" Then Return Raw.TrimEnd("/"c)
+            End If
+            '配置文件里的服务地址优先于编译期内置：
+            '发布版把初始地址释放到 config.ini，更新启动器后它还在
+            Dim FromFile As String = ModConfigFile.Read(ModConfigFile.SectionCloud, "ApiBase").Trim()
+            If FromFile <> "" Then Return FromFile.TrimEnd("/"c)
+            Return DstBotPresetApi
+        End Get
     End Property
 
     Public ReadOnly Property GroupNo As String
@@ -846,16 +846,16 @@ Friend Module DstBot
         End Get
     End Property
 
-    Public ReadOnly Property ApiToken As String
-        Get
-            If UseCustom Then
-                Dim Raw As String = Settings.Get(Of String)("DstBotToken").Trim()
-                If Raw <> "" Then Return Raw
-            End If
-            Dim FromFile As String = ModConfigFile.Read(ModConfigFile.SectionCloud, "ApiKey").Trim()
-            If FromFile <> "" Then Return FromFile
-            Return DstBotPresetToken
-        End Get
+    Public ReadOnly Property ApiToken As String
+        Get
+            If UseCustom Then
+                Dim Raw As String = Settings.Get(Of String)("DstBotToken").Trim()
+                If Raw <> "" Then Return Raw
+            End If
+            Dim FromFile As String = ModConfigFile.Read(ModConfigFile.SectionCloud, "ApiKey").Trim()
+            If FromFile <> "" Then Return FromFile
+            Return DstBotPresetToken
+        End Get
     End Property
 
     ''' <summary>

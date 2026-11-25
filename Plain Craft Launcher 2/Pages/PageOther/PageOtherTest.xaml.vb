@@ -824,6 +824,11 @@ Public Class PageOtherTest
 
 #Region "DeepseekCE"
 
+    ''' <summary>把 DeepseekCE 卡片滚进视野，供外部引导跳转后调用。</summary>
+    Public Sub ScrollToDsc()
+        CardDsc?.BringIntoView()
+    End Sub
+
     '远端最新版本号；空串表示还没查到
     Private DscLatestVersion As String = ""
     Private DscLatestCheckedTick As Long = 0

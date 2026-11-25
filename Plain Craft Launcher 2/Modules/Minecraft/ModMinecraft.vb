@@ -106,7 +106,7 @@ Public Module ModMinecraft
                     Next
                     If Not Renamed Then CacheMcFolderList.Add(New McFolder With {.Name = FolderName, .Location = PathUtils.AddSlashSuffix(PathUtils.ForCompare(FolderPath)), .Type = McFolder.Types.Custom})
                 Catch ex As Exception
-                    MyMsgBox("失效的 Minecraft 文件夹：" & vbCrLf & FolderPath & vbCrLf & vbCrLf & ex.GetDisplay(False), "Minecraft 文件夹失效", IsWarn:=True)
+                    MyMsgBox("失效的 Minecraft 文件夹：" & vbCrLf & FolderPath & vbCrLf & vbCrLf & ex.GetDisplay(False), "Minecraft 文件夹失效", IsWarn:=True, AiEnabled:=True)
                     Logger.Warn(ex, $"无法访问 Minecraft 文件夹 {FolderPath}")
                 End Try
             Next
@@ -556,6 +556,24 @@ Recheck:
         Private _InheritName As String = Nothing
 
         Public Config As JsonConfigProvider
+        '整合包来源：不是整合包时为 Nothing。首次访问才读配置文件，之后缓存。
+        Private _ModpackSource As ModpackSource = Nothing
+        Private _ModpackSourceLoaded As Boolean = False
+        ''' <summary>这个版本的整合包来源信息；不是整合包时为 Nothing。</summary>
+        Public ReadOnly Property ModpackSource As ModpackSource
+            Get
+                If Not _ModpackSourceLoaded Then
+                    _ModpackSourceLoaded = True
+                    _ModpackSource = ModModpackUpdate.ReadSource(PathVersion)
+                End If
+                Return _ModpackSource
+            End Get
+        End Property
+        ''' <summary>整合包更新后需要让缓存的来源信息作废。</summary>
+        Public Sub InvalidateModpackSource()
+            _ModpackSourceLoaded = False
+            _ModpackSource = Nothing
+        End Sub
         Public Sub ResetSettingsCache()
             IniClearCache(PathIndie & "options.txt")
             IniClearCache(PathVersion & "PCL\Setup.ini")
@@ -571,7 +589,8 @@ Recheck:
         Public Sub New(NameOrFullPath As String)
             NameOrFullPath = PathUtils.RemoveExtendedPrefix(NameOrFullPath)
             PathVersion = PathUtils.AddSlashSuffix(If(NameOrFullPath.Contains(":"), "", McFolderSelected & "versions\") & NameOrFullPath)
-            Config = New JsonConfigProvider(Path.Combine(PathVersion, "PCL\config.json"))
+            '与整合包来源共用同一个 Provider：两个实例各自缓存一份 JSON 会互相覆盖对方写入的键
+            Config = ModModpackUpdate.GetProvider(PathVersion)
         End Sub
 
         ''' <summary>
@@ -806,6 +825,10 @@ ExitDataLoad:
                 Logger.Error(ex, "加载版本图标失败", LogBehavior.Toast)
                 NewItem.Logo = "pack://application:,,,/images/Blocks/RedstoneBlock.png"
             End Try
+            '整合包标识：固定显示「整合包」，只有检测到新版本才换成「可更新」
+            If ModpackSource IsNot Nothing Then
+                NewItem.Badge = If(ModModpackUpdate.HasUpdate(PathVersion), "可更新", "整合包")
+            End If
             Return NewItem
         End Function
         ''' <summary>

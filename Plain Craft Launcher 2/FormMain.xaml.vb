@@ -70,6 +70,8 @@ Public Class FormMain
         If ModeDebug Then Hint("[调试模式] DPCL 正以调试模式运行，这可能会导致性能下降，若无必要请不要开启！")
         '尽早执行的加载池
         McFolderListLoader.Start(0) '为了让下载已存在文件检测可以正常运行，必须跑一次；为了让启动按钮尽快可用，需要尽早执行；为了与 PageLaunchLeft 联动，需要为 0 而不是 GetUuid
+        '静默检查整合包更新：等版本列表就绪后自己跑一条线程，不阻塞启动
+        ModModpackUpdate.CheckAllInBackground()
 
         Logger.Info($"第二阶段加载用时：{GetTimeMs() - ApplicationStartTick} ms")
     End Sub
@@ -81,8 +83,6 @@ Public Class FormMain
         UpdateBackgroundAndTitleBar()
         RefreshTitleVersion()
         PageSetupUI.HiddenRefresh()
-        '没有配置远程服务时，连 QQ 入口都不露出来，避免让人以为这是某个机器人的附属启动器
-        If Not DstBot.HasService Then BtnTitleSelect5.Visibility = Visibility.Collapsed
         PageSetupUI.BackgroundRefresh(False, True)
         MusicRefreshPlay(False, True)
         '扩展按钮
@@ -978,10 +978,6 @@ Public Class FormMain
         ''' </summary>
         Other = 4
         ''' <summary>
-        ''' 群聊。
-        ''' </summary>
-        Group = 5
-        ''' <summary>
         ''' 版本选择。这是一个副页面。
         ''' </summary>
         InstanceSelect = 6
@@ -1026,19 +1022,19 @@ Public Class FormMain
         DownloadDataPack = 4
         DownloadResourcePack = 5
         DownloadShader = 6
+        DownloadStar = 8
         SetupLaunch = 0
         SetupLink = 1
         SetupUI = 2
         SetupSystem = 3
         SetupDst = 4
         ' 皮肤页已合并进「个性化」：5 这个编号保留占位，避免老配置/老代码里出现 5 时含义漂移
-        GroupInfo = 0
-        GroupReport = 1
-        GroupStar = 2
         LinkMain = 0
         OtherHelp = 0
         OtherAbout = 1
         OtherTest = 2
+        OtherChat = 3
+        OtherReport = 4
         InstanceOverall = 0
         InstanceSetup = 1
         InstanceModify = 2
@@ -1113,9 +1109,6 @@ Public Class FormMain
                 Case PageType.Other
                     If FrmOtherLeft Is Nothing Then FrmOtherLeft = New PageOtherLeft
                     Return FrmOtherLeft.PageID
-                Case PageType.Group
-                    If FrmGroupLeft Is Nothing Then FrmGroupLeft = New PageGroupLeft
-                    Return FrmGroupLeft.PageID
                 Case PageType.InstanceSetup
                     If FrmInstanceLeft Is Nothing Then FrmInstanceLeft = New PageInstanceLeft
                     Return FrmInstanceLeft.PageID
@@ -1190,10 +1183,6 @@ Public Class FormMain
                 Case PageType.Other
                     If FrmOtherLeft Is Nothing Then FrmOtherLeft = New PageOtherLeft
                     CType(FrmOtherLeft.PanItem.Children(SubType), MyListItem).SetChecked(True, True, Stack = PageCurrent)
-                Case PageType.Group
-                    If FrmGroupLeft Is Nothing Then FrmGroupLeft = New PageGroupLeft
-                    '外部跳转：只同步勾选与子页编号，页面动画交给下面的 PageChangeActual 统一处理
-                    FrmGroupLeft.SetPage(SubType)
             End Select
             PageChangeActual(Stack, SubType)
         Else
@@ -1270,7 +1259,7 @@ Public Class FormMain
     ''' 否则切回 PCL 外观会看到高亮停在旧页面。
     ''' </para>
     ''' </summary>
-    Private Sub BtnRailSelect_Click(sender As Object, raiseByMouse As Boolean) Handles BtnRailSelect0.Check, BtnRailSelect1.Check, BtnRailSelect2.Check, BtnRailSelect3.Check, BtnRailSelect4.Check, BtnRailSelect5.Check
+    Private Sub BtnRailSelect_Click(sender As Object, raiseByMouse As Boolean) Handles BtnRailSelect0.Check, BtnRailSelect1.Check, BtnRailSelect2.Check, BtnRailSelect3.Check, BtnRailSelect4.Check
         If IsChangingPage Then Return
         Dim Rail = TryCast(sender, MyRailButton)
         If Rail Is Nothing Then Return
@@ -1283,7 +1272,6 @@ Public Class FormMain
             Case 2 : TopButton = BtnTitleSelect2
             Case 3 : TopButton = BtnTitleSelect3
             Case 4 : TopButton = BtnTitleSelect4
-            Case 5 : TopButton = BtnTitleSelect5
         End Select
         If TopButton IsNot Nothing AndAlso Not TopButton.Checked Then
             '先设顶栏的勾选，让它走原本的 Check 逻辑把页面切过去
@@ -1293,7 +1281,7 @@ Public Class FormMain
         End If
     End Sub
 
-    Private Sub BtnTitleSelect_Click(sender As MyRadioButton, raiseByMouse As Boolean) Handles BtnTitleSelect0.Check, BtnTitleSelect1.Check, BtnTitleSelect2.Check, BtnTitleSelect3.Check, BtnTitleSelect4.Check, BtnTitleSelect5.Check
+    Private Sub BtnTitleSelect_Click(sender As MyRadioButton, raiseByMouse As Boolean) Handles BtnTitleSelect0.Check, BtnTitleSelect1.Check, BtnTitleSelect2.Check, BtnTitleSelect3.Check, BtnTitleSelect4.Check
         If IsChangingPage Then Return
         PageChangeActual(Val(sender.Tag))
     End Sub
@@ -1384,11 +1372,6 @@ Public Class FormMain
                 Case PageType.Other '更多
                     If FrmOtherLeft Is Nothing Then FrmOtherLeft = New PageOtherLeft
                     PageChangeAnim(FrmOtherLeft, FrmOtherLeft.PageGet(SubType))
-                Case PageType.Group '群聊
-                    If FrmGroupLeft Is Nothing Then FrmGroupLeft = New PageGroupLeft
-                    '群聊是主页面，任何时候都不该留着返回箭头
-                    ForceTopLevelTitle()
-                    PageChangeAnim(FrmGroupLeft, FrmGroupLeft.PageGet(SubType))
                 Case PageType.InstanceSelect '版本选择
                     If FrmSelectLeft Is Nothing Then FrmSelectLeft = New PageSelectLeft
                     If FrmSelectRight Is Nothing Then FrmSelectRight = New PageSelectRight
@@ -1479,18 +1462,6 @@ Public Class FormMain
                 PageRight.PageOnEnter()
             End Sub, 30, True)
         }, "FrmMain PageChangeRight")
-    End Sub
-    ''' <summary>强制回到“主页面”标题栏状态：没有返回箭头，导航条可见。</summary>
-    Private Sub ForceTopLevelTitle()
-        PageStack.Clear()
-        AniStop("FrmMain Titlebar FirstLayer")
-        PanTitleInner.Visibility = Visibility.Collapsed
-        PanTitleInner.Opacity = 0
-        PanTitleInner.IsHitTestVisible = False
-        PanTitleMain.Visibility = Visibility.Visible
-        PanTitleMain.Opacity = 1
-        PanTitleMain.Margin = New Thickness(0)
-        PanTitleMain.IsHitTestVisible = True
     End Sub
     ''' <summary>
     ''' 退出子界面。

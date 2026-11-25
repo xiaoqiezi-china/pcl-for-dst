@@ -329,7 +329,7 @@
 
             <!-- DeepseekCE：Deepseek 桌面客户端的内置安装入口，同时也是「询问 AI」的被调用方。
                  安装包从 GitHub Release 取，优先走镜像源；装没装以卸载注册表项为准。 -->
-            <local:MyCard Margin="0,0,0,15" Title="DeepseekCE">
+            <local:MyCard Margin="0,0,0,15" Title="DeepseekCE" x:Name="CardDsc">
                 <Grid Margin="25,34,25,18">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />

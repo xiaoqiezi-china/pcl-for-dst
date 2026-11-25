@@ -246,6 +246,7 @@
     <Compile Include="Modules\Minecraft\ModJava.vb" />
     <Compile Include="Modules\Resource\LocalResourceLoaders.vb" />
     <Compile Include="Modules\Minecraft\ModModpack.vb" />
+    <Compile Include="Modules\Minecraft\ModModpackUpdate.vb" />
     <Compile Include="Modules\ThirdParty\DragHelper.vb" />
     <Compile Include="My Project\Resources.Designer.vb">
       <AutoGen>True</AutoGen>
@@ -484,9 +485,6 @@
     </Compile>
     <Compile Include="Pages\PageSetup\PageSetupDst.xaml.vb">
       <DependentUpon>PageSetupDst.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Pages\PageGroup\PageGroupLeft.xaml.vb">
-      <DependentUpon>PageGroupLeft.xaml</DependentUpon>
     </Compile>
     <Compile Include="Pages\PageGroup\PageGroupInfo.xaml.vb">
       <DependentUpon>PageGroupInfo.xaml</DependentUpon>
@@ -816,10 +814,6 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Pages\PageSetup\PageSetupDst.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Pages\PageGroup\PageGroupLeft.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
