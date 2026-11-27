@@ -396,6 +396,47 @@
                 </Grid>
             </local:MyCard>
 
+            <!-- nokeys：用 Rust 写的全局轮盘 / 列表快捷启动器。
+                 装的是官方安装版（有卸载登记项），装没装、装的哪版都从注册表读。 -->
+            <local:MyCard Margin="0,0,0,15" Title="nokeys" x:Name="CardNk">
+                <Grid Margin="25,34,25,18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Margin="0,1,0,0" VerticalAlignment="Top"
+                               FontSize="13.5" FontWeight="Bold" TextWrapping="Wrap"
+                               Text="基于Rust的轻量辅助聚合工具，通过轮盘快速调用功能" />
+
+                    <WrapPanel Grid.Row="1" Margin="0,14,0,0">
+                        <local:MyButton x:Name="BtnNkInstall" MinWidth="96" Height="32" Padding="13,0" Margin="0,0,10,0"
+                                        Text="安装" ColorType="Highlight" />
+                        <local:MyButton x:Name="BtnNkUpdate" MinWidth="96" Height="32" Padding="13,0" Margin="0,0,10,0"
+                                        Text="更新" ColorType="Highlight" Visibility="Collapsed" />
+                        <local:MyButton x:Name="BtnNkUninstall" MinWidth="96" Height="32" Padding="13,0" Margin="0,0,10,0"
+                                        Text="卸载" Visibility="Collapsed" />
+                        <local:MyButton x:Name="BtnNkOpen" MinWidth="96" Height="32" Padding="13,0" Margin="0,0,10,0"
+                                        Text="打开" Visibility="Collapsed" />
+                        <local:MyButton x:Name="BtnNkGuide" MinWidth="96" Height="32" Padding="13,0"
+                                        Text="教程" />
+                    </WrapPanel>
+
+                    <!-- 底部：状态说明 + 右下角常驻版本 -->
+                    <Grid Grid.Row="2" Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="LabNkState" FontSize="12" Opacity="0.7" TextWrapping="Wrap"
+                                   VerticalAlignment="Bottom" />
+                        <TextBlock x:Name="LabNkVersion" Grid.Column="1" Margin="12,0,0,0" FontSize="11.5"
+                                   VerticalAlignment="Bottom" TextAlignment="Right" />
+                    </Grid>
+                </Grid>
+            </local:MyCard>
+
             <!-- 内存优化：回收各进程工作集，并给出高占用进程让用户自己决定结束谁 -->
             <local:MyCard Margin="0,0,0,15" Title="内存优化">
                 <StackPanel Margin="25,34,25,18">

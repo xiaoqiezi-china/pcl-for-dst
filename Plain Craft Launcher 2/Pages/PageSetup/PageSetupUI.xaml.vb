@@ -15,6 +15,7 @@ Public Class PageSetupUI
         CheckOfflineShowServers.Checked = Settings.Get(Of Boolean)("DstOfflineShowServers")
         RefreshOfflineServerToggle()
         AniControlEnabled -= 1
+        PopupModeReady = True
 
         '非重复加载部分
         Static Reloaded As Boolean = False
@@ -37,6 +38,7 @@ Public Class PageSetupUI
             '主页
             OnMainPageTypeChanged()
             UpdateSkinType()
+            RefreshPopupModeCombo()
         Catch ex As NullReferenceException
             Logger.Error(ex, "个性化设置项存在异常，已被自动重置", LogBehavior.Alert)
             Reset()
@@ -44,6 +46,51 @@ Public Class PageSetupUI
             Logger.Error(ex, "重载个性化设置时出错")
         End Try
     End Sub
+    '弹窗模式的下拉框在 Loaded 里初始化前会触发一次 SelectionChanged，
+    '那时还没读到设置值，不能拿它去覆盖设置
+    Private PopupModeReady As Boolean = False
+
+    ''' <summary>把下拉框拨到设置里的当前值。</summary>
+    Private Sub RefreshPopupModeCombo()
+        If ComboPopupMode Is Nothing Then Return
+        Dim Index As Integer = DstPopup.CurrentMode
+        If ComboPopupMode.SelectedIndex = Index Then Return
+        AniControlEnabled += 1
+        Try
+            ComboPopupMode.SelectedIndex = Index
+        Finally
+            AniControlEnabled -= 1
+        End Try
+    End Sub
+
+    ''' <summary>
+    ''' 弹窗模式切换。选「无弹窗」要先让用户确认，
+    ''' 因为这一档连报错弹窗都会被屏蔽，出问题时界面上不会有任何提示；
+    ''' 确认与输入类弹窗不受影响，不会替用户做决定。
+    ''' </summary>
+    Private Sub ComboPopupMode_SelectionChanged(sender As Object, e As SelectionChangedEventArgs) Handles ComboPopupMode.SelectionChanged
+        If AniControlEnabled <> 0 Then Return
+        If Not PopupModeReady Then Return
+        Dim Index As Integer = ComboPopupMode.SelectedIndex
+        If Index < DstPopup.ModeNone OrElse Index > DstPopup.ModeAll Then Return
+        If Index = DstPopup.ModeNone Then
+            If MyMsgBox("开启后报错弹窗等通知类弹窗都会被屏蔽", "无弹窗", "确定", "取消", IsWarn:=True) <> 1 Then
+                '取消就退回原来的选项，不改设置
+                If e.RemovedItems.Count > 0 Then
+                    AniControlEnabled += 1
+                    Try
+                        ComboPopupMode.SelectedItem = e.RemovedItems(0)
+                    Finally
+                        AniControlEnabled -= 1
+                    End Try
+                End If
+                Return
+            End If
+        End If
+        Settings.Set("DstPopupMode", Index)
+        Logger.Info($"弹窗模式已切换为：{ComboPopupMode.SelectedItem?.ToString}")
+    End Sub
+
     ''' <summary>把当前可用的主题选项统一显示成指定文字（仅用于滑稽彩这类动态主题）。</summary>
     Private Sub ApplySpecialThemeText(NewText As String)
         If NewText = "" OrElse PanLauncherTheme Is Nothing Then Return
@@ -91,6 +138,8 @@ Public Class PageSetupUI
     Public Sub Reset()
         Try
             SettingService.ResetSettings(Me)
+            '弹窗模式没挂 SettingService.Key（它要先确认再存），得自己重置
+            Settings.Reset("DstPopupMode")
             Logger.Info("已初始化个性化设置！")
             Hint("已初始化个性化设置", HintType.Green, False)
         Catch ex As Exception
@@ -125,9 +174,13 @@ Public Class PageSetupUI
     End Sub
     Private Sub BtnBackgroundClear_Click(sender As Object, e As EventArgs) Handles BtnBackgroundClear.Click
         If MyMsgBox("即将删除背景图片文件夹中的所有文件。" & vbCrLf & "此操作不可撤销，是否确定？", "警告",, "取消", IsWarn:=True) = 1 Then
-            DirectoryUtils.Delete(Paths.Base & "PCL\Pictures")
-            BackgroundRefresh(False, True)
-            Hint("背景图片已清空！", HintType.Green)
+            '图片可能很多、单张也很大，删除放到后台做
+            DstDelete.DeleteAsync(Paths.Base & "PCL\Pictures",
+                OnDone:=Sub(Ok As Boolean)
+                            BackgroundRefresh(False, True)
+                            Hint(If(Ok, "背景图片已清空！", "清空背景图片失败，详情见日志"),
+                                 If(Ok, HintType.Green, HintType.Red))
+                        End Sub)
         End If
     End Sub
     ''' <summary>

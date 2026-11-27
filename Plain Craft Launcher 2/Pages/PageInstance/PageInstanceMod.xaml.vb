@@ -672,64 +672,36 @@ Install:
         ChangeAllSelected(False)
     End Sub
     Private Sub DeleteMods(ModsToDelete As IEnumerable(Of LocalResourceFile))
-        Try
-            Dim IsSuccessful As Boolean = True
-            Dim IsShiftPressed As Boolean = My.Computer.Keyboard.ShiftKeyDown
-            '确认需要删除的文件
-            Dim ModList = ModsToDelete.SelectMany(
-            Function(Target As LocalResourceFile)
-                If Target.IsEnabled Then
-                    Return {Target.File.FullName, Target.File.FullName & If(FileUtils.Exists(Target.File.FullName & ".old"), ".old", ".disabled")}
-                Else
-                    Return {Target.File.FullName, Target.EnabledFullName}
-                End If
-            End Function).Distinct.Where(Function(m) FileUtils.Exists(m)).Select(Function(m) New LocalResourceFile(m)).ToList()
-            '实际删除文件
-            For Each ModEntity In ModList
-                '删除
-                Try
-                    FileUtils.Delete(ModEntity.File.FullName, Not IsShiftPressed)
-                Catch ex As OperationCanceledException
-                    Logger.Warn(ex, "删除 Mod 被主动取消")
-                    ReloadModList(True)
-                    Return
-                Catch ex As Exception
-                    Logger.Error(ex, $"删除 Mod 失败（{ModEntity.File.FullName}）", LogBehavior.Alert)
-                    IsSuccessful = False
-                End Try
-                '取消选中
-                SelectedMods.Remove(ModEntity.EnabledName)
-                '更改 Loader 和 UI 中的列表
-                LocalResourceLoader.Output.Remove(ModEntity)
-                SearchResult?.Remove(ModEntity)
-                ModItems.Remove(ModEntity.EnabledName)
-                Dim IndexOfUi As Integer = PanList.Children.IndexOf(PanList.Children.OfType(Of MyLocalModItem).FirstOrDefault(Function(i) i.Entry.Equals(ModEntity)))
-                If IndexOfUi >= 0 Then PanList.Children.RemoveAt(IndexOfUi)
-            Next
-            RefreshBars()
-            If Not IsSuccessful Then
-                Hint("由于文件被占用，Mod 删除失败，请尝试关闭正在运行的游戏后再试！", HintType.Red)
-                ReloadModList(True)
-            ElseIf PanList.Children.Count = 0 Then
-                ReloadModList(True) '删除了全部文件
+        Dim IsShiftPressed As Boolean = My.Computer.Keyboard.ShiftKeyDown
+        '确认需要删除的文件
+        Dim ModList As List(Of LocalResourceFile) = ModsToDelete.SelectMany(
+        Function(Target As LocalResourceFile)
+            If Target.IsEnabled Then
+                Return {Target.File.FullName, Target.File.FullName & If(FileUtils.Exists(Target.File.FullName & ".old"), ".old", ".disabled")}
             Else
-                RefreshBars()
+                Return {Target.File.FullName, Target.EnabledFullName}
             End If
-            '显示结果提示
-            If Not IsSuccessful Then Return
-            If ModList.IsSingle Then
-                Hint($"已删除 {ModList.Single.File.Name}！", HintType.Green)
-            Else
-                Hint($"已删除 {ModList.Count} 个文件！", HintType.Green)
-            End If
-        Catch ex As OperationCanceledException
-            Logger.Warn(ex, "删除 Mod 被主动取消")
-            ReloadModList(True)
-        Catch ex As Exception
-            Logger.Error(ex, "删除 Mod 出现未知错误")
-            ReloadModList(True)
-        End Try
-        LoaderRun(LoaderFolderRunType.UpdateOnly)
+        End Function).Distinct().Where(Function(m) FileUtils.Exists(m)).Select(Function(m) New LocalResourceFile(m)).ToList()
+        If ModList.Count = 0 Then Return
+        '删除放到后台：走回收站时 Shell 还要逐个处理，Mod 一多界面就卡住了。
+        '删完统一重扫一次列表，按磁盘上的实际结果校正界面
+        DstDelete.DeleteBatchAsync(ModList.Select(Function(m) m.File.FullName).ToList(),
+            ToRecycleBin:=Not IsShiftPressed,
+            OnDone:=Sub(Done As Integer, Failed As List(Of String))
+                        For Each Path In Failed
+                            Logger.Warn($"删除 Mod 失败（{Path}），可能正被游戏占用")
+                        Next
+                        ReloadModList(True)
+                        If Failed.Count = 0 Then
+                            If ModList.Count = 1 Then
+                                Hint($"已删除 {ModList(0).File.Name}！", HintType.Green)
+                            Else
+                                Hint($"已删除 {ModList.Count} 个文件！", HintType.Green)
+                            End If
+                        Else
+                            Hint($"有 {Failed.Count} 个 Mod 删除失败，可能正被占用，请关闭游戏后再试！", HintType.Red)
+                        End If
+                    End Sub)
     End Sub
 
     '取消选择

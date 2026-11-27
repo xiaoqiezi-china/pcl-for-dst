@@ -245,6 +245,13 @@ EndHint:
                              Optional IsWarn As Boolean = False, Optional HighLight As Boolean = True, Optional ForceWait As Boolean = False,
                              Optional Button1Action As Action = Nothing, Optional Button2Action As Action = Nothing, Optional Button3Action As Action = Nothing,
                              Optional AiFile As String = Nothing, Optional AiEnabled As Boolean = False) As Integer
+        '「无弹窗」只屏蔽纯通知：单按钮、点掉就完事的那种（报错弹窗也属于这一类）。
+        '带第二个、第三个按钮的是需要用户拿主意的确认与选择，必须照常显示——
+        '替用户按下去就等于替他删了东西，或者替他把操作取消了。
+        If DstPopup.IsSilent AndAlso Button2.Length = 0 AndAlso Button3.Length = 0 Then
+            DstPopup.LogSuppressed(Title, Caption)
+            Return 1
+        End If
         '将弹窗列入队列
         Dim Converter As New MyMsgBoxConverter With {.Type = MyMsgBoxType.Text, .Button1 = Button1, .Button2 = Button2, .Button3 = Button3, .Text = Caption, .IsWarn = IsWarn, .Title = Title, .HighLight = HighLight, .ForceWait = True, .Button1Action = Button1Action, .Button2Action = Button2Action, .Button3Action = Button3Action}
         '「询问 AI」按需开启：标红不等于可问，删除确认、设置警告这类问了也没用。

@@ -210,22 +210,19 @@ Public Class PageInstanceScreenshot
         If SelectedPaths.Count = 0 Then Return
         If MyMsgBox($"确定要删除选中的 {SelectedPaths.Count} 张截图吗？" & vbCrLf &
                     "此操作不可撤销。", "删除截图", "删除", "取消", IsWarn:=True) <> 1 Then Return
-        Dim Failed As Integer = 0
-        For Each Shot In SelectedPaths.ToList()
-            Try
-                FileUtils.Delete(Shot)
-            Catch ex As Exception
-                Failed += 1
-                Logger.Warn(ex, $"删除截图失败：{Shot}")
-            End Try
-        Next
-        SelectedPaths.Clear()
-        RefreshShots()
-        If Failed = 0 Then
-            Hint("截图已删除", HintType.Green, False)
-        Else
-            Hint($"有 {Failed} 张截图删除失败，可能正被其他程序占用", HintType.Red)
-        End If
+        DstDelete.DeleteBatchAsync(SelectedPaths.ToList(),
+            OnDone:=Sub(Done As Integer, Failed As List(Of String))
+                        For Each Shot In Failed
+                            Logger.Warn($"删除截图失败：{Shot}")
+                        Next
+                        SelectedPaths.Clear()
+                        RefreshShots()
+                        If Failed.Count = 0 Then
+                            Hint("截图已删除", HintType.Green, False)
+                        Else
+                            Hint($"有 {Failed.Count} 张截图删除失败，可能正被其他程序占用", HintType.Red)
+                        End If
+                    End Sub)
     End Sub
 
     ''' <summary>底部多选条的显隐与计数。</summary>
@@ -387,13 +384,15 @@ Public Class PageInstanceScreenshot
         Dim Name As String = PathUtils.GetLastPart(Shot)
         If MyMsgBox("确定要删除截图「" & Name & "」吗？" & vbCrLf &
                     "此操作不可撤销。", "删除截图", "删除", "取消", IsWarn:=True) <> 1 Then Return
-        Try
-            FileUtils.Delete(Shot)
-            Hint("截图已删除", HintType.Green, False)
-            RefreshShots()
-        Catch ex As Exception
-            Logger.Error(ex, "删除截图失败", LogBehavior.Alert)
-        End Try
+        DstDelete.DeleteAsync(Shot,
+            OnDone:=Sub(Ok As Boolean)
+                        If Ok Then
+                            Hint("截图已删除", HintType.Green, False)
+                        Else
+                            Hint("删除截图失败，详情见日志", HintType.Red)
+                        End If
+                        RefreshShots()
+                    End Sub)
     End Sub
 
     ''' <summary>截图信息：尺寸、大小、时间与完整路径。</summary>

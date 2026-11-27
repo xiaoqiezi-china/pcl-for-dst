@@ -215,13 +215,13 @@ Public Module ModPackFolder
     End Function
 
     ''' <summary>删除一个资源包（文件夹形态连内容一起删）。失败会记日志。</summary>
-    Public Function DeletePackItem(Item As PackFolderItem, KindName As String) As Boolean
+    Public Function DeletePackItem(Item As PackFolderItem, KindName As String, Optional ToRecycleBin As Boolean = True) As Boolean
         If Item Is Nothing Then Return False
         Try
             If Item.IsFolder Then
-                DirectoryUtils.Delete(Item.PackPath, True)
+                DirectoryUtils.Delete(Item.PackPath, ToRecycleBin)
             Else
-                FileUtils.Delete(Item.PackPath)
+                FileUtils.Delete(Item.PackPath, ToRecycleBin)
             End If
             Return True
         Catch ex As Exception
@@ -229,6 +229,31 @@ Public Module ModPackFolder
             Return False
         End Try
     End Function
+
+    ''' <summary>
+    ''' 后台批量删除资源包。完成后回 UI 线程回调（参数为成功数与失败项）。
+    ''' <para>
+    ''' 资源包可能是包含上千个文件的文件夹，同步删除会把界面卡住。
+    ''' </para>
+    ''' </summary>
+    Public Sub DeletePackItemsAsync(Items As IEnumerable(Of PackFolderItem), KindName As String,
+                                    OnDone As Action(Of Integer, List(Of PackFolderItem)))
+        Dim Task As List(Of PackFolderItem) =
+            If(Items Is Nothing, New List(Of PackFolderItem), Items.Where(Function(I) I IsNot Nothing).ToList())
+        If Task.Count = 0 Then
+            If OnDone IsNot Nothing Then OnDone(0, New List(Of PackFolderItem))
+            Return
+        End If
+        RunInThread(
+        Sub()
+            Dim Done As Integer = 0
+            Dim Failed As New List(Of PackFolderItem)
+            For Each Entry In Task
+                If DeletePackItem(Entry, KindName) Then Done += 1 Else Failed.Add(Entry)
+            Next
+            If OnDone IsNot Nothing Then RunInUi(Sub() OnDone(Done, Failed))
+        End Sub)
+    End Sub
 
     ''' <summary>读单个文件的大小，失败返回 -1。</summary>
     Public Function GetPackFileSize(FilePath As String, KindName As String) As Long

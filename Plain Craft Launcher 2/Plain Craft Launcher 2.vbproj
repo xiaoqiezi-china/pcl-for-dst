@@ -309,6 +309,9 @@
   <Compile Include="Modules\DstMapDimensions.vb" />
   <Compile Include="Pages\PageInstance\DstNbtViewer.vb" />
   <Compile Include="Pages\PageInstance\DstItemPanel.vb" />
+  <Compile Include="Modules\DstDelete.vb" />
+  <Compile Include="Modules\DstNoKeys.vb" />
+  <Compile Include="Modules\DstPopup.vb" />
   <Compile Include="Modules\DstDisclaimer.vb" />
   <Compile Include="Modules\DstGuide.vb" />
   <Compile Include="Modules\DstCustomServer.vb" />

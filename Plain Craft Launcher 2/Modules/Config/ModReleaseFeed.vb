@@ -196,7 +196,14 @@ Friend Class ReleaseFeed
             Dim Status As Integer = 0
             Dim Resp As System.Net.HttpWebResponse = TryCast(ex.Response, System.Net.HttpWebResponse)
             If Resp IsNot Nothing Then Status = CInt(Resp.StatusCode)
-            If Status = 403 OrElse Status = 429 Then Result.Err = "API 请求失败（多半是匿名配额用尽）"
+            '403/429 是配额，404 是仓库本身拿不到（私有仓库对匿名请求就是这么回的，
+            '和「仓库不存在」同一个响应，区分不开）。这两类必须报准，
+            '否则用户看到「接口尚未部署」会以为是对方服务没上线，白等。
+            If Status = 403 OrElse Status = 429 Then
+                Result.Err = "API 请求失败（多半是匿名配额用尽），请稍后再试"
+            ElseIf Status = 404 Then
+                Result.Err = $"GitHub 上找不到公开的 {Owner}/{Repo}，仓库可能尚未公开或名称有误"
+            End If
             Logger.Info($"查询 Release 失败（{Owner}/{Repo}）：HTTP {Status}，{ex.Message}")
         Catch ex As Exception
             Result.Err = FriendlyError(ex.Message)

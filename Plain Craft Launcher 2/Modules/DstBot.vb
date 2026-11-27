@@ -279,6 +279,9 @@ Friend Module DstBot
         Dim Old As String = If(Map(G.GroupId), "").ToString()
         Map(G.GroupId) = Sig
         SaveSeenMap(Map)
+        '弹窗模式不是「全部」时不弹群公告；已读标记照常写，切回「全部」后
+        '只会对那之后的新公告弹一次，不会把攒下的旧公告一次性糊到脸上
+        If Not DstPopup.AllowsGroupReport Then Return
         '第一次看到这个群时只记录，不打扰
         If Old = "" OrElse Old = Sig Then Return
         Dim Content As String = G.LatestReport.Content
@@ -552,13 +555,16 @@ Friend Module DstBot
         End Try
     End Function
 
-    Public Sub ClearAvatarCache()
-        Try
-            If DirectoryUtils.Exists(AvatarCacheFolder) Then DirectoryUtils.Delete(AvatarCacheFolder)
-            Hint("头像缓存已清空", HintType.Green)
-        Catch ex As Exception
-            Logger.Warn(ex, "清空头像缓存失败")
-        End Try
+    ''' <summary>清空头像缓存。走后台删除，缓存多了同步删会让界面卡一下。</summary>
+    Public Sub ClearAvatarCache(Optional ShowHint As Boolean = True, Optional OnDone As Action = Nothing)
+        DstDelete.DeleteAsync(AvatarCacheFolder,
+            OnDone:=Sub(Ok As Boolean)
+                        If ShowHint Then
+                            Hint(If(Ok, "头像缓存已清空", "清空头像缓存失败，详情见日志"),
+                                 If(Ok, HintType.Green, HintType.Red))
+                        End If
+                        If OnDone IsNot Nothing Then OnDone()
+                    End Sub)
     End Sub
 
     ''' <summary>
@@ -800,15 +806,16 @@ Friend Module DstBot
         End Try
     End Function
 
-    ''' <summary>清空全部聊天记录缓存。</summary>
-    Public Sub ClearChatCache()
-        Try
-            If DirectoryUtils.Exists(ChatCacheFolder) Then DirectoryUtils.Delete(ChatCacheFolder)
-            Hint("聊天记录缓存已清空", HintType.Green)
-        Catch ex As Exception
-            Logger.Warn(ex, "清空聊天记录缓存失败")
-            Hint("清空失败：" & FriendlyError(ex.Message), HintType.Red)
-        End Try
+    ''' <summary>清空全部聊天记录缓存。走后台删除，记录多了同步删会让界面卡一下。</summary>
+    Public Sub ClearChatCache(Optional ShowHint As Boolean = True, Optional OnDone As Action = Nothing)
+        DstDelete.DeleteAsync(ChatCacheFolder,
+            OnDone:=Sub(Ok As Boolean)
+                        If ShowHint Then
+                            Hint(If(Ok, "聊天记录缓存已清空", "清空聊天记录缓存失败，详情见日志"),
+                                 If(Ok, HintType.Green, HintType.Red))
+                        End If
+                        If OnDone IsNot Nothing Then OnDone()
+                    End Sub)
     End Sub
 
 #End Region

@@ -1172,17 +1172,16 @@ Public Class PageInstanceSaveDetail
         Dim ItemName As String = PathUtils.GetLastPart(Path)
         If MyMsgBox("确定要删除" & Kind & "「" & ItemName & "」吗？" & vbCrLf & "此操作不可撤销。",
                     "删除" & Kind, "删除", "取消", IsWarn:=True) <> 1 Then Return
-        Try
-            If DirectoryUtils.Exists(Path) Then
-                DirectoryUtils.Delete(Path, True)
-            Else
-                FileUtils.Delete(Path, True)
-            End If
-            Hint(Kind & "已删除", HintType.Green, False)
-            RefreshContent()
-        Catch ex As Exception
-            Logger.Error(ex, "删除" & Kind & "失败", LogBehavior.Alert)
-        End Try
+        'region 与 poi 目录可能有几百 MB，删除不能占着 UI 线程
+        DstDelete.DeleteAsync(Path, ToRecycleBin:=True,
+            OnDone:=Sub(Ok As Boolean)
+                        If Ok Then
+                            Hint(Kind & "已删除", HintType.Green, False)
+                        Else
+                            Hint("删除" & Kind & "失败，详情见日志", HintType.Red)
+                        End If
+                        RefreshContent()
+                    End Sub)
     End Sub
 
     Private Function EmptyHint(Text As String) As FrameworkElement

@@ -154,18 +154,16 @@ Public Class PageInstanceSaves
         Dim Targets = AllSaves.Where(Function(S) SelectedPaths.Contains(S)).ToList()
         If Targets.Count = 0 Then Return
         If MyMsgBox($"确定删除这 {Targets.Count} 个存档吗？删除后无法恢复。", "删除存档", "删除", "取消", IsWarn:=True) <> 1 Then Return
-        Dim Done As Integer = 0
-        For Each SaveDir In Targets
-            Try
-                DirectoryUtils.Delete(SaveDir, True)
-                Done += 1
-            Catch ex As Exception
-                Logger.Warn(ex, "删除存档失败：" & SaveDir)
-            End Try
-        Next
-        Hint($"已删除 {Done} 个存档", HintType.Green)
-        SelectedPaths.Clear()
-        RefreshSaves()
+        '存档目录动辄上千个区块文件，删除必须放到后台，否则整个窗口会僵住
+        DstDelete.DeleteBatchAsync(Targets, ToRecycleBin:=True,
+            OnDone:=Sub(Done As Integer, Failed As List(Of String))
+                        For Each SaveDir In Failed
+                            Logger.Warn($"删除存档失败：{SaveDir}")
+                        Next
+                        Hint($"已删除 {Done} 个存档", HintType.Green)
+                        SelectedPaths.Clear()
+                        RefreshSaves()
+                    End Sub)
     End Sub
 
 #End Region
@@ -263,13 +261,15 @@ Public Class PageInstanceSaves
             Sub()
                 If MyMsgBox("确定要删除存档「" & Name & "」吗？" & vbCrLf &
                             "此操作不可撤销。", "删除存档", "删除", "取消", IsWarn:=True) <> 1 Then Return
-                Try
-                    DirectoryUtils.Delete(SaveDir, True)
-                    Hint("存档已删除", HintType.Green, False)
-                    RefreshSaves()
-                Catch ex As Exception
-                    Logger.Error(ex, "删除存档失败", LogBehavior.Alert)
-                End Try
+                DstDelete.DeleteAsync(SaveDir, ToRecycleBin:=True,
+                    OnDone:=Sub(Ok As Boolean)
+                                If Ok Then
+                                    Hint("存档已删除", HintType.Green, False)
+                                Else
+                                    Hint("删除存档失败，详情见日志", HintType.Red)
+                                End If
+                                RefreshSaves()
+                            End Sub)
             End Sub
         '左键只负责勾选，与模组管理、收藏夹一致，避免点一下就被详情页抢走
         AddHandler Item.Click, Sub() ToggleSelect(SaveDir)
@@ -374,13 +374,15 @@ Public Class PageInstanceSaves
             Sub()
                 If MyMsgBox("确定要删除存档「" & PathUtils.GetLastPart(SaveDir) & "」吗？" & vbCrLf &
                             "此操作不可撤销。", "删除存档", "删除", "取消", IsWarn:=True) <> 1 Then Return
-                Try
-                    DirectoryUtils.Delete(SaveDir, True)
-                    Hint("存档已删除", HintType.Green, False)
-                    RefreshSaves()
-                Catch ex As Exception
-                    Logger.Error(ex, "删除存档失败", LogBehavior.Alert)
-                End Try
+                DstDelete.DeleteAsync(SaveDir, ToRecycleBin:=True,
+                    OnDone:=Sub(Ok As Boolean)
+                                If Ok Then
+                                    Hint("存档已删除", HintType.Green, False)
+                                Else
+                                    Hint("删除存档失败，详情见日志", HintType.Red)
+                                End If
+                                RefreshSaves()
+                            End Sub)
             End Sub
         Menu.Items.Add(ItemDelete)
 

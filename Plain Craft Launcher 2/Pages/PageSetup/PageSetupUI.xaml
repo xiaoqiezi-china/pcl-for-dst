@@ -53,6 +53,20 @@
                                               Grid.Column="2" Text="DPCL Inder" x:Name="RadioAppearance1"
                                               ToolTip="左侧竖排导航、深色简约风格。选定后不跟随主题色与深浅设置。" />
                         </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="Name1" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Left" Text="弹窗" Margin="0,0,20,0" />
+                            <!-- 不挂 SettingService.Key：切到「无弹窗」要先确认，
+                                 挂 Key 的话控件会自己先存盘，确认框就没意义了 -->
+                            <local:MyComboBox x:Name="ComboPopupMode" Grid.Column="1" Width="180">
+                                <local:MyComboBoxItem Content="无弹窗（谨慎）" />
+                                <local:MyComboBoxItem Content="免打扰" IsSelected="True" />
+                                <local:MyComboBoxItem Content="全部" />
+                            </local:MyComboBox>
+                        </Grid>
                         <local:MyCheckBox x:Name="CheckDarkMode" Text="深色模式" Margin="0,2,0,10"
                                           ToolTip="取消勾选切换为浅色主题，配色与上面的主题色相自动配套。" />
                         <Grid x:Name="PanLauncherTheme" Height="90" Margin="0,0,0,7">                            <Grid.ColumnDefinitions>

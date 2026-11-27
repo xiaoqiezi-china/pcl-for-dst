@@ -48,15 +48,15 @@ Public Class PageInstanceFavorites
                         If MyMsgBox("确定要删除这张截图吗？" & vbCrLf &
                                     "文件会被永久删除，收藏记录也会一并移除。",
                                     "删除截图", "删除", "取消", IsWarn:=True) <> 1 Then Return
-                        Try
-                            If FileUtils.Exists(Shot) Then FileUtils.Delete(Shot)
-                        Catch ex As Exception
-                            Logger.Error(ex, "删除截图失败", LogBehavior.Alert)
-                            Return
-                        End Try
+                        '先摘掉收藏记录再删文件：文件可能正被看图软件占用，
+                        '删失败也不该让条目一直卡在列表里点不掉
                         ModFavorite.Remove(Entry)
                         RefreshList()
-                        Hint("截图已删除", HintType.Green, False)
+                        DstDelete.DeleteAsync(Shot,
+                            OnDone:=Sub(Ok As Boolean)
+                                        Hint(If(Ok, "截图已删除", "文件删除失败，已取消收藏，详情见日志"),
+                                             If(Ok, HintType.Green, HintType.Red), False)
+                                    End Sub)
                         Return
                     End If
                     ModFavorite.Remove(Entry)

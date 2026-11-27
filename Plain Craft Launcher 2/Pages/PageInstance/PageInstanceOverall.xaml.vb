@@ -339,13 +339,20 @@ Public Class PageInstanceOverall
                         "版本删除确认", , "取消",, IsHintIndie OrElse IsShiftPressed)
                 Case 1
                     PageInstanceLeft.Instance.ResetSettingsCache()
-                    DirectoryUtils.Delete(PageInstanceLeft.Instance.PathVersion, Not IsShiftPressed)
-                    Hint("已删除版本 " & PageInstanceLeft.Instance.Name & "！", HintType.Green)
+                    '版本目录可能有好几个 G，删除期间不能占着 UI 线程
+                    DstDelete.DeleteAsync(PageInstanceLeft.Instance.PathVersion, ToRecycleBin:=Not IsShiftPressed,
+                        OnDone:=Sub(Ok As Boolean)
+                                    If Ok Then
+                                        Hint("已删除版本 " & PageInstanceLeft.Instance.Name & "！", HintType.Green)
+                                    Else
+                                        Hint("删除版本 " & PageInstanceLeft.Instance.Name & " 失败，详情见日志", HintType.Red)
+                                    End If
+                                    LoaderFolderRun(McInstanceListLoader, McFolderSelected, LoaderFolderRunType.ForceRun, MaxDepth:=1, ExtraPath:="versions\")
+                                    FrmMain.PageBack()
+                                End Sub)
                 Case 2
                     Return
             End Select
-            LoaderFolderRun(McInstanceListLoader, McFolderSelected, LoaderFolderRunType.ForceRun, MaxDepth:=1, ExtraPath:="versions\")
-            FrmMain.PageBack()
         Catch ex As OperationCanceledException
             Logger.Warn(ex, $"删除版本 {PageInstanceLeft.Instance.Name} 被主动取消")
         Catch ex As Exception

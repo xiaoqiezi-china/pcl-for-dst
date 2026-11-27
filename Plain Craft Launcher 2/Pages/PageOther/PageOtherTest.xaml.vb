@@ -137,6 +137,8 @@ Public Class PageOtherTest
         SettingService.RefreshSettings(Me)
         RefreshDscUi()
         CheckDscLatestVersion()
+        RefreshNkUi()
+        CheckNkLatestVersion()
         TickUpdate(Nothing, Nothing)
     End Sub
 
@@ -821,6 +823,185 @@ Public Class PageOtherTest
         UpdateI18nVersionUi()
         If Installed Then CheckI18nLatestVersion()
     End Sub
+
+#Region "nokeys"
+
+    '远端最新版本号；空串表示还没查到
+    Private NkLatestVersion As String = ""
+    Private NkLatestCheckedTick As Long = 0
+    Private NkLatestChecking As Boolean = False
+
+    ''' <summary>
+    ''' 按本机实际状态刷新卡片：装没装决定按钮，版本对比决定版本号颜色。
+    ''' </summary>
+    Private Sub RefreshNkUi()
+        If BtnNkInstall Is Nothing OrElse LabNkVersion Is Nothing Then Return
+
+        Dim Installed As Boolean = DstNoKeys.IsInstalled
+        Dim Version As String = If(Installed, DstNoKeys.InstalledVersion, "")
+        '没查到远端版本时不能断言「最新」，只如实显示本地版本
+        Dim Outdated As Boolean = Installed AndAlso NkLatestVersion <> "" AndAlso
+                                  DstNoKeys.IsNewerVersion(NkLatestVersion, Version)
+
+        BtnNkInstall.Visibility = If(Installed, Visibility.Collapsed, Visibility.Visible)
+        BtnNkUpdate.Visibility = If(Outdated, Visibility.Visible, Visibility.Collapsed)
+        BtnNkUninstall.Visibility = If(Installed, Visibility.Visible, Visibility.Collapsed)
+        BtnNkOpen.Visibility = If(Installed, Visibility.Visible, Visibility.Collapsed)
+
+        LabNkVersion.Visibility = Visibility.Visible
+        If Not Installed Then
+            '没装时右下角显示能装到的最新版，让用户知道会装成哪一版
+            LabNkState.Text = "尚未安装。"
+            LabNkVersion.Text = If(NkLatestVersion = "", "最新版本未知", "最新版本 " & NkLatestVersion)
+            LabNkVersion.ClearValue(TextBlock.ForegroundProperty)
+            LabNkVersion.Opacity = 0.55
+            Return
+        End If
+
+        If Version = "" Then
+            LabNkState.Text = "已安装，但读不到版本号。"
+            LabNkVersion.Text = "版本未知"
+            LabNkVersion.ClearValue(TextBlock.ForegroundProperty)
+            LabNkVersion.Opacity = 0.55
+        ElseIf Outdated Then
+            LabNkState.Text = "检测到新版本，可以更新。"
+            LabNkVersion.Text = "版本 " & Version & "（可更新至 " & NkLatestVersion & "）"
+            LabNkVersion.Opacity = 1
+            LabNkVersion.Foreground = New MyColor(226, 45, 31)
+        ElseIf NkLatestVersion = "" Then
+            LabNkState.Text = "已安装。暂时查询不到最新版本，可稍后重试。"
+            LabNkVersion.Text = "版本 " & Version
+            LabNkVersion.ClearValue(TextBlock.ForegroundProperty)
+            LabNkVersion.Opacity = 0.55
+        Else
+            LabNkState.Text = "已安装，且已是最新版本。"
+            LabNkVersion.Text = "版本 " & Version & "（已是最新）"
+            LabNkVersion.Opacity = 1
+            LabNkVersion.Foreground = New MyColor(33, 177, 33)
+        End If
+    End Sub
+
+    ''' <summary>
+    ''' 后台查一次远端最新版本号，查完回到界面刷新。
+    ''' <para>
+    ''' 十分钟内不重复查：卡片每次切换回本页都会触发一次，
+    ''' 每次都打 GitHub 的话匿名配额很快就没了。
+    ''' </para>
+    ''' </summary>
+    Private Sub CheckNkLatestVersion(Optional IsForce As Boolean = False)
+        If NkLatestChecking Then Return
+        If Not IsForce AndAlso NkLatestCheckedTick > 0 AndAlso GetTimeMs() - NkLatestCheckedTick < 600000 Then Return
+        NkLatestChecking = True
+        RunInThread(
+        Sub()
+            Dim Latest As String = ""
+            Try
+                Latest = DstNoKeys.FetchLatestVersion()
+            Catch ex As Exception
+                Logger.Warn(ex, "查询 NoKeys 最新版本失败")
+            End Try
+            RunInUi(
+            Sub()
+                NkLatestChecking = False
+                '查询失败不清掉上一次的结果，避免网络抖一下就把「有新版本」抹了
+                If Latest <> "" Then
+                    NkLatestVersion = Latest
+                    NkLatestCheckedTick = GetTimeMs()
+                End If
+                RefreshNkUi()
+            End Sub)
+        End Sub)
+    End Sub
+
+    Private Sub BtnNkInstall_Click(sender As Object, e As EventArgs) Handles BtnNkInstall.Click
+        StartNkInstall("安装 NoKeys")
+    End Sub
+
+    Private Sub BtnNkUpdate_Click(sender As Object, e As EventArgs) Handles BtnNkUpdate.Click
+        StartNkInstall("更新 NoKeys")
+    End Sub
+
+    ''' <summary>
+    ''' 下载并安装，进度交给任务列表；装完（或失败）回到本页刷新卡片。
+    ''' </summary>
+    Private Sub StartNkInstall(Desc As String)
+        If Not (BtnNkInstall.IsEnabled AndAlso BtnNkUpdate.IsEnabled) Then Return
+        '安装器会覆盖 %LOCALAPPDATA%\Programs\NoKeys 里的程序，正在跑的话必须先关
+        If DstNoKeys.IsRunning Then
+            If MyMsgBox("NoKeys 正在运行，安装会覆盖它的程序文件。" & vbCrLf &
+                        "请先右键托盘图标退出 NoKeys，然后再继续。", "NoKeys 正在运行", "知道了", IsWarn:=True) <> 1 Then Return
+        End If
+        BtnNkInstall.IsEnabled = False
+        BtnNkUpdate.IsEnabled = False
+        LabNkState.Text = Desc & "中，请在安装窗口中确认，进度见右下角任务列表……"
+        Try
+            Dim Combo As LoaderCombo(Of Integer) = DstNoKeys.DownloadAndInstall()
+            AddHandler Combo.OnStateChangedUi,
+                Sub(Loader As LoaderBase, NewState As LoadState, OldState As LoadState)
+                    If NewState <> LoadState.Finished AndAlso NewState <> LoadState.Failed AndAlso NewState <> LoadState.Canceled Then Return
+                    BtnNkInstall.IsEnabled = True
+                    BtnNkUpdate.IsEnabled = True
+                    If NewState = LoadState.Finished Then
+                        RefreshNkUi()
+                        CheckNkLatestVersion(IsForce:=True)
+                    ElseIf NewState = LoadState.Failed Then
+                        Dim Reason As String = If(Loader.Error Is Nothing, "未知原因", Loader.Error.Message)
+                        RefreshNkUiVersionOnly("安装失败：" & Reason)
+                    Else
+                        RefreshNkUiVersionOnly("已取消安装。")
+                    End If
+                End Sub
+        Catch ex As Exception
+            BtnNkInstall.IsEnabled = True
+            BtnNkUpdate.IsEnabled = True
+            LabNkState.Text = "安装失败：" & ex.Message
+            Logger.Warn(ex, "启动 NoKeys 安装失败")
+        End Try
+    End Sub
+
+    ''' <summary>失败时先按真实状态刷新，再把结果文字覆盖上去。</summary>
+    Private Sub RefreshNkUiVersionOnly(Message As String)
+        RefreshNkUi()
+        LabNkState.Text = Message
+    End Sub
+
+    Private Sub BtnNkUninstall_Click(sender As Object, e As EventArgs) Handles BtnNkUninstall.Click
+        If MyMsgBox("确定要卸载 NoKeys 吗？" & vbCrLf & "卸载时会弹出它自带的确认窗口。",
+                    "卸载 NoKeys", "卸载", "取消", IsWarn:=True) <> 1 Then Return
+
+        BtnNkUninstall.IsEnabled = False
+        LabNkState.Text = "正在卸载，请在卸载窗口中确认……"
+        RunInThread(
+        Sub()
+            Dim ErrText As String = ""
+            Try
+                DstNoKeys.Uninstall().WaitForExit()
+            Catch ex As Exception
+                ErrText = ex.Message
+                Logger.Warn(ex, "卸载 NoKeys 失败")
+            End Try
+            RunInUi(
+            Sub()
+                BtnNkUninstall.IsEnabled = True
+                RefreshNkUi()
+                If ErrText <> "" Then LabNkState.Text = "卸载失败：" & ErrText
+            End Sub)
+        End Sub)
+    End Sub
+
+    Private Sub BtnNkOpen_Click(sender As Object, e As EventArgs) Handles BtnNkOpen.Click
+        Try
+            DstNoKeys.Launch()
+        Catch ex As Exception
+            Logger.Error(ex, "打开 NoKeys 失败", LogBehavior.Alert)
+        End Try
+    End Sub
+
+    Private Sub BtnNkGuide_Click(sender As Object, e As EventArgs) Handles BtnNkGuide.Click
+        Hint("NoKeys 的教程尚未发布", HintType.Blue)
+    End Sub
+
+#End Region
 
 #Region "DeepseekCE"
 

@@ -127,11 +127,15 @@ jobs:
         # 只发一个附件，客户端按 .exe 后缀匹配。
         $exe = 'Plain Craft Launcher 2\obj\Release\Plain Craft Launcher 2.exe'
         if (-not (Test-Path $exe)) { throw "找不到 Release 产物：$exe" }
-        $asset = 'DST Plain Craft Launcher.exe'
+        # 附件名不带空格：GitHub 会把空格换成点，带空格的名字下回来就变了样，
+        # 用户手动下载时分不清是哪个文件。这里直接用点分隔，下载前后保持一致。
+        $asset = 'DST.Plain.Craft.Launcher.exe'
+        $title = "DST Plain Craft Launcher $tag"
         Copy-Item $exe $asset -Force
         gh release view $tag 2>$null
         if ($LASTEXITCODE -ne 0) {
-          gh release create $tag $asset --title $tag --generate-notes
+          gh release create $tag $asset --title $title --generate-notes
         } else {
           gh release upload $tag $asset --clobber
+          gh release edit $tag --title $title
         }

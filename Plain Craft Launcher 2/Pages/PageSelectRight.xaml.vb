@@ -427,13 +427,20 @@ Public Class PageSelectRight
                         "版本删除确认", , "取消",, True)
                 Case 1
                     Instance.ResetSettingsCache()
-                    DirectoryUtils.Delete(Instance.PathVersion, Not IsShiftPressed)
-                    Hint("版本 " & Instance.Name & " 已删除！", HintType.Green)
+                    '版本目录可能有好几个 G，删除期间不能占着 UI 线程
+                    DstDelete.DeleteAsync(Instance.PathVersion, ToRecycleBin:=Not IsShiftPressed,
+                        OnDone:=Sub(Ok As Boolean)
+                                    If Ok Then
+                                        Hint("版本 " & Instance.Name & " 已删除！", HintType.Green)
+                                    Else
+                                        Hint("删除版本 " & Instance.Name & " 失败，详情见日志", HintType.Red)
+                                    End If
+                                    '删除后重新加载版本列表，被删掉的版本会随之从界面上消失
+                                    LoaderFolderRun(McInstanceListLoader, McFolderSelected, LoaderFolderRunType.ForceRun, MaxDepth:=1, ExtraPath:="versions\")
+                                End Sub)
                 Case 2
                     Return
             End Select
-            '删除后重新加载版本列表，被删掉的版本会随之从界面上消失
-            LoaderFolderRun(McInstanceListLoader, McFolderSelected, LoaderFolderRunType.ForceRun, MaxDepth:=1, ExtraPath:="versions\")
         Catch ex As OperationCanceledException
             Logger.Warn(ex, $"删除版本 {Instance.Name} 被主动取消")
         Catch ex As Exception

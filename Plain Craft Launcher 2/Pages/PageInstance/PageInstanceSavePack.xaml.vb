@@ -213,13 +213,14 @@ Public Class PageInstanceSavePack
         Dim Targets = AllItems.Where(Function(I) SelectedPaths.Contains(I.PackPath)).ToList()
         If Targets.Count = 0 Then Return
         If MyMsgBox($"确定删除这 {Targets.Count} 个数据包吗？此操作不可撤销。", "删除数据包", "删除", "取消", IsWarn:=True) <> 1 Then Return
-        Dim Done As Integer = 0
-        For Each Entry In Targets
-            If ModPackFolder.DeletePackItem(Entry, "数据包") Then Done += 1
-        Next
-        Hint($"已删除 {Done} 个数据包", HintType.Green)
-        SelectedPaths.Clear()
-        RefreshList()
+        '文件夹形态的包可能包含上千个文件，删除放到后台做
+        ModPackFolder.DeletePackItemsAsync(Targets, "数据包",
+            Sub(Done As Integer, Failed As List(Of ModPackFolder.PackFolderItem))
+                Hint($"已删除 {Done} 个数据包", HintType.Green)
+                If Failed.Count > 0 Then Hint($"{Failed.Count} 个数据包删除失败，详情见日志", HintType.Red)
+                SelectedPaths.Clear()
+                RefreshList()
+            End Sub)
     End Sub
 
 #End Region
@@ -298,13 +299,16 @@ Public Class PageInstanceSavePack
     Private Sub DeletePack(Entry As PackItem)
         If MyMsgBox("确定要删除数据包「" & Entry.DisplayName & "」吗？" & vbCrLf & "此操作不可撤销。",
                     "删除数据包", "删除", "取消", IsWarn:=True) <> 1 Then Return
-        If Not ModPackFolder.DeletePackItem(Entry, "数据包") Then
-            Hint("删除失败，详情见日志：" & Entry.DisplayName, HintType.Red)
-            Return
-        End If
-        Logger.Info("已删除数据包：" & Entry.PackPath)
-        Hint("已删除：" & Entry.DisplayName, HintType.Green)
-        RefreshList()
+        ModPackFolder.DeletePackItemsAsync({Entry}, "数据包",
+            Sub(Done As Integer, Failed As List(Of ModPackFolder.PackFolderItem))
+                If Done = 0 Then
+                    Hint("删除失败，详情见日志：" & Entry.DisplayName, HintType.Red)
+                    Return
+                End If
+                Logger.Info("已删除数据包：" & Entry.PackPath)
+                Hint("已删除：" & Entry.DisplayName, HintType.Green)
+                RefreshList()
+            End Sub)
     End Sub
 
     ''' <summary>数据包图标。图标在压缩包里，需要先落盘才能交给列表项。</summary>

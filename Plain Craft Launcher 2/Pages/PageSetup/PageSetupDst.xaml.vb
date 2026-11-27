@@ -424,9 +424,11 @@ Public Class PageSetupDst
             Return
         End If
         If MyMsgBox("确定清空聊天记录与头像缓存吗？清理后需要重新从服务器拉取。", "清理缓存", "清理", "取消", IsWarn:=True) <> 1 Then Return
-        DstBot.ClearChatCache()
-        DstBot.ClearAvatarCache()
-        RefreshCacheInfo()
+        '删除在后台进行，两处都清完之后再刷新占用大小
+        DstBot.ClearChatCache(ShowHint:=False,
+            OnDone:=Sub()
+                        DstBot.ClearAvatarCache(OnDone:=Sub() RefreshCacheInfo())
+                    End Sub)
     End Sub
 
     Private Sub BtnCacheFolder_Click(sender As Object, e As EventArgs) Handles BtnCacheFolder.Click
